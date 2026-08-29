@@ -362,3 +362,45 @@ def test_health_accepts_a_normal_day():
     rows = sum([_rows(f"shop{i}", 9) for i in range(5)], [])
     fatal, warnings = scrape.check_health(results, history, rows)
     assert not fatal and not warnings
+
+
+# ------------------------------------------------------------- proxy
+
+def test_via_proxy_is_off_without_env(monkeypatch):
+    """Bez premenných sa nič nemení — proxy je doplnok, nie podmienka behu."""
+    import scrape
+    monkeypatch.setattr(scrape, "PROXY_URL", "")
+    shop = {"id": "alza-cz", "proxy": True}
+    assert scrape.via_proxy("https://www.alza.cz/x", shop) == "https://www.alza.cz/x"
+
+
+def test_via_proxy_skips_unmarked_shops(monkeypatch):
+    import scrape
+    monkeypatch.setattr(scrape, "PROXY_URL", "https://proxy.workers.dev")
+    monkeypatch.setattr(scrape, "PROXY_TOKEN", "tajne")
+    shop = {"id": "pompo-cz"}
+    assert scrape.via_proxy("https://pompo.cz/x", shop) == "https://pompo.cz/x"
+
+
+def test_via_proxy_wraps_marked_shops(monkeypatch):
+    import scrape
+    monkeypatch.setattr(scrape, "PROXY_URL", "https://proxy.workers.dev/")
+    monkeypatch.setattr(scrape, "PROXY_TOKEN", "taj ne&x")
+    shop = {"id": "alza-cz", "proxy": True}
+    built = scrape.via_proxy("https://www.alza.cz/a?b=1&c=2", shop)
+    assert built.startswith("https://proxy.workers.dev?t=taj%20ne%26x&url=")
+    assert "https%3A%2F%2Fwww.alza.cz%2Fa%3Fb%3D1%26c%3D2" in built
+
+
+def test_proxied_shops_are_declared_in_config():
+    """Každý eshop s `proxy: true` musí byť aj v ALLOWED_HOSTS Workera —
+    zoznam sa generuje z tejto konfigurácie, tak nech sedí s realitou."""
+    import yaml
+    from pathlib import Path
+    config = yaml.safe_load((Path(__file__).parent.parent / "config" / "shops.yaml")
+                            .read_text(encoding="utf-8"))
+    proxied = [s for s in config["shops"] if s.get("proxy")]
+    assert proxied, "žiadny eshop nie je označený na proxy"
+    for shop in proxied:
+        assert shop.get("optional"), \
+            f"{shop['id']}: eshop cez proxy musí zostať nepovinný, kým sa neoverí"

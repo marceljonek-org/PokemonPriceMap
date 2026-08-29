@@ -42,6 +42,9 @@ jobs:
         run: python -m pytest tests -q
 
       - name: Sken eshopov
+        env:
+          SCRAPE_PROXY_URL: ${{ secrets.SCRAPE_PROXY_URL }}
+          SCRAPE_PROXY_TOKEN: ${{ secrets.SCRAPE_PROXY_TOKEN }}
         run: |
           python src/scrape.py \
             ${{ inputs.snapshots && '--snapshots snapshots' || '' }} \

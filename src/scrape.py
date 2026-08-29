@@ -10,11 +10,13 @@ import argparse
 import asyncio
 import csv
 import json
+import os
 import statistics
 import sys
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 import yaml
@@ -35,7 +37,6 @@ HEADERS = {
     "Accept": ("text/html,application/xhtml+xml,application/xml;q=0.9,"
                "image/avif,image/webp,*/*;q=0.8"),
     "Accept-Language": "sk-SK,sk;q=0.9,cs;q=0.8,en-US;q=0.7,en;q=0.6",
-    "Accept-Encoding": "gzip, deflate, br",
     "Upgrade-Insecure-Requests": "1",
     "Sec-Fetch-Dest": "document",
     "Sec-Fetch-Mode": "navigate",
@@ -49,6 +50,20 @@ HEADERS = {
 
 RETRY_STATUS = {403, 408, 425, 429, 500, 502, 503, 504}
 RETRIES = 3
+
+# Voliteľná proxy pre eshopy označené `proxy: true` v shops.yaml.
+# Bez týchto premenných sa nič nemení a sken ide priamo — proxy je doplnok,
+# nie podmienka behu.
+PROXY_URL = os.environ.get("SCRAPE_PROXY_URL", "").strip()
+PROXY_TOKEN = os.environ.get("SCRAPE_PROXY_TOKEN", "").strip()
+
+
+def via_proxy(url: str, shop: dict) -> str:
+    """Prepošle URL cez Cloudflare Worker, ak je preň eshop označený."""
+    if not PROXY_URL or not shop.get("proxy"):
+        return url
+    return (f"{PROXY_URL.rstrip('/')}?t={quote(PROXY_TOKEN, safe='')}"
+            f"&url={quote(url, safe='')}")
 
 DROP_RATIO = 0.5          # menej než polovica dát oproti minule = zlyhanie
 MIN_REQUIRED_OK = 0.8     # aspoň 80 % povinných eshopov musí vrátiť dáta
@@ -78,7 +93,8 @@ async def get_with_retry(client: httpx.AsyncClient, url: str, shop: dict) -> htt
         if attempt:
             await asyncio.sleep(1.5 * (2 ** (attempt - 1)))
         try:
-            resp = await client.get(url, headers={"Referer": shop["base"] + "/"})
+            resp = await client.get(via_proxy(url, shop),
+                                     headers={"Referer": shop["base"] + "/"})
             if resp.status_code in RETRY_STATUS and attempt < RETRIES - 1:
                 last_error = httpx.HTTPStatusError(
                     f"HTTP {resp.status_code}", request=resp.request, response=resp)
@@ -122,7 +138,10 @@ async def fetch_shop(client: httpx.AsyncClient, shop: dict, defaults: dict,
                 offers.extend(found)
                 if not found:
                     break          # prázdna strana = koniec stránkovania
-                url = adapters.next_page(shop["adapter"], body, str(resp.url))
+                # Pri proxy je resp.url adresa Workera — relatívne odkazy na
+                # ďalšiu stranu sa musia skladať voči skutočnej adrese eshopu.
+                base_url = url if shop.get("proxy") and PROXY_URL else str(resp.url)
+                url = adapters.next_page(shop["adapter"], body, base_url)
             except Exception as exc:                      # noqa: BLE001
                 errors.append(f"{url} -> {type(exc).__name__}: {exc}")
                 break
@@ -488,6 +507,10 @@ async def run(args) -> int:
         print()
 
     kept = len(rows)
+    proxied = [s_["id"] for s_ in shops if s_.get("proxy")]
+    if proxied:
+        state = "cez proxy" if PROXY_URL else "BEZ proxy (premenné nie sú nastavené)"
+        print(f"Označené na proxy ({len(proxied)}): {state}")
     print(f"\nZaradených {kept} ponúk, {len(unknown)} nerozpoznaných názvov, "
           f"kurz CZK/EUR {1 / fx['czk_eur']:.2f}{' (starý)' if fx.get('stale') else ''}")
 

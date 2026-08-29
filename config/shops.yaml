@@ -58,6 +58,7 @@ shops:
     adapter: upgates
     base: https://www.zardo.cards
     optional: true      # 403 z IP adries GitHub Actions (beh 29. 8.)
+    proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
     urls:
       - https://www.zardo.cards/en/pokemon-boosters/
       - https://www.zardo.cards/en/products-2/
@@ -116,6 +117,7 @@ shops:
     adapter: pgs
     base: https://www.smarty.cz
     optional: true          # vo v1 vracal 403 z cudzích IP
+    proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
     urls:
       - https://www.smarty.cz/booster-4c14601
       - https://www.smarty.cz/pokemon-tcg-4c14578
@@ -158,6 +160,7 @@ shops:
     adapter: alza
     base: https://www.alza.cz
     optional: true          # môže blokovať IP GitHub Actions
+    proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
     urls:
       - https://www.alza.cz/hracky/pokemon-boostery/18903044.htm
       - https://www.alza.cz/hracky/pokemon-booster-boxy-a-specialne-boxy/18903046.htm
@@ -169,6 +172,7 @@ shops:
     adapter: alza
     base: https://www.alza.sk
     optional: true
+    proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
     urls:
       - https://www.alza.sk/hracky/pokemon-boostery/18903044.htm
       - https://www.alza.sk/hracky/pokemon-booster-boxy-a-specialne-boxy/18903046.htm
@@ -182,6 +186,7 @@ shops:
     adapter: pgs            # rovnaká platforma ako PGS.sk a Smarty.cz
     base: https://www.smarty.sk
     optional: true
+    proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
     urls:
       - https://www.smarty.sk/pokemon-tcg-4c14578
       - https://www.smarty.sk/booster-4c14601
@@ -237,6 +242,7 @@ shops:
     adapter: woocommerce
     base: https://pokectcg.cz
     optional: true      # 403 z IP adries GitHub Actions (beh 29. 8.)
+    proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
     urls:
       - https://pokectcg.cz/pokemon-karty/
 

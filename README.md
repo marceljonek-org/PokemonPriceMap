@@ -163,11 +163,59 @@ teda nikdy nehotlinkuje na cudzí server.
 
 ---
 
+## Proxy pre blokované eshopy
+
+Šesť eshopov (Zardo, Smarty CZ/SK, Alza CZ/SK, PokecTCG) vracia z IP adries
+GitHub Actions `403 Forbidden`. Nie je to namierené proti nám — je to plošné
+pravidlo proti serverovým IP. Riešenie: malý Cloudflare Worker, ktorý stránku
+stiahne zo svojej siete a vráti ju skenu.
+
+**Worker nie je podmienka behu.** Bez neho sken funguje presne ako doteraz,
+len tých šesť eshopov zostane v pätičke ako „nedostupný“.
+
+### Nasadenie
+
+1. `tools/cloudflare-worker.js` je hotový kód Workera.
+2. V Cloudflare: **Compute (Workers & Pages) → Create → Workers → Create Worker**,
+   pomenuj ho napr. `cenova-mapa-proxy`, **Deploy**, potom **Edit code**,
+   obsah nahraď súborom `tools/cloudflare-worker.js` a znova **Deploy**.
+3. **Settings → Variables and Secrets** pridaj:
+
+   | Názov | Typ | Hodnota |
+   |---|---|---|
+   | `PROXY_TOKEN` | Secret | dlhé náhodné heslo, ktoré si vymyslíš |
+   | `ALLOWED_HOSTS` | Text | `pokectcg.cz,alza.cz,alza.sk,smarty.cz,smarty.sk,zardo.cards` |
+
+4. Na GitHube: **Settings → Secrets and variables → Actions → New repository secret**
+
+   | Názov | Hodnota |
+   |---|---|
+   | `SCRAPE_PROXY_URL` | `https://cenova-mapa-proxy.<tvoj-podúčet>.workers.dev` |
+   | `SCRAPE_PROXY_TOKEN` | rovnaké heslo ako `PROXY_TOKEN` |
+
+5. Spusti workflow ručne. V logu sa objaví riadok
+   `Označené na proxy (6): cez proxy`.
+
+### Poistky vo Workeri
+
+Bez nich by to bola otvorená proxy pre kohokoľvek na internete:
+
+- bez správneho tokenu vráti `401`
+- pustí len domény z `ALLOWED_HOSTS`
+- prijíma len `GET` a len `http`/`https`
+- nič neukladá ani necachuje
+
+Eshop, ktorý cez proxy začne fungovať, si necháva `optional: true`, kým sa
+neukáže, že to drží. Ak Worker nepomôže, stačí v `config/shops.yaml` zmazať
+riadky `proxy: true` — alebo nechať, nič to nekazí.
+
+---
+
 ## Lokálne spustenie
 
 ```bash
 pip install -r requirements.txt
-make test          # 113 testov nad snapshotmi, bez siete
+make test          # 117 testov nad snapshotmi, bez siete
 make demo          # postaví docs/latest.json zo snapshotov
 python -m http.server -d docs 8000   # náhľad na http://localhost:8000
 make scan          # ostrý sken (potrebuje sieť)
@@ -206,7 +254,7 @@ docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        113 testov nad gzip snapshotmi
+tests/                        117 testov nad gzip snapshotmi
 tools/demo_from_fixtures.py   náhľad bez siete
 ```
 
