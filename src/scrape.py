@@ -31,13 +31,27 @@ DOCS = ROOT / "docs"
 
 HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                   "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "sk-SK,sk;q=0.9,cs;q=0.8,en;q=0.7",
-    "Cache-Control": "no-cache",
+                   "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"),
+    "Accept": ("text/html,application/xhtml+xml,application/xml;q=0.9,"
+               "image/avif,image/webp,*/*;q=0.8"),
+    "Accept-Language": "sk-SK,sk;q=0.9,cs;q=0.8,en-US;q=0.7,en;q=0.6",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Sec-CH-UA": '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+    "Sec-CH-UA-Mobile": "?0",
+    "Sec-CH-UA-Platform": '"Windows"',
+    "Connection": "keep-alive",
 }
 
-DROP_RATIO = 0.5          # menej než polovica položiek oproti minule = zlyhanie
+RETRY_STATUS = {403, 408, 425, 429, 500, 502, 503, 504}
+RETRIES = 3
+
+DROP_RATIO = 0.5          # menej než polovica dát oproti minule = zlyhanie
+MIN_REQUIRED_OK = 0.8     # aspoň 80 % povinných eshopov musí vrátiť dáta
 OUTLIER_LOW = 0.3         # cena pod 30 % predchádzajúcej = podozrivá
 OUTLIER_HIGH = 3.0
 UNDER_MARKET_MIN = 0.05   # 5 % pod mediánom = zaujímavé
@@ -52,6 +66,28 @@ def load_yaml(name: str) -> dict:
 
 
 # ------------------------------------------------------------------ fetch
+
+async def get_with_retry(client: httpx.AsyncClient, url: str, shop: dict) -> httpx.Response:
+    """Jeden pokus nestačí: eshopy občas vrátia 403 alebo spadnú do timeoutu
+    len preto, že prišli tri požiadavky rýchlo za sebou. Skúšame trikrát
+    s narastajúcou pauzou a s hlavičkou Referer, ktorá vyzerá ako preklik
+    z úvodnej stránky.
+    """
+    last_error: Exception | None = None
+    for attempt in range(RETRIES):
+        if attempt:
+            await asyncio.sleep(1.5 * (2 ** (attempt - 1)))
+        try:
+            resp = await client.get(url, headers={"Referer": shop["base"] + "/"})
+            if resp.status_code in RETRY_STATUS and attempt < RETRIES - 1:
+                last_error = httpx.HTTPStatusError(
+                    f"HTTP {resp.status_code}", request=resp.request, response=resp)
+                continue
+            return resp
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            last_error = exc
+    raise last_error if last_error else RuntimeError("neznáma chyba")
+
 
 def save_snapshot(directory: Path | None, shop_id: str, index: int, body: str) -> None:
     """Uloží stiahnutú stránku, aby sa z nej dal obnoviť test fixture."""
@@ -76,7 +112,7 @@ async def fetch_shop(client: httpx.AsyncClient, shop: dict, defaults: dict,
                 break
             pages_seen.add(url)
             try:
-                resp = await client.get(url)
+                resp = await get_with_retry(client, url, shop)
                 if resp.status_code == 404:
                     break
                 resp.raise_for_status()
@@ -106,7 +142,7 @@ async def fetch_shopify(client: httpx.AsyncClient, shop: dict, defaults: dict,
         for page in range(1, defaults.get("max_pages", 12) + 1):
             url = f"{entry.rstrip('/')}/products.json?limit=250&page={page}"
             try:
-                resp = await client.get(url)
+                resp = await get_with_retry(client, url, shop)
                 resp.raise_for_status()
                 save_snapshot(snapshots, shop["id"], page, resp.text)
                 batch = adapters.parse("shopify", resp.text, shop)
@@ -123,11 +159,11 @@ async def fetch_shopify(client: httpx.AsyncClient, shop: dict, defaults: dict,
 async def fetch_all(shops: list[dict], defaults: dict,
                     snapshots: Path | None = None) -> list[dict]:
     limits = httpx.Limits(max_connections=8, max_keepalive_connections=4)
-    timeout = httpx.Timeout(25.0, connect=15.0)
+    timeout = httpx.Timeout(40.0, connect=20.0)
     sem = asyncio.Semaphore(defaults.get("concurrency", 3))
 
     async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True,
-                                 limits=limits, timeout=timeout, http2=False) as client:
+                                 limits=limits, timeout=timeout, http2=True) as client:
         async def run(shop):
             async with sem:
                 worker = fetch_shopify if shop["adapter"] == "shopify" else fetch_shop
@@ -258,22 +294,49 @@ def previous_snapshot(history: list[dict]) -> tuple[str | None, dict]:
     return last_date, snapshot
 
 
-def guard_counts(results: list[dict], history: list[dict], today: str) -> list[str]:
-    """Poistka: eshop, ktorý zrazu vracia polovicu položiek, sa neignoruje."""
-    problems = []
-    previous = defaultdict(int)
-    last_date, _ = previous_snapshot(history)
-    for row in history:
-        if row["date"] == last_date:
-            previous[row["shop_id"]] += 1
+def check_health(results: list[dict], history: list[dict], rows: list[dict]) -> tuple[list[str], list[str]]:
+    """Rozhodne, či sa dáta smú zapísať.
+
+    Pri 26 eshopoch je výpadok jedného normálna prevádzka, nie dôvod zahodiť
+    celý beh — inak by monitor nefungoval nikdy. Fatálne je až to, keď vypadne
+    väčšia časť povinných eshopov alebo keď celkový objem dát spadne na zlomok
+    včerajška. Jednotlivé výpadky sú varovania: vypíšu sa a zobrazia v pätičke
+    stránky, ale beh pokračuje.
+    """
+    fatal, warnings = [], []
+
+    required = [r for r in results if not r["shop"].get("optional")]
+    ok_required = [r for r in required if r["offers"]]
+    if required:
+        ratio = len(ok_required) / len(required)
+        if ratio < MIN_REQUIRED_OK:
+            fatal.append(f"len {len(ok_required)} z {len(required)} povinných eshopov "
+                         f"vrátilo dáta (minimum je {round(MIN_REQUIRED_OK * 100)} %)")
+
     for result in results:
-        shop = result["shop"]
-        before = previous.get(shop["id"], 0)
-        now = len(result["offers"])
-        if before >= 4 and now < before * DROP_RATIO:
-            problems.append(
-                f"{shop['name']}: {now} položiek oproti {before} v poslednom behu")
-    return problems
+        if not result["offers"]:
+            label = "nepovinný" if result["shop"].get("optional") else "povinný"
+            first = result["errors"][0][:120] if result["errors"] else "bez chyby"
+            warnings.append(f"{result['shop']['name']} ({label}) nevrátil nič — {first}")
+
+    last_date, previous = previous_snapshot(history)
+    if last_date:
+        before_total = sum(1 for row in history if row["date"] == last_date)
+        if before_total >= 20 and len(rows) < before_total * DROP_RATIO:
+            fatal.append(f"celkovo {len(rows)} zaradených ponúk oproti {before_total} "
+                         f"v behu z {last_date}")
+
+        previous_counts = defaultdict(int)
+        for row in history:
+            if row["date"] == last_date:
+                previous_counts[row["shop_id"]] += 1
+        for result in results:
+            before = previous_counts.get(result["shop"]["id"], 0)
+            now = len([r for r in rows if r["shop_id"] == result["shop"]["id"]])
+            if before >= 4 and now < before * DROP_RATIO:
+                warnings.append(f"{result['shop']['name']}: {now} zaradených položiek "
+                                f"oproti {before} v poslednom behu")
+    return fatal, warnings
 
 
 def flag_offer(price_eur: float, median_eur: float | None) -> str:
@@ -414,9 +477,7 @@ async def run(args) -> int:
     results = await fetch_all(shops, defaults, snapshots)
     rows, unknown = build_rows(results, fx, today)
 
-    failures = [r for r in results if not r["offers"]]
-    hard_failures = [r for r in failures if not r["shop"].get("optional")]
-    drops = guard_counts(results, history, today)
+    fatal, warnings = check_health(results, history, rows)
 
     for result in results:
         shop = result["shop"]
@@ -430,19 +491,20 @@ async def run(args) -> int:
     print(f"\nZaradených {kept} ponúk, {len(unknown)} nerozpoznaných názvov, "
           f"kurz CZK/EUR {1 / fx['czk_eur']:.2f}{' (starý)' if fx.get('stale') else ''}")
 
-    if hard_failures or drops:
-        for result in hard_failures:
-            print(f"CHYBA: {result['shop']['name']} nevrátil žiadne položky", file=sys.stderr)
-        for problem in drops:
-            print(f"CHYBA: prepad počtu položiek — {problem}", file=sys.stderr)
-        if not args.force:
-            print("\nDáta sa nezapisujú. Skontroluj adaptér alebo spusti s --force.",
-                  file=sys.stderr)
-            return 2
+    for warning in warnings:
+        print(f"POZOR: {warning}")
 
     if kept == 0:
-        print("CHYBA: žiadne zaradené položky", file=sys.stderr)
-        return 2
+        fatal.append("žiadne zaradené položky")
+
+    if fatal:
+        for problem in fatal:
+            print(f"CHYBA: {problem}", file=sys.stderr)
+        if not args.force:
+            print("\nDáta sa nezapisujú. Skontroluj adaptéry alebo spusti s --force.",
+                  file=sys.stderr)
+            return 2
+        print("Pokračujem napriek chybám (--force).")
 
     products, movements = build_products(rows, history, images, today)
 

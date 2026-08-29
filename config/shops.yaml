@@ -3,7 +3,7 @@
 # `urls` sú vstupné kategórie; stránkovanie sa dohľadá automaticky.
 
 defaults:
-  max_pages: 12
+  max_pages: 20
   concurrency: 4
 
 shops:
@@ -57,6 +57,7 @@ shops:
     currency: EUR
     adapter: upgates
     base: https://www.zardo.cards
+    optional: true      # 403 z IP adries GitHub Actions (beh 29. 8.)
     urls:
       - https://www.zardo.cards/en/pokemon-boosters/
       - https://www.zardo.cards/en/products-2/
@@ -125,6 +126,7 @@ shops:
     currency: CZK
     adapter: veselydrak
     base: https://www.vesely-drak.cz
+    optional: true      # opakované ConnectTimeout z GitHub Actions
     urls:
       - https://www.vesely-drak.cz/produkty/booster-boxy/
       - https://www.vesely-drak.cz/produkty/boostery/
@@ -135,6 +137,7 @@ shops:
     currency: EUR
     adapter: veselydrak
     base: https://www.vesely-drak.sk
+    optional: true      # opakované ConnectTimeout z GitHub Actions
     urls:
       - https://www.vesely-drak.sk/produkty/booster-boxy/
       - https://www.vesely-drak.sk/produkty/boostery/
@@ -233,6 +236,7 @@ shops:
     currency: CZK
     adapter: woocommerce
     base: https://pokectcg.cz
+    optional: true      # 403 z IP adries GitHub Actions (beh 29. 8.)
     urls:
       - https://pokectcg.cz/pokemon-karty/
 
@@ -274,3 +278,28 @@ shops:
     base: https://www.xzone.sk
     urls:
       - https://www.xzone.sk/sberatelske-hry-pokemon-tcg
+
+  # --- pridané 29. 8. 2026, po overení firmy a recenzií -------------------
+
+  - id: dazzle-sk
+    name: Dazzle.sk
+    country: SK
+    currency: EUR
+    adapter: opencart
+    base: https://www.dazzle.sk
+    urls:
+      - https://www.dazzle.sk/pokemon/pokemon-boostre/anglicke-boostre
+      - https://www.dazzle.sk/pokemon/pokemon-booster-boxy
+      - https://www.dazzle.sk/pokemon/pokemon-boxy/pokemon-elite-trainer-box
+
+  - id: kuzelnehry-sk
+    name: KúzelnéHry.sk
+    country: SK
+    currency: EUR
+    adapter: shoptet
+    base: https://www.kuzelnehry.sk
+    urls:
+      - https://www.kuzelnehry.sk/pokemon-booster-balicky/
+      - https://www.kuzelnehry.sk/pokemon-booster-boxy/
+      - https://www.kuzelnehry.sk/pokemon-elite-trainer-boxy/
+      - https://www.kuzelnehry.sk/pokemon-herne-baliky/

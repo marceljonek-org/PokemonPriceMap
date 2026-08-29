@@ -27,18 +27,21 @@ SHOPS = {
     "cardyx": {"id": "cardyx-sk", "base": "https://www.cardyx.sk", "currency": "EUR"},
     "pokectcg": {"id": "pokectcg-cz", "base": "https://pokectcg.cz", "currency": "CZK"},
     "xzone": {"id": "xzone-sk", "base": "https://www.xzone.sk", "currency": "EUR"},
+    "geekhall": {"id": "geekhall-cz", "base": "https://geekhall.cz", "currency": "CZK"},
+    "dazzle": {"id": "dazzle-sk", "base": "https://www.dazzle.sk", "currency": "EUR"},
 }
 
 ADAPTER_OF = {
     "cardstore": "shoptet", "zardo": "upgates", "pompo": "pompo", "digihry": "digihry",
     "pgs": "pgs", "veselydrak": "veselydrak", "alza": "alza", "cardyx": "shopify",
-    "pokectcg": "woocommerce", "xzone": "xzone",
+    "pokectcg": "woocommerce", "xzone": "xzone", "geekhall": "woocommerce",
+    "dazzle": "opencart",
 }
 
 MIN_OFFERS = {
     "cardstore": 10, "zardo": 8, "pompo": 20, "digihry": 30,
     "pgs": 20, "veselydrak": 18, "alza": 20, "cardyx": 25,
-    "pokectcg": 40, "xzone": 20,
+    "pokectcg": 40, "xzone": 20, "geekhall": 10, "dazzle": 18,
 }
 
 
@@ -87,10 +90,22 @@ def test_images_present(name):
     assert len(with_image) >= len(offers) * 0.7, f"{name}: málo obrázkov"
 
 
-@pytest.mark.parametrize("name", sorted(ADAPTER_OF))
+# GeekHall má na prvej strane kategórie len blistre, tiny a plagáty; sledované
+# formáty sú až na ďalších stranách. Snapshot je preto legitímne bez zhody.
+NO_TRACKED_ON_PAGE_ONE = {"geekhall"}
+
+
+@pytest.mark.parametrize("name", sorted(set(ADAPTER_OF) - NO_TRACKED_ON_PAGE_ONE))
 def test_at_least_one_tracked_product(name):
     kept = [o for o in offers_for(name) if classify.classify(o.name)]
     assert kept, f"{name}: ani jeden sledovaný produkt"
+
+
+@pytest.mark.parametrize("name", sorted(NO_TRACKED_ON_PAGE_ONE))
+def test_classifier_survives_untracked_pages(name):
+    """Aj strana bez jediného sledovaného produktu musí prejsť bez výnimky."""
+    for offer in offers_for(name):
+        classify.classify(offer.name)
 
 
 def test_shoptet_known_offer():
@@ -134,6 +149,33 @@ def test_xzone_pagination_is_blind():
     zastaví, keď strana nevráti ani jednu položku."""
     url = adapters.next_page("xzone", load("xzone"), "https://www.xzone.sk/pokemon")
     assert url == "https://www.xzone.sk/pokemon?s=60&page=2"
+
+
+def test_opencart_does_not_double_count():
+    """dazzle.sk vykreslí každý produkt v zozname aj v mriežke — adaptér smie
+    čítať len jednu z tých dvoch podôb."""
+    offers = offers_for("dazzle")
+    assert len(offers) == 20, f"{len(offers)} položiek namiesto 20"
+    assert len({o.url for o in offers}) == len(offers), "duplicitné URL"
+
+
+def test_opencart_preorder_is_not_in_stock():
+    """Predobjednávka sa na dazzle.sk tvári ako „Skladom > 5 ks“ — rozhodnúť
+    musí stužka PREDOBJEDNÁVKA, inak by monitor hlásil dostupnosť, ktorá nie je."""
+    offers = {o.name: o for o in offers_for("dazzle")}
+    preorder = next(o for n, o in offers.items() if "30th Celebration" in n)
+    assert preorder.in_stock is False
+    assert "predobjedn" in preorder.stock_text.lower()
+    assert any(o.in_stock for o in offers.values()), "nič nie je skladom?"
+
+
+def test_woocommerce_oxygen_variant():
+    """GeekHall beží na WooCommerce, ale šablóna z Oxygen Builderu negeneruje
+    li.product — adaptér musí chytiť aj article.product_card."""
+    offers = offers_for("geekhall")
+    assert len(offers) == 12, f"{len(offers)} položiek namiesto 12"
+    assert all(o.in_stock is not None for o in offers)
+    assert all(o.image.startswith("http") for o in offers)
 
 
 def test_woocommerce_stock_from_css_class():
@@ -257,3 +299,66 @@ def test_every_adapter_is_used_by_some_shop():
 
 def test_every_adapter_has_a_fixture():
     assert set(ADAPTER_OF.values()) == set(adapters.PARSERS) | {"shopify"}
+
+
+# ------------------------------------------------------------- poistky behu
+
+def _result(shop_id, count, optional=False, error=""):
+    offer = adapters.Offer(shop_id=shop_id, name="x", url="https://x/", price=1.0,
+                           currency="EUR", in_stock=True)
+    return {"shop": {"id": shop_id, "name": shop_id, "optional": optional},
+            "offers": [offer] * count, "errors": [error] if error else []}
+
+
+def _rows(shop_id, count, date="2026-08-30"):
+    return [{"date": date, "shop_id": shop_id, "edition_id": "chaos-rising",
+             "format_id": "bundle", "packs": 6, "name": "x", "url": "https://x/",
+             "price": 40, "currency": "EUR", "price_eur": 40, "per_pack_eur": 6.7,
+             "in_stock": "1", "image": ""} for _ in range(count)]
+
+
+def test_health_single_shop_outage_is_only_a_warning():
+    """Pri 26 eshopoch je výpadok jedného normálna prevádzka."""
+    import scrape
+    results = [_result(f"shop{i}", 5) for i in range(17)] + [_result("shop17", 0)]
+    rows = sum([_rows(f"shop{i}", 5) for i in range(17)], [])
+    fatal, warnings = scrape.check_health(results, [], rows)
+    assert not fatal
+    assert any("shop17" in w for w in warnings)
+
+
+def test_health_fails_when_most_required_shops_are_down():
+    import scrape
+    results = [_result(f"shop{i}", 5) for i in range(10)] + \
+              [_result(f"dead{i}", 0) for i in range(8)]
+    rows = sum([_rows(f"shop{i}", 5) for i in range(10)], [])
+    fatal, _ = scrape.check_health(results, [], rows)
+    assert fatal and "povinných eshopov" in fatal[0]
+
+
+def test_health_ignores_optional_shops_in_the_ratio():
+    import scrape
+    results = [_result(f"shop{i}", 5) for i in range(10)] + \
+              [_result(f"opt{i}", 0, optional=True) for i in range(8)]
+    rows = sum([_rows(f"shop{i}", 5) for i in range(10)], [])
+    fatal, warnings = scrape.check_health(results, [], rows)
+    assert not fatal
+    assert sum("nepovinný" in w for w in warnings) == 8
+
+
+def test_health_fails_on_big_total_drop():
+    import scrape
+    history = sum([_rows(f"shop{i}", 10, date="2026-08-29") for i in range(5)], [])
+    results = [_result(f"shop{i}", 2) for i in range(5)]
+    rows = sum([_rows(f"shop{i}", 2) for i in range(5)], [])
+    fatal, _ = scrape.check_health(results, history, rows)
+    assert fatal and "zaradených ponúk" in fatal[0]
+
+
+def test_health_accepts_a_normal_day():
+    import scrape
+    history = sum([_rows(f"shop{i}", 10, date="2026-08-29") for i in range(5)], [])
+    results = [_result(f"shop{i}", 10) for i in range(5)]
+    rows = sum([_rows(f"shop{i}", 9) for i in range(5)], [])
+    fatal, warnings = scrape.check_health(results, history, rows)
+    assert not fatal and not warnings

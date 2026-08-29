@@ -29,6 +29,8 @@ SHOPS = {
     "cardyx": ("shopify", "cardyx-sk", "Cardyx.sk", "SK", "EUR", "https://www.cardyx.sk"),
     "pokectcg": ("woocommerce", "pokectcg-cz", "PokecTCG.cz", "CZ", "CZK", "https://pokectcg.cz"),
     "xzone": ("xzone", "xzone-sk", "Xzone.sk", "SK", "EUR", "https://www.xzone.sk"),
+    "geekhall": ("woocommerce", "geekhall-cz", "GeekHall.cz", "CZ", "CZK", "https://geekhall.cz"),
+    "dazzle": ("opencart", "dazzle-sk", "Dazzle.sk", "SK", "EUR", "https://www.dazzle.sk"),
 }
 
 

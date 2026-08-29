@@ -320,9 +320,19 @@ def parse_shopify(payload: dict, shop: dict) -> list[Offer]:
 
 
 def parse_woocommerce(tree: HTMLParser, shop: dict) -> list[Offer]:
-    """WooCommerce: stav skladu je v triedach položky (instock / outofstock)."""
+    """WooCommerce v dvoch podobách.
+
+    Štandardná šablóna dáva `li.product` a stav skladu do tried položky.
+    Stránky postavené v Oxygen Builderi (GeekHall) generujú vlastný
+    `article.product_card` a stav píšu textom — preto dve vetvy.
+    """
+    items = tree.css("li.product")
+    if not items:
+        items = tree.css(".product_card")
+        if items:
+            return _parse_woocommerce_cards(items, shop)
     offers = []
-    for item in tree.css("li.product"):
+    for item in items:
         classes = (_attr(item, "class") or "").lower()
         link = item.css_first("a.woocommerce-LoopProduct-link") or item.css_first("a")
         name = _text(item.css_first(".woocommerce-loop-product__title, h2, h3"))
@@ -356,6 +366,26 @@ def parse_woocommerce(tree: HTMLParser, shop: dict) -> list[Offer]:
     return offers
 
 
+def _parse_woocommerce_cards(items, shop: dict) -> list[Offer]:
+    """WooCommerce v Oxygen Builderi — stav skladu je text, nie CSS trieda."""
+    offers = []
+    for item in items:
+        link = item.css_first("a[href]")
+        name = _text(item.css_first("h2, h3, .ct-headline"))
+        url = urljoin(shop["base"], _attr(link, "href"))
+        price = parse_price(_text(item.css_first(".woocommerce-Price-amount")))
+        stock_text = " ".join(_text(node) for node in item.css(".skladovost"))
+        image = _attr(item.css_first("img.product-image, img"), "src")
+        if not name or price is None:
+            continue
+        offers.append(Offer(
+            shop_id=shop["id"], name=name, url=url, price=price,
+            currency=shop["currency"], in_stock=stock_from_text(stock_text),
+            stock_text=stock_text, image=image,
+        ))
+    return offers
+
+
 def parse_xzone(tree: HTMLParser, shop: dict) -> list[Offer]:
     """Xzone.cz / Xzone.sk — vlastný systém, ceny v .price-box."""
     offers = []
@@ -380,6 +410,41 @@ def parse_xzone(tree: HTMLParser, shop: dict) -> list[Offer]:
     return offers
 
 
+def parse_opencart(tree: HTMLParser, shop: dict) -> list[Offer]:
+    """OpenCart (dazzle.sk).
+
+    Šablóna vykreslí každý produkt dvakrát — raz v zozname, raz v mriežke —
+    preto čítame len mriežku, inak by bola každá ponuka duplicitná.
+    Stužka „PREDOBJEDNÁVKA“ prebíja text o sklade: predobjednávka sa tvári
+    ako „Skladom > 5 ks“, ale kúpiť sa to teraz nedá.
+    """
+    offers = []
+    for item in tree.css(".product-grid .product"):
+        link = item.css_first(".name a")
+        name = _text(link)
+        url = urljoin(shop["base"], _attr(link, "href"))
+        price_node = item.css_first(".price-new") or item.css_first(".price")
+        price = parse_price(_text(price_node))
+        stock_text = _text(item.css_first(".stock"))
+        in_stock = stock_from_text(stock_text)
+        ribbons = _text(item.css_first(".ribbons")).lower()
+        if "predobjedn" in ribbons or "preorder" in ribbons:
+            in_stock = False
+            stock_text = f"predobjednávka ({stock_text})" if stock_text else "predobjednávka"
+        image_node = item.css_first("img")
+        image = _attr(image_node, "data-echo") or _attr(image_node, "src")
+        if image.endswith("blank.gif"):
+            image = ""
+        if not name or price is None:
+            continue
+        offers.append(Offer(
+            shop_id=shop["id"], name=name, url=url, price=price,
+            currency=shop["currency"], in_stock=in_stock, stock_text=stock_text,
+            image=urljoin(shop["base"], image) if image else "",
+        ))
+    return offers
+
+
 # ---------------------------------------------------------------- registry
 
 PARSERS = {
@@ -392,6 +457,7 @@ PARSERS = {
     "alza": parse_alza,
     "woocommerce": parse_woocommerce,
     "xzone": parse_xzone,
+    "opencart": parse_opencart,
 }
 
 

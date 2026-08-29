@@ -1,6 +1,6 @@
 # Cenová mapa Pokémon TCG
 
-Denné sledovanie cien a dostupnosti **sealed** Pokémon TCG produktov v 26 českých
+Denné sledovanie cien a dostupnosti **sealed** Pokémon TCG produktov v 28 českých
 a slovenských eshopoch. Sleduje štyri formáty — Booster, Booster Bundle, Booster Box
 a Elite Trainer Box — a len edície s investičným potenciálom (úroveň A a B).
 Výsledok je statická stránka s obrázkami balení, históriou cien a označením
@@ -63,7 +63,7 @@ a dá sa kedykoľvek spustiť ručne. Päť krokov:
 
 1. **Testy parserov** nad snapshotmi v `tests/fixtures/` — keď je rozbitá parsovacia
    logika, beh spadne ešte pred dotykom so živými webmi.
-2. **Sken 26 eshopov** vrátane stránkovania, max 4 eshopy naraz. Kurz CZK/EUR z ECB.
+2. **Sken 28 eshopov** vrátane stránkovania, max 4 eshopy naraz. Kurz CZK/EUR z ECB.
 3. **Klasifikácia** názvov na edíciu + formát; čo nie je sledovaný formát v edícii
    úrovne A/B/C, sa zahodí.
 4. **Porovnanie s posledným behom** — zmeny cien, preklopenia dostupnosti, nové položky,
@@ -72,13 +72,21 @@ a dá sa kedykoľvek spustiť ručne. Päť krokov:
 
 ### Poistky proti tichému zlyhaniu
 
+Pri 26 eshopoch je výpadok jedného normálna prevádzka, nie dôvod zahodiť celý beh.
+Fatálne je až to, keď vypadne väčšia časť eshopov alebo keď objem dát spadne na zlomok.
+
 | Situácia | Čo sa stane |
 |---|---|
-| Eshop vráti menej než 50 % položiek oproti minulému behu | beh skončí kódom 2, dáta sa **nezapíšu** |
-| Povinný eshop nevráti nič | to isté |
-| Eshop označený `optional: true` zlyhá | beh pokračuje, eshop sa vypíše v pätičke stránky |
+| Menej než 80 % **povinných** eshopov vrátilo dáta | beh skončí kódom 2, dáta sa **nezapíšu** |
+| Celkovo menej než polovica zaradených ponúk oproti minulému behu | to isté |
+| Žiadne zaradené položky | to isté |
+| Jednotlivý eshop nevrátil nič | varovanie v logu + „nedostupný“ v pätičke stránky, beh pokračuje |
+| Eshop vrátil menej než polovicu položiek než včera | varovanie, beh pokračuje |
 | Cena mimo 30–300 % predchádzajúcej | zapíše sa, ale označí ako `skok ceny` |
 | Stránka nemá dnešný dátum | hore sa zobrazí červený pruh |
+
+Každá požiadavka sa opakuje až trikrát s narastajúcou pauzou — jednorazový 403
+alebo timeout tak beh nezhodí.
 
 Ak si istý, že prepad je v poriadku (eshop naozaj vypredal), spusti workflow ručne
 so zaškrtnutým **force**.
@@ -87,14 +95,14 @@ so zaškrtnutým **force**.
 
 ## Sledované eshopy
 
-26 eshopov na 10 platformách. Adaptér je parser pre danú platformu — ďalší eshop
+28 eshopov na 11 platformách. Adaptér je parser pre danú platformu — ďalší eshop
 na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 
 | Adaptér | Eshopy | Ako sa čítajú dáta |
 |---|---|---|
-| `shoptet` | Cardstore.cz, Fyft.cz, Nekonecno.sk, Pokemon4U.cz, TCG4You.cz, Card Empire SK, CC Planet | mikrodáta `data-micro-*` (schema.org) |
+| `shoptet` | Cardstore.cz, Fyft.cz, Nekonecno.sk, Pokemon4U.cz, TCG4You.cz, Card Empire SK, CC Planet, KúzelnéHry.sk | mikrodáta `data-micro-*` (schema.org) |
 | `pgs` | PGS.sk, Smarty.cz, Smarty.sk | `data-gaItem` JSON + `.productList-item-price` |
-| `woocommerce` | PokecTCG.cz, Pokélio.cz, GeekHall.cz | `li.product`, stav skladu z tried `instock`/`outofstock` |
+| `woocommerce` | PokecTCG.cz, Pokélio.cz, GeekHall.cz | `li.product`, alebo `article.product_card` v šablónach z Oxygen Builderu |
 | `upgates` | Zardo Cards, Gengar.cz | `article.card-item` |
 | `pompo` | Pompo.cz, Pompo.sk | JSON v `data-tracking-view` |
 | `veselydrak` | Veselý drak CZ, Veselý drak SK | `div.catalogue-item` |
@@ -102,6 +110,7 @@ na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 | `xzone` | Xzone.cz, Xzone.sk | `div.product-item`, stránkovanie naslepo cez `?page=N` |
 | `alza` | Alza.cz, Alza.sk | `div.box.browsingitem` |
 | `digihry` | Digihry.sk | mikrodáta `itemprop` |
+| `opencart` | Dazzle.sk | `.product-grid .product`; stužka PREDOBJEDNÁVKA prebíja text o sklade |
 
 Zvažované a zatiaľ nezaradené: **Charizard.sk** (PrestaShop) a **Cheapgame.cz** —
 ich HTML sa nepodarilo spoľahlivo stiahnuť na overenie selektorov, takže by šlo
@@ -158,7 +167,7 @@ teda nikdy nehotlinkuje na cudzí server.
 
 ```bash
 pip install -r requirements.txt
-make test          # 95 testov nad snapshotmi, bez siete
+make test          # 113 testov nad snapshotmi, bez siete
 make demo          # postaví docs/latest.json zo snapshotov
 python -m http.server -d docs 8000   # náhľad na http://localhost:8000
 make scan          # ostrý sken (potrebuje sieť)
@@ -190,14 +199,14 @@ Keď eshop prekope šablónu, test spadne. Vtedy:
 .github/workflows/pages.yml   záloha pre GitHub Pages
 config/                       eshopy, edície, ručné obrázky
 src/scrape.py                 orchestrácia, poistky, agregácia
-src/adapters.py               10 parserov podľa platformy eshopu
+src/adapters.py               11 parserov podľa platformy eshopu
 src/classify.py               názov -> edícia + formát + počet balíčkov
 src/images.py                 sťahovanie a konverzia obrázkov
 docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        95 testov nad gzip snapshotmi
+tests/                        113 testov nad gzip snapshotmi
 tools/demo_from_fixtures.py   náhľad bez siete
 ```
 
@@ -207,9 +216,11 @@ tools/demo_from_fixtures.py   náhľad bez siete
 
 ## Známe riziká
 
-- **Alza (CZ/SK) a Smarty (CZ/SK)** sú označené `optional: true`. Môžu z IP adries
-  GitHub Actions vracať 403; prejaví sa to ako „nedostupný“ v pätičke stránky,
-  nie ako spadnutý beh.
+- **Osem eshopov je označených `optional: true`** — Alza CZ/SK, Smarty CZ/SK,
+  Zardo Cards, PokecTCG.cz a Veselý drak CZ/SK. Z IP adries GitHub Actions vracajú
+  403 alebo padajú do timeoutu. Nerátajú sa do zdravotnej kontroly behu a prejavia sa
+  ako „nedostupný“ v pätičke stránky. Ak niektorý z nich začne fungovať, stačí mu
+  riadok `optional: true` zmazať.
 - **Zimný čas.** Cron je v UTC, takže od konca októbra beží sken o 18:00. Ak chceš
   držať 19:00, prepni v `daily.yml` na `0 18 * * *`.
 - **GitHub vypína cron** v repozitároch bez aktivity 60 dní. Denný commit dát to pokrýva.
