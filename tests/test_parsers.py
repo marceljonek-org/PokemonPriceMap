@@ -404,3 +404,18 @@ def test_proxied_shops_are_declared_in_config():
     for shop in proxied:
         assert shop.get("optional"), \
             f"{shop['id']}: eshop cez proxy musí zostať nepovinný, kým sa neoverí"
+
+
+def test_history_rerun_replaces_same_day(tmp_path, monkeypatch):
+    """Druhý beh v ten istý deň nesmie riadky zdvojiť — inak poistka porovná
+    dnešok proti nafúknutému včerajšku a beh spadne na neexistujúci prepad."""
+    import scrape
+    monkeypatch.setattr(scrape, "DATA", tmp_path)
+
+    scrape.append_history(_rows("shop1", 5, date="2026-08-28"))
+    scrape.append_history(_rows("shop1", 4, date="2026-08-29"))
+    scrape.append_history(_rows("shop1", 6, date="2026-08-29"))   # opakovaný beh
+
+    history = scrape.read_history()
+    assert sum(1 for r in history if r["date"] == "2026-08-28") == 5
+    assert sum(1 for r in history if r["date"] == "2026-08-29") == 6

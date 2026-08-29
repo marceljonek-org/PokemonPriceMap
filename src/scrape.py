@@ -239,13 +239,24 @@ HISTORY_FIELDS = [
 
 
 def append_history(rows: list[dict]) -> None:
+    """Zapíše dnešný sken a nahradí prípadný skorší zápis z toho istého dňa.
+
+    Bez tohto by každé opakované spustenie v ten istý deň pridalo ďalšiu kópiu
+    riadkov. Poistka porovnávajúca objem dát by potom merala dnešok proti
+    trojnásobku včerajška a beh by padal na neexistujúci prepad.
+    """
+    if not rows:
+        return
     path = DATA / "history.csv"
-    exists = path.exists()
-    with open(path, "a", encoding="utf-8", newline="") as fh:
+    today = rows[0]["date"]
+    previous: list[dict] = []
+    if path.exists():
+        with open(path, encoding="utf-8", newline="") as fh:
+            previous = [r for r in csv.DictReader(fh) if r.get("date") != today]
+    with open(path, "w", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=HISTORY_FIELDS)
-        if not exists:
-            writer.writeheader()
-        for row in rows:
+        writer.writeheader()
+        for row in previous + rows:
             writer.writerow({k: row.get(k, "") for k in HISTORY_FIELDS})
 
 
