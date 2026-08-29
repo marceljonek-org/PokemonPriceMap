@@ -1,0 +1,276 @@
+# Sledované eshopy. `adapter` určuje parser v src/adapters.py.
+# `optional: true` = zlyhanie tohto eshopu nezhodí celý beh (len sa vypíše v pätičke).
+# `urls` sú vstupné kategórie; stránkovanie sa dohľadá automaticky.
+
+defaults:
+  max_pages: 12
+  concurrency: 4
+
+shops:
+  - id: cardstore-cz
+    name: Cardstore.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    base: https://www.cardstore.cz
+    urls:
+      - https://www.cardstore.cz/booster-boxy/
+      - https://www.cardstore.cz/pokemon-booster-bundle/
+      - https://www.cardstore.cz/elite-trainer-boxy-etb/
+      - https://www.cardstore.cz/pokemon-boostery/
+
+  - id: fyft-cz
+    name: Fyft.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    base: https://www.fyft.cz
+    urls:
+      - https://www.fyft.cz/pokemon/
+
+  - id: nekonecno-sk
+    name: Nekonecno.sk
+    country: SK
+    currency: EUR
+    adapter: shoptet
+    base: https://www.nekonecno.sk
+    urls:
+      - https://www.nekonecno.sk/pokemon-tcg/
+      - https://www.nekonecno.sk/pokemon-prismatic-evolutions/
+      - https://www.nekonecno.sk/pokemon-ascended-heroes/
+      - https://www.nekonecno.sk/pokemon-perfect-order/
+      - https://www.nekonecno.sk/pokemon-chaos-rising/
+      - https://www.nekonecno.sk/pokemon-pitch-black/
+
+  - id: pokemon4u-cz
+    name: Pokemon4U.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    base: https://www.pokemon4u.cz
+    urls:
+      - https://www.pokemon4u.cz/pokemon-booster/
+
+  - id: zardo-cz
+    name: Zardo Cards
+    country: CZ
+    currency: EUR
+    adapter: upgates
+    base: https://www.zardo.cards
+    urls:
+      - https://www.zardo.cards/en/pokemon-boosters/
+      - https://www.zardo.cards/en/products-2/
+
+  - id: gengar-cz
+    name: Gengar.cz
+    country: CZ
+    currency: CZK
+    adapter: upgates
+    base: https://www.gengar.cz
+    urls:
+      - https://www.gengar.cz/pokemon-booster
+
+  - id: pompo-cz
+    name: Pompo.cz
+    country: CZ
+    currency: CZK
+    adapter: pompo
+    base: https://pompo.cz
+    urls:
+      - https://pompo.cz/pokemon-tcg/
+
+  - id: pompo-sk
+    name: Pompo.sk
+    country: SK
+    currency: EUR
+    adapter: pompo
+    base: https://pompo.sk
+    urls:
+      - https://pompo.sk/pokemon-tcg/
+
+  - id: digihry-sk
+    name: Digihry.sk
+    country: SK
+    currency: EUR
+    adapter: digihry
+    base: https://www.digihry.sk
+    urls:
+      - https://www.digihry.sk/c-1749/booster-box-pokemon-merch
+      - https://www.digihry.sk/c-1746/pokemon-merch/234
+
+  - id: pgs-sk
+    name: PGS.sk
+    country: SK
+    currency: EUR
+    adapter: pgs
+    base: https://www.pgs.sk
+    urls:
+      - https://www.pgs.sk/booster-4c14601
+      - https://www.pgs.sk/pokemon-tcg-4c14578
+
+  - id: smarty-cz
+    name: Smarty.cz
+    country: CZ
+    currency: CZK
+    adapter: pgs
+    base: https://www.smarty.cz
+    optional: true          # vo v1 vracal 403 z cudzích IP
+    urls:
+      - https://www.smarty.cz/booster-4c14601
+      - https://www.smarty.cz/pokemon-tcg-4c14578
+
+  - id: vesely-drak-cz
+    name: Veselý drak CZ
+    country: CZ
+    currency: CZK
+    adapter: veselydrak
+    base: https://www.vesely-drak.cz
+    urls:
+      - https://www.vesely-drak.cz/produkty/booster-boxy/
+      - https://www.vesely-drak.cz/produkty/boostery/
+
+  - id: vesely-drak-sk
+    name: Veselý drak SK
+    country: SK
+    currency: EUR
+    adapter: veselydrak
+    base: https://www.vesely-drak.sk
+    urls:
+      - https://www.vesely-drak.sk/produkty/booster-boxy/
+      - https://www.vesely-drak.sk/produkty/boostery/
+
+  - id: cardyx-sk
+    name: Cardyx.sk
+    country: SK
+    currency: EUR
+    adapter: shopify
+    base: https://www.cardyx.sk
+    urls:
+      - https://www.cardyx.sk/collections/all
+
+  - id: alza-cz
+    name: Alza.cz
+    country: CZ
+    currency: CZK
+    adapter: alza
+    base: https://www.alza.cz
+    optional: true          # môže blokovať IP GitHub Actions
+    urls:
+      - https://www.alza.cz/hracky/pokemon-boostery/18903044.htm
+      - https://www.alza.cz/hracky/pokemon-booster-boxy-a-specialne-boxy/18903046.htm
+
+  - id: alza-sk
+    name: Alza.sk
+    country: SK
+    currency: EUR
+    adapter: alza
+    base: https://www.alza.sk
+    optional: true
+    urls:
+      - https://www.alza.sk/hracky/pokemon-boostery/18903044.htm
+      - https://www.alza.sk/hracky/pokemon-booster-boxy-a-specialne-boxy/18903046.htm
+
+  # --- pridané 29. 8. 2026 -------------------------------------------------
+
+  - id: smarty-sk
+    name: Smarty.sk
+    country: SK
+    currency: EUR
+    adapter: pgs            # rovnaká platforma ako PGS.sk a Smarty.cz
+    base: https://www.smarty.sk
+    optional: true
+    urls:
+      - https://www.smarty.sk/pokemon-tcg-4c14578
+      - https://www.smarty.sk/booster-4c14601
+
+  - id: tcg4you-cz
+    name: TCG4You.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    base: https://www.tcg4you.cz
+    urls:
+      - https://www.tcg4you.cz/boostery/
+      - https://www.tcg4you.cz/booster-bundly/
+      - https://www.tcg4you.cz/elite-trainer-boxy/
+      - https://www.tcg4you.cz/pokemon/
+
+  - id: cardempire-sk
+    name: Card Empire SK
+    country: SK
+    currency: EUR
+    adapter: shoptet
+    base: https://www.cardempire.sk
+    urls:
+      - https://www.cardempire.sk/en/booster-boxes/
+      - https://www.cardempire.sk/en/booster-bundle/
+      - https://www.cardempire.sk/en/elite-trainer-boxes/
+      - https://www.cardempire.sk/en/pokemon-tcg-booster-packs/
+
+  - id: ccplanet-sk
+    name: CC Planet
+    country: SK
+    currency: EUR
+    adapter: shoptet
+    base: https://www.ccplanet.sk
+    urls:
+      - https://www.ccplanet.sk/booster/
+      - https://www.ccplanet.sk/booster-box/
+      - https://www.ccplanet.sk/elite-trainer-boxy--etb/
+
+  - id: 64ka-sk
+    name: 64ka.sk
+    country: SK
+    currency: EUR
+    adapter: shopify
+    base: https://www.64ka.sk
+    urls:
+      - https://www.64ka.sk/collections/pokemon-tcg
+
+  - id: pokectcg-cz
+    name: PokecTCG.cz
+    country: CZ
+    currency: CZK
+    adapter: woocommerce
+    base: https://pokectcg.cz
+    urls:
+      - https://pokectcg.cz/pokemon-karty/
+
+  - id: pokelio-cz
+    name: Pokélio.cz
+    country: CZ
+    currency: CZK
+    adapter: woocommerce
+    base: https://pokelio.cz
+    urls:
+      - https://pokelio.cz/product-category/pokemon-tcg-boostery/
+      - https://pokelio.cz/product-category/pokemon-tcg-booster-boxy/
+      - https://pokelio.cz/product-category/pokemon-tcg-etb/
+      - https://pokelio.cz/product-category/pokemon-tcg-booster-bundle/
+
+  - id: geekhall-cz
+    name: GeekHall.cz
+    country: CZ
+    currency: CZK
+    adapter: woocommerce
+    base: https://geekhall.cz
+    urls:
+      - https://geekhall.cz/kategorie/sberatelske-hry-2/pokemoni/
+
+  - id: xzone-cz
+    name: Xzone.cz
+    country: CZ
+    currency: CZK
+    adapter: xzone
+    base: https://www.xzone.cz
+    urls:
+      - https://www.xzone.cz/sberatelske-hry-pokemon-tcg
+
+  - id: xzone-sk
+    name: Xzone.sk
+    country: SK
+    currency: EUR
+    adapter: xzone
+    base: https://www.xzone.sk
+    urls:
+      - https://www.xzone.sk/sberatelske-hry-pokemon-tcg

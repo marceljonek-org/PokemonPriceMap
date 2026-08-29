@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cenová mapa Pokémon TCG</title>
+<meta name="description" content="Denné ceny a dostupnosť sealed Pokémon TCG produktov v CZ/SK eshopoch.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#f3f3f8; --surface:#fff; --surface-2:#ecebf3; --ink:#17162a; --muted:#615f7c;
+  --line:#dcdae7; --accent:#3b36a5; --accent-soft:#e5e3f6; --gold:#a8701a; --gold-soft:#f5ecdb;
+  --ok:#1c7350; --ok-soft:#dcefe5; --crit:#a83a2c; --crit-soft:#f7e3df;
+}
+@media (prefers-color-scheme:dark){:root{
+  --ground:#111120; --surface:#1a1a2c; --surface-2:#22223a; --ink:#eae8f6; --muted:#9b98b8;
+  --line:#2f2e4a; --accent:#a49dff; --accent-soft:#25234a; --gold:#dda851; --gold-soft:#312712;
+  --ok:#54c493; --ok-soft:#12301f; --crit:#ee8474; --crit-soft:#361b18;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;font-size:15px;line-height:1.5}
+.mono,.num{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
+a{color:var(--accent)}
+
+.stale{background:var(--crit);color:#fff;padding:9px 20px;font-size:14px;text-align:center}
+header{padding:30px 0 18px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between}
+h1{font-size:27px;font-weight:700;margin:0;letter-spacing:-.02em}
+.sub{font-size:13px;color:var(--muted);margin-top:3px}
+.tabs{display:flex;gap:4px;background:var(--surface-2);padding:4px;border-radius:11px}
+.tab{border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;font-weight:500;
+  padding:7px 16px;border-radius:8px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.tab:focus-visible,.f:focus-visible,.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:14px 0 20px;border-bottom:1px solid var(--line);margin-bottom:22px}
+.f{font-family:"IBM Plex Mono",monospace;font-size:12px;padding:6px 11px;border-radius:8px;
+  border:1px solid var(--line);color:var(--muted);background:var(--surface);cursor:pointer}
+.f[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme:dark){.f[aria-pressed="true"]{color:#14132a}}
+.spacer{flex:1}
+.count{font-size:12px;color:var(--muted)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.card{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:var(--surface);
+  display:flex;flex-direction:column;cursor:pointer;text-align:left;padding:0;font:inherit;color:inherit}
+.card:hover{border-color:var(--accent)}
+.thumb{aspect-ratio:4/3;background:var(--surface-2);display:flex;align-items:center;justify-content:center;position:relative}
+.thumb img{width:100%;height:100%;object-fit:contain;padding:8px;position:absolute;inset:0;background:var(--surface-2)}
+.thumb .ph{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
+.tier{position:absolute;top:8px;left:8px;font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;
+  padding:2px 7px;border-radius:6px}
+.tier.A{background:var(--gold-soft);color:var(--gold)} .tier.B{background:var(--accent-soft);color:var(--accent)}
+.tier.C{background:var(--surface-2);color:var(--muted)}
+.cbody{padding:12px 13px 14px;display:flex;flex-direction:column;gap:7px;flex:1}
+.ctitle{font-size:14px;font-weight:700;line-height:1.25}
+.csub{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
+.spark{width:100%;height:28px;display:block;color:var(--accent)}
+.pill{display:inline-flex;font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:3px 8px;
+  border-radius:999px;width:fit-content}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.no{background:var(--crit-soft);color:var(--crit)}
+.pill.flag{background:var(--gold-soft);color:var(--gold)}
+.prow{display:flex;align-items:baseline;gap:8px;margin-top:auto;flex-wrap:wrap}
+.price{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:19px}
+.pp{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
+.delta{font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600}
+.delta.dn{color:var(--ok)} .delta.up{color:var(--crit)}
+
+dialog{border:0;border-radius:14px;padding:0;max-width:900px;width:calc(100% - 32px);
+  background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(10,10,22,.55)}
+.dlg-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
+  padding:20px 22px 14px;border-bottom:1px solid var(--line)}
+.dlg-head h2{margin:0;font-size:19px}
+.close{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:8px;
+  font:inherit;padding:5px 11px;cursor:pointer}
+.dlg-body{padding:8px 22px 22px;max-height:70vh;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);position:sticky;top:0;background:var(--surface)}
+td.n{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.tbl-scroll{overflow-x:auto}
+
+.mv{display:grid;gap:22px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.mv section{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:16px 18px}
+.mv h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
+.mv .badge{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.mv ul{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.mv li{font-size:13.5px;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.mv .empty{color:var(--muted);font-size:13.5px}
+
+.hist-pick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:18px}
+.chart svg{width:100%;height:300px;display:block}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:10px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:2px;background:currentColor;vertical-align:middle;margin-right:5px}
+
+footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+footer .shops{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+footer .s{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:3px 8px;border-radius:6px;background:var(--surface-2)}
+footer .s.bad{background:var(--crit-soft);color:var(--crit)}
+.hidden{display:none!important}
+@media (max-width:600px){h1{font-size:22px}.wrap{padding:0 14px 60px}}
+</style>
+</head>
+<body>
+<div id="stale" class="stale hidden"></div>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Cenová mapa Pokémon TCG</h1>
+      <div class="sub" id="subtitle">načítavam…</div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-today" aria-selected="true">Dnes</button>
+      <button class="tab" role="tab" id="tab-moves" aria-selected="false">Pohyby</button>
+      <button class="tab" role="tab" id="tab-hist" aria-selected="false">História</button>
+    </div>
+  </header>
+
+  <div id="view-today">
+    <div class="bar">
+      <button class="f" data-fmt="booster" aria-pressed="false">Booster</button>
+      <button class="f" data-fmt="bundle" aria-pressed="false">Bundle</button>
+      <button class="f" data-fmt="booster-box" aria-pressed="false">Box</button>
+      <button class="f" data-fmt="etb" aria-pressed="false">ETB</button>
+      <span style="width:12px"></span>
+      <button class="f" id="only-stock" aria-pressed="false">len skladom</button>
+      <button class="f" id="show-c" aria-pressed="false">+ cenová kotva</button>
+      <span class="spacer"></span>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <div id="view-moves" class="hidden"></div>
+
+  <div id="view-hist" class="hidden">
+    <div class="hist-pick" id="hist-pick"></div>
+    <div class="chart" id="chart"></div>
+  </div>
+
+  <footer id="footer"></footer>
+</div>
+
+<dialog id="detail">
+  <div class="dlg-head">
+    <div><h2 id="d-title"></h2><div class="sub" id="d-sub"></div></div>
+    <button class="close" id="d-close">Zavrieť</button>
+  </div>
+  <div class="dlg-body"><div class="tbl-scroll"><table id="d-table"></table></div></div>
+</dialog>
+
+<script>
+const state = {data:null, formats:new Set(), onlyStock:false, showC:false, view:'today', histKey:null};
+const eur = v => v==null ? '—' : v.toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const el = (t,c,txt) => { const n=document.createElement(t); if(c)n.className=c; if(txt!=null)n.textContent=txt; return n; };
+const shopName = id => (state.data.shops.find(s=>s.id===id)||{}).name || id;
+
+function sparkline(points){
+  if(!points || points.length < 2) return '';
+  const vs = points.map(p=>p.v), min=Math.min(...vs), max=Math.max(...vs), span=(max-min)||1;
+  const step = 100/(points.length-1);
+  const coords = points.map((p,i)=>`${(i*step).toFixed(1)},${(24-((p.v-min)/span)*20).toFixed(1)}`);
+  const last = coords[coords.length-1].split(',');
+  return `<svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points="${coords.join(' ')}" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".55"/>
+    <circle cx="${last[0]}" cy="${last[1]}" r="2.2" fill="currentColor"/></svg>`;
+}
+
+function visibleProducts(){
+  return state.data.products.filter(p=>{
+    if(!state.showC && p.edition.tier === 'C') return false;
+    if(state.formats.size && !state.formats.has(p.format.id)) return false;
+    if(state.onlyStock && p.in_stock_count === 0) return false;
+    return true;
+  });
+}
+
+function renderCards(){
+  const box = document.getElementById('cards');
+  box.innerHTML = '';
+  const items = visibleProducts();
+  document.getElementById('count').textContent =
+    `${items.length} produktov · ${items.reduce((a,p)=>a+p.offer_count,0)} ponúk`;
+  for(const p of items){
+    const card = el('button','card');
+    card.type = 'button';
+    const flag = (p.offers.find(o=>o.in_stock && o.flag)||{}).flag || '';
+    const delta = p.min_delta_pct;
+    card.innerHTML = `
+      <div class="thumb">
+        <span class="tier ${p.edition.tier}">${p.edition.tier}</span>
+        <span class="ph">bez obrázka</span>
+        ${p.image ? `<img src="${p.image}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+      </div>
+      <div class="cbody">
+        <div class="ctitle">${p.edition.name} — ${p.format.name}</div>
+        <div class="csub">${p.edition.code || '—'} · ${p.packs} ${p.packs===1?'balíček':'balíčkov'} · ${p.offer_count} ponúk</div>
+        ${sparkline(p.history)}
+        ${p.in_stock_count
+          ? `<span class="pill ok">skladom v ${p.in_stock_count} eshopoch</span>`
+          : '<span class="pill no">nikde skladom</span>'}
+        ${flag ? `<span class="pill flag">${flag}</span>` : ''}
+        <div class="prow">
+          <span class="price"${p.min_eur==null?' style="color:var(--muted)"':''}>${eur(p.min_eur!=null?p.min_eur:p.min_any_eur)}</span>
+          ${p.min_per_pack_eur!=null
+            ? `<span class="pp">${eur(p.min_per_pack_eur)} / balíček</span>`
+            : `<span class="pp">najlacnejšia ponuka, nie je skladom</span>`}
+          ${delta!=null&&delta!==0?`<span class="delta ${delta<0?'dn':'up'}">${delta>0?'+':''}${delta} %</span>`:''}
+        </div>
+      </div>`;
+    card.addEventListener('click', ()=>openDetail(p));
+    box.appendChild(card);
+  }
+  if(!items.length) box.innerHTML = '<p class="count">Nič nezodpovedá filtru.</p>';
+}
+
+function openDetail(p){
+  document.getElementById('d-title').textContent = `${p.edition.name} — ${p.format.name}`;
+  document.getElementById('d-sub').textContent =
+    `${p.edition.code||'—'} · úroveň ${p.edition.tier} · ${p.packs} balíčkov · medián skladom ${eur(p.median_eur)}`;
+  const rows = p.offers.map(o=>`
+    <tr>
+      <td>${shopName(o.shop_id)}</td>
+      <td class="n">${o.price.toLocaleString('sk-SK')} ${o.currency}</td>
+      <td class="n">${eur(o.price_eur)}</td>
+      <td class="n">${eur(o.per_pack_eur)}</td>
+      <td>${o.in_stock?'<span class="pill ok">skladom</span>':'<span class="pill no">nie je</span>'}</td>
+      <td class="n">${o.delta_pct!=null&&o.delta_pct!==0?`<span class="delta ${o.delta_pct<0?'dn':'up'}">${o.delta_pct>0?'+':''}${o.delta_pct} %</span>`:'—'}</td>
+      <td>${o.flag?`<span class="pill flag">${o.flag}</span>`:''}${o.outlier?' <span class="pill no">skok ceny</span>':''}</td>
+      <td><a href="${o.url}" target="_blank" rel="noopener">otvoriť</a></td>
+    </tr>`).join('');
+  document.getElementById('d-table').innerHTML =
+    `<thead><tr><th>Eshop</th><th>Cena</th><th>V €</th><th>Za balíček</th><th>Dostupnosť</th><th>Zmena</th><th>Značky</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+  document.getElementById('detail').showModal();
+}
+
+function renderMoves(){
+  const m = state.data.movements;
+  const groups = [
+    ['Naskladnené', m.restocked, 'to, čo dnes pribudlo na sklad'],
+    ['Zlacnené', m.price_drop, 'pokles nad 3 % oproti minulému behu'],
+    ['Vypredané', m.sold_out, 'čo dnes zmizlo zo skladu'],
+    ['Nové v katalógu', m.new, 'ponuka, ktorá tam včera nebola'],
+  ];
+  document.getElementById('view-moves').innerHTML = '<div class="mv">' + groups.map(([title,list,note])=>`
+    <section>
+      <h3>${title} <span class="badge">${list.length}</span></h3>
+      <div class="sub" style="margin-bottom:10px">${note}</div>
+      ${list.length ? `<ul>${list.slice(0,40).map(i=>`
+        <li><a href="${i.url}" target="_blank" rel="noopener">${i.product}</a>
+        <span class="mono">${shopName(i.shop_id)} · ${eur(i.price_eur)}${i.delta!=null?` (${i.delta} %)`:''}</span></li>`).join('')}</ul>`
+        : '<p class="empty">Nič.</p>'}
+    </section>`).join('') + '</div>';
+}
+
+function renderHistory(){
+  const products = state.data.products.filter(p=>p.history.length>1);
+  if(!products.length){ document.getElementById('chart').innerHTML =
+    '<p class="count">História sa začne plniť po druhom dennom behu.</p>'; return; }
+  if(!state.histKey || !products.find(p=>p.key===state.histKey)) state.histKey = products[0].key;
+  const pick = document.getElementById('hist-pick');
+  pick.innerHTML = '';
+  for(const p of products){
+    const b = el('button','f', `${p.edition.name} · ${p.format.short}`);
+    b.setAttribute('aria-pressed', String(p.key===state.histKey));
+    b.addEventListener('click', ()=>{ state.histKey = p.key; renderHistory(); });
+    pick.appendChild(b);
+  }
+  const p = products.find(x=>x.key===state.histKey);
+  const pts = p.history, vs = pts.map(x=>x.v);
+  const min = Math.min(...vs), max = Math.max(...vs), span=(max-min)||1;
+  const W=1000, H=300, pad={l:58,r:14,t:16,b:28};
+  const x = i => pad.l + i*((W-pad.l-pad.r)/Math.max(1,pts.length-1));
+  const y = v => pad.t + (1-(v-min)/span)*(H-pad.t-pad.b);
+  const line = pts.map((q,i)=>`${x(i).toFixed(1)},${y(q.v).toFixed(1)}`).join(' ');
+  const area = `${pad.l},${H-pad.b} ${line} ${x(pts.length-1).toFixed(1)},${H-pad.b}`;
+  const ticks = [min, min+span/2, max];
+  document.getElementById('chart').innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Vývoj najnižšej ceny skladom">
+      ${ticks.map(t=>`<line x1="${pad.l}" x2="${W-pad.r}" y1="${y(t)}" y2="${y(t)}" stroke="currentColor" opacity=".12"/>
+         <text x="${pad.l-10}" y="${y(t)+4}" text-anchor="end" font-size="12" fill="currentColor" opacity=".55"
+           font-family="IBM Plex Mono, monospace">${t.toFixed(0)} €</text>`).join('')}
+      <polygon points="${area}" fill="currentColor" opacity=".08"/>
+      <polyline points="${line}" fill="none" stroke="currentColor" stroke-width="2.5" opacity=".8"/>
+      <circle cx="${x(pts.length-1)}" cy="${y(pts[pts.length-1].v)}" r="4" fill="currentColor"/>
+      <text x="${pad.l}" y="${H-8}" font-size="12" fill="currentColor" opacity=".55"
+        font-family="IBM Plex Mono, monospace">${pts[0].d}</text>
+      <text x="${W-pad.r}" y="${H-8}" text-anchor="end" font-size="12" fill="currentColor" opacity=".55"
+        font-family="IBM Plex Mono, monospace">${pts[pts.length-1].d}</text>
+    </svg>
+    <div class="legend"><span><i></i> najnižšia cena skladom · ${p.edition.name} ${p.format.name}</span></div>`;
+}
+
+function renderFooter(){
+  const d = state.data;
+  const shops = d.shops.map(s=>`<span class="s ${s.ok?'':'bad'}">${s.name}${s.ok?` ${s.count}`:' — nedostupný'}</span>`).join('');
+  document.getElementById('footer').innerHTML = `
+    <div>Posledný sken ${new Date(d.generated_at).toLocaleString('sk-SK')} ·
+      kurz ${d.fx.czk_per_eur} Kč/€${d.fx.stale?' (starý kurz)':''} ·
+      ${d.counts.offers} ponúk, ${d.counts.products} produktov</div>
+    <div class="shops">${shops}</div>
+    <div>Značka <b>pod trhom</b> = 5–30 % pod mediánom ponúk skladom. <b>overiť</b> = viac než 30 %, skoro vždy chyba eshopu.
+      Ceny zberateľských kariet sú špekulatívne — toto nie je investičné poradenstvo.</div>`;
+}
+
+function setView(name){
+  state.view = name;
+  for(const [id,view] of [['tab-today','view-today'],['tab-moves','view-moves'],['tab-hist','view-hist']]){
+    const active = id === 'tab-'+name;
+    document.getElementById(id).setAttribute('aria-selected', String(active));
+    document.getElementById(view).classList.toggle('hidden', !active);
+  }
+  if(name==='moves') renderMoves();
+  if(name==='hist') renderHistory();
+}
+
+function boot(data){
+  state.data = data;
+  document.getElementById('subtitle').textContent =
+    `${data.date} · ${data.shops.filter(s=>s.ok).length} z ${data.shops.length} eshopov · sealed produkty edícií A a B`;
+  const today = new Date().toISOString().slice(0,10);
+  if(data.date !== today){
+    const bar = document.getElementById('stale');
+    bar.textContent = `Pozor: dáta sú z ${data.date}, dnes je ${today}. Denný sken zrejme neprebehol.`;
+    bar.classList.remove('hidden');
+  }
+  renderCards(); renderFooter();
+}
+
+document.querySelectorAll('.f[data-fmt]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const id = btn.dataset.fmt;
+    state.formats.has(id) ? state.formats.delete(id) : state.formats.add(id);
+    btn.setAttribute('aria-pressed', String(state.formats.has(id)));
+    renderCards();
+  });
+});
+for(const [id,key] of [['only-stock','onlyStock'],['show-c','showC']]){
+  document.getElementById(id).addEventListener('click', e=>{
+    state[key] = !state[key];
+    e.currentTarget.setAttribute('aria-pressed', String(state[key]));
+    renderCards();
+  });
+}
+document.getElementById('tab-today').addEventListener('click', ()=>setView('today'));
+document.getElementById('tab-moves').addEventListener('click', ()=>setView('moves'));
+document.getElementById('tab-hist').addEventListener('click', ()=>setView('hist'));
+document.getElementById('d-close').addEventListener('click', ()=>document.getElementById('detail').close());
+
+fetch('latest.json?v=' + Date.now())
+  .then(r=>r.json()).then(boot)
+  .catch(()=>{ document.getElementById('subtitle').textContent =
+    'latest.json sa nepodarilo načítať — prebehol už denný sken?'; });
+</script>
+</body>
+</html>

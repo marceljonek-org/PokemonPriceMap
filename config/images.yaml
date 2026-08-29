@@ -1,0 +1,7 @@
+# Ručné prebitie obrázkov. Kľúč je "<edition_id>|<format_id>",
+# hodnota je URL obrázka, ktorý sa má použiť namiesto automaticky vybraného.
+# Príklad:
+# images:
+#   "30th-celebration|etb": "https://tcg.pokemon.com/assets/img/.../etb.png"
+
+images: {}

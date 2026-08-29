@@ -1,0 +1,120 @@
+# Sledované edície. Úroveň A/B sa zobrazuje, C je len cenová kotva (na stránke skrytá).
+# `patterns` sú regexy (case-insensitive) hľadané v názve produktu.
+# Poradie rozhoduje — prvá zhoda vyhráva, preto idú konkrétnejšie vzory hore.
+
+editions:
+  - id: prismatic-evolutions
+    name: Prismatic Evolutions
+    code: SV8.5
+    tier: A
+    note: Blue-chip set, 9 Eeveelution SIR kariet
+    patterns:
+      - "prismatic\\s+evolution"
+      - "\\bsv\\s*8[.,]5\\b"
+
+  - id: ascended-heroes
+    name: Ascended Heroes
+    code: ME02.5
+    tier: A
+    note: Najväčší anglický set v histórii, Mega Gengar ex SIR
+    patterns:
+      - "ascend(ed|ant)\\s+heroes"
+      - "\\bme\\s*0?2[.,]5\\b"
+
+  - id: 30th-celebration
+    name: 30th Celebration
+    code: "30th"
+    tier: A
+    note: Výročný set, vydanie 16. 9. 2026
+    patterns:
+      - "30th\\s+(celebration|anniversary)"
+      - "30\\.?\\s*(výro[čc]ie|vyroci|výro[čc]í)"
+
+  - id: perfect-order
+    name: Perfect Order
+    code: ME03
+    tier: B
+    note: Menší print run
+    patterns:
+      - "perfect\\s+order"
+      - "\\bme\\s*0?3\\b"
+
+  - id: chaos-rising
+    name: Chaos Rising
+    code: ME04
+    tier: B
+    note: Mega Greninja, menší set
+    patterns:
+      - "chaos\\s+rising"
+      - "\\bme\\s*0?4\\b"
+
+  - id: delta-reign
+    name: Delta Reign
+    code: ME06
+    tier: B
+    note: Hoennskí starteri
+    patterns:
+      - "delta\\s+reign"
+      - "mega\\s+reign"
+      - "\\bme\\s*0?6\\b"
+
+  - id: pitch-black
+    name: Pitch Black
+    code: ME05
+    tier: C
+    note: Cenová kotva, na stránke skrytá pod prepínačom
+    patterns:
+      - "pitch\\s+black"
+      - "\\bme\\s*0?5\\b"
+
+# Formáty. `packs` = počet boosterov v balení, používa sa na cenu za balíček.
+formats:
+  - id: etb
+    name: Elite Trainer Box
+    short: ETB
+    packs: 9
+    patterns:
+      - "elite\\s+trainer\\s+box"
+      - "\\betb\\b"
+  - id: booster-box
+    name: Booster Box
+    short: Box
+    packs: 36
+    patterns:
+      - "booster\\s+box"
+      - "hobby\\s+box"
+  - id: bundle
+    name: Booster Bundle
+    short: Bundle
+    packs: 6
+    patterns:
+      - "booster\\s+bundle"
+      - "\\bbundle\\b"
+  - id: booster
+    name: Booster
+    short: Booster
+    packs: 1
+    patterns:
+      - "\\bbooster\\b"
+      - "\\bbooster\\s+pack\\b"
+
+# Výnimky z počtu balíčkov: (edition_id, format_id) -> packs
+pack_overrides:
+  - edition: 30th-celebration
+    format: etb
+    packs: 10
+
+# Čo zahodiť ešte pred klasifikáciou (iné jazykové verzie, iné produkty).
+exclude_patterns:
+  - "japon|japan|jap\\.|\\bjp\\b"
+  - "[čc][íi]nsk|chinese"
+  - "k[óo]rejsk|korean"
+  - "bundle\\s+display"
+  - "\\bcase\\b|\\bcarton\\b"
+  - "bundle\\s+box"
+  - "\\d+\\s*[x×]\\s*(booster|bundle|box)"
+  - "po[sš]koden|damaged"
+  - "mini\\s+tin|\\bex\\s+box\\b|ex\\s+tin"
+  - "poster|sticker|binder|pin\\s+collection|pouch|figure|surprise\\s+box|premium\\s+collection"
+  - "single|karta\\b|obal|sleeve|deck\\s+box|album|toploader"
+  - "plyš|plys|figúrk|figurk|puzzle"
