@@ -33,7 +33,8 @@ class Edition:
     id: str
     name: str
     code: str
-    tier: str
+    tier: str          # A/B/C podľa investičného rozboru, "" ak nie je zaradená
+    series: str        # ME / SV / special
     note: str
     patterns: tuple
 
@@ -43,7 +44,8 @@ class Format:
     id: str
     name: str
     short: str
-    packs: int
+    packs: int | None       # None = počet balíčkov sa líši podľa setu
+    edition_optional: bool  # smie existovať aj bez rozpoznanej edície
     patterns: tuple
 
 
@@ -51,7 +53,8 @@ class Format:
 class Classification:
     edition: Edition
     format: Format
-    packs: int
+    packs: int | None
+    variant: str = ""   # rozlíšenie samostatných kolekcií (napr. "mega-charizard-x-ex")
 
 
 @lru_cache(maxsize=1)
@@ -60,7 +63,8 @@ def _config() -> dict:
         raw = yaml.safe_load(fh)
     editions = [
         Edition(
-            id=e["id"], name=e["name"], code=e.get("code") or "", tier=e["tier"],
+            id=e["id"], name=e["name"], code=e.get("code") or "",
+            tier=e.get("tier") or "", series=e.get("series") or "",
             note=e.get("note", ""),
             patterns=tuple(re.compile(normalize(p), re.I) for p in e["patterns"]),
         )
@@ -68,7 +72,8 @@ def _config() -> dict:
     ]
     formats = [
         Format(
-            id=f["id"], name=f["name"], short=f["short"], packs=f["packs"],
+            id=f["id"], name=f["name"], short=f["short"], packs=f.get("packs"),
+            edition_optional=bool(f.get("edition_optional")),
             patterns=tuple(re.compile(normalize(p), re.I) for p in f["patterns"]),
         )
         for f in raw["formats"]
@@ -118,12 +123,21 @@ def classify(name: str) -> Classification | None:
     edition = next(
         (e for e in editions() if any(p.search(n) for p in e.patterns)), None
     )
-    if edition is None:
-        return None
-
     fmt = next((f for f in formats() if any(p.search(n) for p in f.patterns)), None)
     if fmt is None:
         return None
+    if edition is None:
+        # Premiové kolekcie sa často predávajú bez kódu setu (Mega Charizard X ex
+        # UPC, Terapagos ex UPC). Sú to plnohodnotné zapečatené produkty, tak ich
+        # nechávame pod zbernou edíciou namiesto zahodenia.
+        if not fmt.edition_optional:
+            return None
+        edition = edition_by_id("standalone")
+        if edition is None:
+            return None
+        variant = subject_of(n, fmt)
+        packs = fmt.packs
+        return Classification(edition=edition, format=fmt, packs=packs, variant=variant)
 
     packs = _config()["overrides"].get((edition.id, fmt.id), fmt.packs)
     return Classification(edition=edition, format=fmt, packs=packs)
@@ -145,3 +159,30 @@ def looks_like_new_edition(name: str) -> bool:
     if any(p.search(n) for e in editions() for p in e.patterns):
         return False
     return bool(re.search(r"\bme\s*\d{1,2}(?:[.,]\d)?\b|\bsv\s*\d{1,2}(?:[.,]\d)?\b", n))
+
+
+_NOISE = re.compile(
+    r"pokemon|pok[eé]mon|\btcg\b|\bkarty\b|\bkartov[aá]\b|\bhra\b|"
+    r"\(\d{4}\)|\b\d{4}\b|\bnov[ée]\b|\bnew\b"
+)
+
+
+def subject_of(normalized_name: str, fmt: Format) -> str:
+    """Z názvu samostatnej kolekcie vytiahne, čoho sa týka.
+
+    'pokemon tcg: mega charizard x ex ultra premium collection (2025)'
+    -> 'mega-charizard-x-ex'
+
+    Bez toho by všetky Ultra Premium Collection splynuli do jedného produktu,
+    lebo nemajú kód setu, podľa ktorého by sa dali rozlíšiť.
+    """
+    text = normalized_name
+    for pattern in fmt.patterns:                 # odrež názov formátu a všetko za ním
+        match = pattern.search(text)
+        if match:
+            text = text[: match.start()]
+            break
+    text = _NOISE.sub(" ", text)
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    words = [w for w in text.split() if len(w) > 1 or w.isdigit()]
+    return "-".join(words[:5])

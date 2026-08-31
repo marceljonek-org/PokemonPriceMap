@@ -65,6 +65,7 @@ def main() -> int:
                             "price_eur": round(float(row["price_eur"]) * drift, 2)})
 
     products, movements = scrape.build_products(rows, history, {}, today)
+    portfolio = scrape.build_portfolio(products, scrape.load_yaml("portfolio.yaml") or {}, fx)
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "date": today,
@@ -74,6 +75,7 @@ def main() -> int:
                    "count": len(r["offers"]), "error": ""} for r in results],
         "products": products,
         "movements": movements,
+        "portfolio": portfolio,
         "counts": {"offers": len(rows), "products": len(products), "unknown": len(unknown)},
     }
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))

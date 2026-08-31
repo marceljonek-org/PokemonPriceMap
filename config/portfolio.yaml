@@ -1,0 +1,33 @@
+# Čo už máš kúpené. Upravuje sa priamo na GitHube:
+# otvor tento súbor → ikona ceruzky → uprav → Commit changes.
+# Prepočet sa objaví po najbližšom skene (alebo spusti workflow ručne).
+#
+# `key` je identifikátor produktu — nájdeš ho na stránke v detaile položky,
+# vyzerá napríklad takto:  chaos-rising|booster-box
+#
+# `price` je cena, ktorú si zaplatil ZA JEDEN KUS, vrátane poštovného,
+# ak to chceš rátať poctivo.
+
+# Čím sa oceňuje aktuálna hodnota:
+#   median  — medián ponúk skladom (predvolené, realistickejšie)
+#   min     — najlacnejšia ponuka skladom (konzervatívnejšie)
+valuation: median
+
+holdings: []
+
+# Príklad, ako to vyzerá po vyplnení — skopíruj a uprav:
+#
+# holdings:
+#   - key: chaos-rising|booster-box
+#     qty: 2
+#     price: 219.99
+#     currency: EUR
+#     bought: 2026-07-14
+#     shop: Cardyx.sk
+#     note: prvý nákup
+#
+#   - key: prismatic-evolutions|etb
+#     qty: 1
+#     price: 4990
+#     currency: CZK
+#     bought: 2026-05-02

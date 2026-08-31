@@ -226,6 +226,16 @@ def test_stock_from_text(text, expected):
     ("Pokémon TCG: ME03 Perfect Order Elite Trainer Box", "perfect-order", "etb", 9),
     ("Pokémon TCG: 30th Celebration Elite Trainer Box", "30th-celebration", "etb", 10),
     ("Pokemon TCG 30. výročie Booster Bundle", "30th-celebration", "bundle", 6),
+    # rozšírenie na celú sériu SV a ME
+    ("Pokémon TCG ME01 Mega Evolutions Booster Box", "mega-evolution", "booster-box", 36),
+    ("Pokémon TCG: SV10 Destined Rivals - Booster box", "destined-rivals", "booster-box", 36),
+    ("Pokémon TCG: SV6.5 - Shrouded fable - Booster Bundle", "shrouded-fable", "bundle", 6),
+    ("Pokémon TCG: Temporal Forces SV05 Half Booster Box", "temporal-forces", "half-box", 18),
+    ("Pokémon TCG: SV07 Stellar Crown - 3 Blister Booster", "stellar-crown", "blister-3", 3),
+    ("Pokémon TCG: Scarlet & Violet 151 - Booster Bundle", "pokemon-151", "bundle", 6),
+    ("Pokémon TCG: ME02.5 Ascended Heroes Mini Tin", "ascended-heroes", "mini-tin", 2),
+    ("Pokémon TCG: SV8.5 Prismatic Evolutions Booster Bundle Display",
+     "prismatic-evolutions", "bundle-display", 48),
 ])
 def test_classify_hits(name, edition, fmt, packs):
     hit = classify.classify(name)
@@ -237,16 +247,36 @@ def test_classify_hits(name, edition, fmt, packs):
 
 @pytest.mark.parametrize("name", [
     "Pokémon TCG: Storm Emeralda Booster Box - japonský",
-    "Pokémon TCG: ME02.5 Ascended Heroes Mini Tin",
-    "Pokémon TCG: SV8.5 Prismatic Evolutions Booster Bundle Display",
     "Pokémon TCG: Pitch Black Booster Box Case (6x Booster Box)",
-    "Pokémon TCG Chaos Rising Booster Bundle Box (8x Bundle)",
-    "Pokémon TCG: Ascended Heroes Premium Poster Collection",
+    "Pokémon TCG: Lost Origin Booster Box Sword and Shield 11",   # mimo SV a ME
     "Spin Master Bitzee Bouda pro pejsky",
-    "Pokémon TCG: Twilight Masquerade Booster Box",
+    "Album Ultimate Guard - Flexxfolio 360 18-vreckový",
+    "Ampharos - 090/086 - ME04: Chaos Rising (CRI)",              # jednotlivá karta
 ])
 def test_classify_rejects(name):
     assert classify.classify(name) is None, name
+
+
+@pytest.mark.parametrize("name,variant", [
+    ("Pokémon TCG: Mega Charizard X ex Ultra Premium Collection (2025)", "mega-charizard-ex"),
+    ("Pokémon TCG Mega Charizard X ex - Ultra Premium Collection", "mega-charizard-ex"),
+    ("Pokémon TCG: Terapagos EX Ultra Premium Collection", "terapagos-ex"),
+])
+def test_standalone_premium_collections(name, variant):
+    """Premiové kolekcie sa predávajú bez kódu setu. Nesmú vypadnúť — a zároveň
+    sa nesmú zliať do jednej položky, preto ich rozlišuje `variant`."""
+    hit = classify.classify(name)
+    assert hit is not None, name
+    assert hit.edition.id == "standalone"
+    assert hit.format.id == "ultra-premium"
+    assert hit.variant == variant
+
+
+def test_formats_without_pack_count():
+    """UPC a podobné kolekcie majú premenlivý počet balíčkov — radšej žiadny
+    údaj než vymyslený, inak by cena za balíček klamala."""
+    hit = classify.classify("Pokémon TCG: Terapagos EX Ultra Premium Collection")
+    assert hit.packs is None
 
 
 def test_30th_etb_has_ten_packs():
@@ -256,9 +286,34 @@ def test_30th_etb_has_ten_packs():
     assert other.packs == 9 and special.packs == 10
 
 
-def test_every_tracked_edition_has_a_tier():
-    assert {e.tier for e in classify.editions()} <= {"A", "B", "C"}
+def test_tiers_are_valid_and_series_complete():
+    """Tier je nepovinný — sledujeme celú sériu, nie len investičné špičky."""
+    assert {e.tier for e in classify.editions()} <= {"A", "B", "C", ""}
     assert any(e.tier == "A" for e in classify.editions())
+    series = [e.series for e in classify.editions()]
+    assert series.count("ME") >= 7, "chýbajú sety Mega Evolution"
+    assert series.count("SV") >= 15, "chýbajú sety Scarlet & Violet"
+
+
+def test_half_sets_win_over_base_sets():
+    """SV8.5 sa nesmie chytiť na vzor pre SV08 — polovičné sety musia
+    byť v konfigurácii nad základnými."""
+    assert classify.classify("Pokémon TCG: SV8.5 Prismatic Evolutions - Booster") \
+        .edition.id == "prismatic-evolutions"
+    assert classify.classify("Pokémon TCG: SV08 Surging Sparks - Booster") \
+        .edition.id == "surging-sparks"
+    assert classify.classify("Pokémon TCG: ME02.5 Ascended Heroes - Booster") \
+        .edition.id == "ascended-heroes"
+    assert classify.classify("Pokémon TCG: ME02 Phantasmal Flames - Booster") \
+        .edition.id == "phantasmal-flames"
+
+
+def test_twin_sets_are_separate_products():
+    """White Flare a Black Bolt zdieľajú kód SV10.5, ale sú to iné sety."""
+    white = classify.classify("Pokémon TCG: SV10.5 White Flare - Elite Trainer Box")
+    black = classify.classify("Pokémon TCG: SV10.5 Black Bolt - Elite Trainer Box")
+    assert white.edition.id != black.edition.id
+    assert white.edition.code == black.edition.code == "SV10.5"
 
 
 # ------------------------------------------------------------- konfigurácia
@@ -419,3 +474,61 @@ def test_history_rerun_replaces_same_day(tmp_path, monkeypatch):
     history = scrape.read_history()
     assert sum(1 for r in history if r["date"] == "2026-08-28") == 5
     assert sum(1 for r in history if r["date"] == "2026-08-29") == 6
+
+
+# ------------------------------------------------------------- portfólio
+
+def _product(key, title, median, minimum):
+    return {"key": key, "title": title, "median_eur": median, "min_eur": minimum,
+            "min_any_eur": minimum or median}
+
+
+def test_portfolio_computes_profit_and_loss():
+    import scrape
+    products = [_product("chaos-rising|booster-box", "Chaos Rising — Booster Box", 240.0, 219.0)]
+    config = {"valuation": "median", "holdings": [
+        {"key": "chaos-rising|booster-box", "qty": 2, "price": 200, "currency": "EUR"}]}
+    fx = {"czk_eur": 1 / 24.0}
+    portfolio = scrape.build_portfolio(products, config, fx)
+    item = portfolio["items"][0]
+    assert item["cost_eur"] == 400.0
+    assert item["value_eur"] == 480.0
+    assert item["pl_eur"] == 80.0
+    assert item["pl_pct"] == 20.0
+    assert portfolio["totals"]["pl_eur"] == 80.0
+
+
+def test_portfolio_converts_purchase_in_czk():
+    import scrape
+    products = [_product("pitch-black|etb", "Pitch Black — ETB", 80.0, 78.0)]
+    config = {"holdings": [
+        {"key": "pitch-black|etb", "qty": 1, "price": 1899, "currency": "CZK"}]}
+    portfolio = scrape.build_portfolio(products, config, {"czk_eur": 1 / 24.0})
+    assert portfolio["items"][0]["cost_eur"] == round(1899 / 24.0, 2)
+
+
+def test_portfolio_valuation_basis_min_is_more_conservative():
+    import scrape
+    products = [_product("k|f", "X", 240.0, 219.0)]
+    holding = {"key": "k|f", "qty": 1, "price": 200, "currency": "EUR"}
+    fx = {"czk_eur": 1 / 24.0}
+    by_median = scrape.build_portfolio(products, {"valuation": "median", "holdings": [holding]}, fx)
+    by_min = scrape.build_portfolio(products, {"valuation": "min", "holdings": [holding]}, fx)
+    assert by_min["items"][0]["value_eur"] < by_median["items"][0]["value_eur"]
+
+
+def test_portfolio_flags_unknown_key():
+    """Preklep v key sa musí ohlásiť, nie ticho spadnúť pod stôl."""
+    import scrape
+    portfolio = scrape.build_portfolio(
+        [], {"holdings": [{"key": "preklep|xxx", "qty": 1, "price": 50}]},
+        {"czk_eur": 1 / 24.0})
+    assert portfolio["items"][0]["found"] is False
+    assert portfolio["totals"]["unmatched"] == 1
+
+
+def test_empty_portfolio_is_not_an_error():
+    import scrape
+    portfolio = scrape.build_portfolio([], {}, {"czk_eur": 1 / 24.0})
+    assert portfolio["items"] == []
+    assert portfolio["totals"]["cost_eur"] == 0

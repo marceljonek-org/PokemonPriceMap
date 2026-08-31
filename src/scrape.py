@@ -233,7 +233,7 @@ def read_history() -> list[dict]:
 
 
 HISTORY_FIELDS = [
-    "date", "shop_id", "edition_id", "format_id", "packs", "name", "url",
+    "date", "shop_id", "edition_id", "format_id", "variant", "packs", "name", "url",
     "price", "currency", "price_eur", "per_pack_eur", "in_stock", "image",
 ]
 
@@ -281,13 +281,14 @@ def build_rows(results: list[dict], fx: dict, today: str) -> tuple[list[dict], l
                 "shop_id": shop["id"],
                 "edition_id": hit.edition.id,
                 "format_id": hit.format.id,
-                "packs": hit.packs,
+                "variant": hit.variant,
+                "packs": hit.packs if hit.packs else "",
                 "name": offer.name,
                 "url": offer.url,
                 "price": round(offer.price, 2),
                 "currency": offer.currency.upper(),
                 "price_eur": price_eur,
-                "per_pack_eur": round(price_eur / hit.packs, 2),
+                "per_pack_eur": round(price_eur / hit.packs, 2) if hit.packs else "",
                 "in_stock": "1" if offer.in_stock else "0",
                 "image": offer.image,
             })
@@ -303,7 +304,7 @@ def dedupe_rows(rows: list[dict]) -> list[dict]:
     """
     best: dict[tuple, dict] = {}
     for row in rows:
-        key = (row["shop_id"], row["edition_id"], row["format_id"])
+        key = (row["shop_id"], row["edition_id"], row["format_id"], row.get("variant", ""))
         current = best.get(key)
         if current is None:
             best[key] = row
@@ -319,7 +320,7 @@ def previous_snapshot(history: list[dict]) -> tuple[str | None, dict]:
     if not history:
         return None, {}
     last_date = max(r["date"] for r in history)
-    snapshot = {(r["shop_id"], r["edition_id"], r["format_id"]): r
+    snapshot = {(r["shop_id"], r["edition_id"], r["format_id"], r.get("variant", "")): r
                 for r in history if r["date"] == last_date}
     return last_date, snapshot
 
@@ -385,14 +386,14 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
     last_date, previous = previous_snapshot(history)
     grouped = defaultdict(list)
     for row in rows:
-        grouped[(row["edition_id"], row["format_id"])].append(row)
+        grouped[(row["edition_id"], row["format_id"], row.get("variant", ""))].append(row)
 
     # denné minimum skladom na produkt, pre sparkliny
     series = defaultdict(dict)
     for row in history + rows:
         if row.get("in_stock") not in ("1", 1, True):
             continue
-        key = (row["edition_id"], row["format_id"])
+        key = (row["edition_id"], row["format_id"], row.get("variant", ""))
         day = row["date"]
         value = float(row["price_eur"])
         current = series[key].get(day)
@@ -400,7 +401,7 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
 
     products, movements = [], {"restocked": [], "sold_out": [], "price_drop": [], "new": []}
 
-    for (edition_id, format_id), offers in sorted(grouped.items()):
+    for (edition_id, format_id, variant), offers in sorted(grouped.items()):
         edition = classify.edition_by_id(edition_id)
         fmt = classify.format_by_id(format_id)
         if edition is None or fmt is None:
@@ -410,13 +411,18 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
         median_eur = statistics.median(prices_in_stock) if prices_in_stock else None
         min_eur = prices_in_stock[0] if prices_in_stock else None
 
-        key = f"{edition_id}|{format_id}"
+        key = f"{edition_id}|{format_id}|{variant}" if variant else f"{edition_id}|{format_id}"
+        packs = offers[0]["packs"] or None
+        if isinstance(packs, str):
+            packs = int(packs) if packs.isdigit() else None
+        title = (variant.replace("-", " ").title() if variant
+                 else f"{edition.name} — {fmt.name}")
         image = images.get(key) or next((o["image"] for o in offers if o["image"]), "")
 
         offer_list = []
         for offer in sorted(offers, key=lambda o: float(o["price_eur"])):
             price_eur = float(offer["price_eur"])
-            prev = previous.get((offer["shop_id"], edition_id, format_id))
+            prev = previous.get((offer["shop_id"], edition_id, format_id, variant))
             delta = None
             if prev:
                 prev_price = float(prev["price_eur"])
@@ -427,19 +433,19 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
                 if prev["in_stock"] != offer["in_stock"]:
                     bucket = "restocked" if offer["in_stock"] == "1" else "sold_out"
                     movements[bucket].append({
-                        "key": key, "product": f"{edition.name} — {fmt.name}",
+                        "key": key, "product": title,
                         "shop_id": offer["shop_id"], "price_eur": price_eur,
                         "url": offer["url"],
                     })
                 if delta is not None and delta <= -3 and offer["in_stock"] == "1":
                     movements["price_drop"].append({
-                        "key": key, "product": f"{edition.name} — {fmt.name}",
+                        "key": key, "product": title,
                         "shop_id": offer["shop_id"], "price_eur": price_eur,
                         "delta": delta, "url": offer["url"],
                     })
             elif last_date:
                 movements["new"].append({
-                    "key": key, "product": f"{edition.name} — {fmt.name}",
+                    "key": key, "product": title,
                     "shop_id": offer["shop_id"], "price_eur": price_eur,
                     "url": offer["url"],
                 })
@@ -448,7 +454,7 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
                 "price": float(offer["price"]),
                 "currency": offer["currency"],
                 "price_eur": price_eur,
-                "per_pack_eur": float(offer["per_pack_eur"]),
+                "per_pack_eur": float(offer["per_pack_eur"]) if offer["per_pack_eur"] else None,
                 "in_stock": offer["in_stock"] == "1",
                 "url": offer["url"],
                 "name": offer["name"],
@@ -457,35 +463,106 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
                 "outlier": bool(offer.get("outlier")),
             })
 
-        points = sorted(series[(edition_id, format_id)].items())[-60:]
+        points = sorted(series[(edition_id, format_id, variant)].items())[-60:]
         min_any = min(float(o["price_eur"]) for o in offers)
         min_delta = None
         if min_eur is not None and len(points) >= 2 and points[-1][0] == today:
             before = points[-2][1]
             if before > 0:
                 min_delta = round((min_eur - before) / before * 100, 1)
+        values = [v for _, v in points]
         products.append({
             "key": key,
-            "edition": {"id": edition.id, "name": edition.name,
-                        "code": edition.code, "tier": edition.tier},
+            "title": title,
+            "edition": {"id": edition.id, "name": edition.name, "code": edition.code,
+                        "tier": edition.tier, "series": edition.series},
             "format": {"id": fmt.id, "name": fmt.name, "short": fmt.short},
-            "packs": offers[0]["packs"],
+            "variant": variant,
+            "packs": packs,
+            "low_eur": round(min(values), 2) if values else None,
+            "high_eur": round(max(values), 2) if values else None,
             "image": image,
             "min_eur": min_eur,
             "min_any_eur": round(min_any, 2),
             "min_delta_pct": min_delta,
             "median_eur": round(median_eur, 2) if median_eur else None,
-            "min_per_pack_eur": round(min_eur / offers[0]["packs"], 2) if min_eur else None,
+            "min_per_pack_eur": round(min_eur / packs, 2) if (min_eur and packs) else None,
             "offer_count": len(offers),
             "in_stock_count": len(in_stock),
             "history": [{"d": d, "v": v} for d, v in points],
             "offers": offer_list,
         })
 
-    order = {"A": 0, "B": 1, "C": 2}
+    order = {"A": 0, "B": 1, "C": 2, "": 3}
     products.sort(key=lambda p: (order.get(p["edition"]["tier"], 9),
-                                 p["edition"]["name"], p["format"]["id"]))
+                                 p["edition"]["name"], p["format"]["id"], p["variant"]))
     return products, movements
+
+
+# ------------------------------------------------------------------ portfólio
+
+def build_portfolio(products: list[dict], config: dict, fx: dict) -> dict:
+    """Porovná nákupné ceny s aktuálnym trhom.
+
+    Oceňuje sa retailovou cenou skladom — mediánom alebo najlacnejšou ponukou.
+    Je to len orientačné: cena, za ktorú sa produkt v obchode PONÚKA, nie je
+    cena, za ktorú ho vieš predať. Reálne speňaženie býva nižšie.
+    """
+    basis = (config.get("valuation") or "median").lower()
+    holdings = config.get("holdings") or []
+    by_key = {p["key"]: p for p in products}
+
+    items, cost_total, value_total = [], 0.0, 0.0
+    for entry in holdings:
+        key = str(entry.get("key") or "").strip()
+        product = by_key.get(key)
+        qty = float(entry.get("qty") or 0)
+        price = float(entry.get("price") or 0)
+        currency = str(entry.get("currency") or "EUR").upper()
+        unit_cost = to_eur(price, currency, fx) if price else 0.0
+
+        unit_value = None
+        if product:
+            unit_value = product["median_eur"] if basis == "median" else product["min_eur"]
+            if unit_value is None:
+                unit_value = product["min_eur"] or product["median_eur"] or product["min_any_eur"]
+
+        cost = round(unit_cost * qty, 2)
+        value = round(unit_value * qty, 2) if unit_value else None
+        cost_total += cost
+        if value:
+            value_total += value
+
+        items.append({
+            "key": key,
+            "title": product["title"] if product else key,
+            "found": bool(product),
+            "qty": qty,
+            "unit_cost_eur": round(unit_cost, 2),
+            "cost_eur": cost,
+            "unit_value_eur": round(unit_value, 2) if unit_value else None,
+            "value_eur": value,
+            "pl_eur": round(value - cost, 2) if value else None,
+            "pl_pct": round((value - cost) / cost * 100, 1) if (value and cost) else None,
+            "bought": str(entry.get("bought") or ""),
+            "shop": str(entry.get("shop") or ""),
+            "note": str(entry.get("note") or ""),
+            "price": price,
+            "currency": currency,
+        })
+
+    return {
+        "basis": basis,
+        "items": items,
+        "totals": {
+            "cost_eur": round(cost_total, 2),
+            "value_eur": round(value_total, 2),
+            "pl_eur": round(value_total - cost_total, 2),
+            "pl_pct": (round((value_total - cost_total) / cost_total * 100, 1)
+                       if cost_total else None),
+            "unmatched": sum(1 for i in items if not i["found"]),
+        },
+    }
 
 
 # ------------------------------------------------------------------ main
@@ -541,6 +618,12 @@ async def run(args) -> int:
         print("Pokračujem napriek chybám (--force).")
 
     products, movements = build_products(rows, history, images, today)
+    portfolio = build_portfolio(products, load_yaml("portfolio.yaml") or {}, fx)
+    if portfolio["items"]:
+        totals = portfolio["totals"]
+        print(f"Portfólio: {len(portfolio['items'])} položiek, náklady "
+              f"{totals['cost_eur']} €, hodnota {totals['value_eur']} €, "
+              f"rozdiel {totals['pl_eur']} €")
 
     if not args.dry_run:
         append_history(rows)
@@ -578,6 +661,7 @@ async def run(args) -> int:
         } for r in results],
         "products": products,
         "movements": movements,
+        "portfolio": portfolio,
         "counts": {"offers": kept, "products": len(products),
                    "unknown": len(unknown)},
     }

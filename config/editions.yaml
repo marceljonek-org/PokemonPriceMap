@@ -1,120 +1,336 @@
-# Sledované edície. Úroveň A/B sa zobrazuje, C je len cenová kotva (na stránke skrytá).
-# `patterns` sú regexy (case-insensitive) hľadané v názve produktu.
-# Poradie rozhoduje — prvá zhoda vyhráva, preto idú konkrétnejšie vzory hore.
+# Sledované edície — celá séria Scarlet & Violet a Mega Evolution.
+#
+# POZOR NA PORADIE: rozhoduje prvá zhoda, preto musia byť polovičné sety
+# (SV8.5, ME02.5) NAD základnými (SV08, ME02) — inak by "SV8.5" spadlo pod "SV08".
+#
+# `tier` je investičné zaradenie z `edicie-s-vysokym-investicnym-potencialom.md`.
+# Edície bez tieru sa sledujú tiež, len nemajú vlastný investičný rozbor.
 
 editions:
-  - id: prismatic-evolutions
-    name: Prismatic Evolutions
-    code: SV8.5
-    tier: A
-    note: Blue-chip set, 9 Eeveelution SIR kariet
-    patterns:
-      - "prismatic\\s+evolution"
-      - "\\bsv\\s*8[.,]5\\b"
-
+  # ---------------- Mega Evolution (2026) ----------------
   - id: ascended-heroes
     name: Ascended Heroes
     code: ME02.5
+    series: ME
     tier: A
     note: Najväčší anglický set v histórii, Mega Gengar ex SIR
-    patterns:
-      - "ascend(ed|ant)\\s+heroes"
-      - "\\bme\\s*0?2[.,]5\\b"
+    patterns: ["ascend(ed|ant)\\s+heroes", "\\bme\\s*0?2[.,]5\\b"]
 
-  - id: 30th-celebration
-    name: 30th Celebration
-    code: "30th"
-    tier: A
-    note: Výročný set, vydanie 16. 9. 2026
-    patterns:
-      - "30th\\s+(celebration|anniversary)"
-      - "30\\.?\\s*(výro[čc]ie|vyroci|výro[čc]í)"
+  - id: phantasmal-flames
+    name: Phantasmal Flames
+    code: ME02
+    series: ME
+    patterns: ["phantasmal\\s+flames", "\\bme\\s*0?2\\b"]
+
+  - id: mega-evolution
+    name: Mega Evolution
+    code: ME01
+    series: ME
+    note: Základný set série Mega Evolution
+    patterns: ["\\bme\\s*0?1\\b", "mega\\s+evolutions?\\s+(booster|elite|box)"]
 
   - id: perfect-order
     name: Perfect Order
     code: ME03
+    series: ME
     tier: B
-    note: Menší print run
-    patterns:
-      - "perfect\\s+order"
-      - "\\bme\\s*0?3\\b"
+    note: Menší print run, najvypredanejší sledovaný set
+    patterns: ["perfect\\s+order", "\\bme\\s*0?3\\b"]
 
   - id: chaos-rising
     name: Chaos Rising
     code: ME04
+    series: ME
     tier: B
-    note: Mega Greninja, menší set
-    patterns:
-      - "chaos\\s+rising"
-      - "\\bme\\s*0?4\\b"
-
-  - id: delta-reign
-    name: Delta Reign
-    code: ME06
-    tier: B
-    note: Hoennskí starteri
-    patterns:
-      - "delta\\s+reign"
-      - "mega\\s+reign"
-      - "\\bme\\s*0?6\\b"
+    note: Mega Greninja, menší set, lepší pull rate
+    patterns: ["chaos\\s+rising", "\\bme\\s*0?4\\b"]
 
   - id: pitch-black
     name: Pitch Black
     code: ME05
+    series: ME
     tier: C
-    note: Cenová kotva, na stránke skrytá pod prepínačom
-    patterns:
-      - "pitch\\s+black"
-      - "\\bme\\s*0?5\\b"
+    note: Bežný hlavný set, cenová kotva
+    patterns: ["pitch\\s+black", "\\bme\\s*0?5\\b"]
 
-# Formáty. `packs` = počet boosterov v balení, používa sa na cenu za balíček.
+  - id: delta-reign
+    name: Delta Reign
+    code: ME06
+    series: ME
+    tier: B
+    note: Hoennskí starteri, stabilný rast zapečatených boxov
+    patterns: ["delta\\s+reign", "mega\\s+reign", "\\bme\\s*0?6\\b"]
+
+  # ---------------- Výročný set ----------------
+  - id: 30th-celebration
+    name: 30th Celebration
+    code: "30th"
+    series: special
+    tier: A
+    note: Výročný set, vydanie 16. 9. 2026
+    patterns: ["30th\\s+(celebration|anniversary)", "30\\.?\\s*(výro[čc]ie|vyroci|výro[čc]í)"]
+
+  # ---------------- Scarlet & Violet: polovičné sety ----------------
+  - id: prismatic-evolutions
+    name: Prismatic Evolutions
+    code: SV8.5
+    series: SV
+    tier: A
+    note: Blue-chip set, 9 Eeveelution SIR kariet
+    patterns: ["prismatic\\s+evolution", "\\bsv\\s*0?8[.,]5\\b"]
+
+  - id: white-flare
+    name: White Flare
+    code: SV10.5
+    series: SV
+    note: Dvojča Black Bolt, spoločný kód SV10.5
+    patterns: ["white\\s+flare"]
+
+  - id: black-bolt
+    name: Black Bolt
+    code: SV10.5
+    series: SV
+    note: Dvojča White Flare, spoločný kód SV10.5
+    patterns: ["black\\s+bolt"]
+
+  - id: shrouded-fable
+    name: Shrouded Fable
+    code: SV6.5
+    series: SV
+    patterns: ["shrouded\\s+fable", "\\bsv\\s*0?6[.,]5\\b"]
+
+  - id: paldean-fates
+    name: Paldean Fates
+    code: SV4.5
+    series: SV
+    patterns: ["paldean\\s+fates", "\\bsv\\s*0?4[.,]5\\b"]
+
+  - id: pokemon-151
+    name: Pokémon 151
+    code: SV3.5
+    series: SV
+    note: Nostalgický set, dlhodobo silný dopyt
+    patterns: ["\\b151\\b", "\\bsv\\s*0?3[.,]5\\b"]
+
+  # ---------------- Scarlet & Violet: hlavné sety ----------------
+  - id: destined-rivals
+    name: Destined Rivals
+    code: SV10
+    series: SV
+    patterns: ["destined\\s+rivals", "\\bsv\\s*10\\b"]
+
+  - id: journey-together
+    name: Journey Together
+    code: SV09
+    series: SV
+    patterns: ["journey\\s+together", "\\bsv\\s*0?9\\b"]
+
+  - id: surging-sparks
+    name: Surging Sparks
+    code: SV08
+    series: SV
+    patterns: ["surging\\s+sparks", "\\bsv\\s*0?8\\b"]
+
+  - id: stellar-crown
+    name: Stellar Crown
+    code: SV07
+    series: SV
+    patterns: ["stellar\\s+crown", "\\bsv\\s*0?7\\b"]
+
+  - id: twilight-masquerade
+    name: Twilight Masquerade
+    code: SV06
+    series: SV
+    patterns: ["twilight\\s+masquerade", "\\bsv\\s*0?6\\b"]
+
+  - id: temporal-forces
+    name: Temporal Forces
+    code: SV05
+    series: SV
+    patterns: ["temporal\\s+forces", "\\bsv\\s*0?5\\b"]
+
+  - id: paradox-rift
+    name: Paradox Rift
+    code: SV04
+    series: SV
+    patterns: ["paradox\\s+rift", "\\bsv\\s*0?4\\b"]
+
+  - id: obsidian-flames
+    name: Obsidian Flames
+    code: SV03
+    series: SV
+    patterns: ["obsidian\\s+flames", "\\bsv\\s*0?3\\b"]
+
+  - id: paldea-evolved
+    name: Paldea Evolved
+    code: SV02
+    series: SV
+    patterns: ["paldea\\s+evolved", "\\bsv\\s*0?2\\b"]
+
+  - id: scarlet-violet-base
+    name: Scarlet & Violet
+    code: SV01
+    series: SV
+    note: Základný set série
+    patterns: ["\\bsv\\s*0?1\\b", "scarlet\\s*(&|a|and)\\s*violet\\s*-?\\s*(booster|elite|box)"]
+
+  # ---------------- Zberná položka ----------------
+  # Priradí sa len premiovým kolekciám, ktoré sa predávajú bez kódu setu.
+  # Prázdne `patterns` znamená, že sa nikdy nenaviaže podľa názvu sama od seba.
+  - id: standalone
+    name: Samostatná kolekcia
+    code: "—"
+    series: other
+    note: Premiová kolekcia bez kódu setu
+    patterns: []
+
+# Formáty. `packs` = počet boosterov; null tam, kde sa počet líši podľa setu
+# a nedá sa spoľahlivo odvodiť z názvu — vtedy sa cena za balíček nepočíta.
+# PORADIE: konkrétnejšie hore ("Half Booster Box" pred "Booster Box").
 formats:
-  - id: etb
-    name: Elite Trainer Box
-    short: ETB
-    packs: 9
-    patterns:
-      - "elite\\s+trainer\\s+box"
-      - "\\betb\\b"
+  - id: bundle-display
+    name: Bundle Display
+    short: Display
+    packs: 48
+    patterns: ["bundle\\s+display", "booster\\s+bundle\\s+box"]
+
+  - id: half-box
+    name: Half Booster Box
+    short: 1/2 Box
+    packs: 18
+    patterns: ["half\\s+booster\\s+box"]
+
   - id: booster-box
     name: Booster Box
     short: Box
     packs: 36
-    patterns:
-      - "booster\\s+box"
-      - "hobby\\s+box"
+    patterns: ["booster\\s+box", "hobby\\s+box"]
+
+  - id: etb
+    name: Elite Trainer Box
+    short: ETB
+    packs: 9
+    patterns: ["elite\\s+trainer\\s+box", "\\betb\\b"]
+
   - id: bundle
     name: Booster Bundle
     short: Bundle
     packs: 6
-    patterns:
-      - "booster\\s+bundle"
-      - "\\bbundle\\b"
+    patterns: ["booster\\s+bundle", "\\bbundle\\b"]
+
+  - id: ultra-premium
+    name: Ultra Premium Collection
+    short: UPC
+    packs: null
+    edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
+    patterns: ["ultra\\s+premium\\s+collection", "\\bupc\\b"]
+
+  - id: super-premium
+    name: Super Premium Collection
+    short: SPC
+    packs: null
+    edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
+    patterns: ["super\\s+premium\\s+collection"]
+
+  - id: premium-collection
+    name: Premium Collection
+    short: Premium
+    packs: null
+    edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
+    patterns: ["premium\\s+(figure\\s+)?collection", "premium\\s+deck\\s+set"]
+
+  - id: illustration-collection
+    name: Illustration Collection
+    short: Illustration
+    packs: null
+    edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
+    patterns: ["illustration\\s+collection"]
+
+  - id: ex-box
+    name: ex Box
+    short: ex Box
+    packs: 4
+    patterns: ["\\bex\\s+box\\b", "mega\\s+ex\\s+box"]
+
+  - id: mini-tin
+    name: Mini Tin
+    short: Mini Tin
+    packs: 2
+    patterns: ["mini\\s+tin"]
+
+  - id: ex-tin
+    name: ex Tin
+    short: ex Tin
+    packs: null
+    patterns: ["\\bex\\s+tin\\b", "\\btin\\b"]
+
+  - id: binder-collection
+    name: Binder Collection
+    short: Binder
+    packs: null
+    patterns: ["binder\\s+collection"]
+
+  - id: poster-collection
+    name: Poster Collection
+    short: Poster
+    packs: null
+    patterns: ["poster\\s+collection"]
+
+  - id: pin-collection
+    name: Pin Collection
+    short: Pin
+    packs: null
+    patterns: ["pin\\s+collection"]
+
+  - id: sticker-collection
+    name: Tech Sticker Collection
+    short: Sticker
+    packs: null
+    patterns: ["(tech\\s+)?sticker\\s+collection"]
+
+  - id: surprise-box
+    name: Surprise Box
+    short: Surprise
+    packs: null
+    patterns: ["surprise\\s+box"]
+
+  - id: pouch-collection
+    name: Accessory Pouch Collection
+    short: Pouch
+    packs: null
+    patterns: ["(accessory\\s+)?pouch"]
+
+  - id: blister-3
+    name: 3-Blister
+    short: 3× Blister
+    packs: 3
+    patterns: ["3\\s*blister", "triple\\s+blister"]
+
+  - id: blister-1
+    name: Blister
+    short: Blister
+    packs: 1
+    patterns: ["1\\s*blister", "\\bblister\\b", "checklane"]
+
   - id: booster
     name: Booster
     short: Booster
     packs: 1
-    patterns:
-      - "\\bbooster\\b"
-      - "\\bbooster\\s+pack\\b"
+    patterns: ["\\bbooster\\b", "\\bboostr?e\\b"]
 
-# Výnimky z počtu balíčkov: (edition_id, format_id) -> packs
 pack_overrides:
   - edition: 30th-celebration
     format: etb
     packs: 10
 
-# Čo zahodiť ešte pred klasifikáciou (iné jazykové verzie, iné produkty).
+# Čo zahodiť ešte pred klasifikáciou.
+# Poznámka: produkt musí sedieť na edíciu AJ formát, takže príslušenstvo
+# a jednotlivé karty vypadnú samy — tu sú len prípady, ktoré by inak prešli.
 exclude_patterns:
-  - "japon|japan|jap\\.|\\bjp\\b"
+  - "japon|japan|jap\\.|\\bjp\\b|\\(jap"
   - "[čc][íi]nsk|chinese"
   - "k[óo]rejsk|korean"
-  - "bundle\\s+display"
   - "\\bcase\\b|\\bcarton\\b"
-  - "bundle\\s+box"
-  - "\\d+\\s*[x×]\\s*(booster|bundle|box)"
+  - "\\d+\\s*[x×]\\s*(booster\\s+box|bundle)"
   - "po[sš]koden|damaged"
-  - "mini\\s+tin|\\bex\\s+box\\b|ex\\s+tin"
-  - "poster|sticker|binder|pin\\s+collection|pouch|figure|surprise\\s+box|premium\\s+collection"
-  - "single|karta\\b|obal|sleeve|deck\\s+box|album|toploader"
-  - "plyš|plys|figúrk|figurk|puzzle"
+  - "ultra\\s+pro|ultimate\\s+guard|gamegenic|dragon\\s+shield"

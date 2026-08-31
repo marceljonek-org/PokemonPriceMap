@@ -1,8 +1,9 @@
 # Cenová mapa Pokémon TCG
 
-Denné sledovanie cien a dostupnosti **sealed** Pokémon TCG produktov v 28 českých
-a slovenských eshopoch. Sleduje štyri formáty — Booster, Booster Bundle, Booster Box
-a Elite Trainer Box — a len edície s investičným potenciálom (úroveň A a B).
+Denné sledovanie cien a dostupnosti **zapečatených** Pokémon TCG produktov v 28 českých
+a slovenských eshopoch. Pokrýva celú sériu **Scarlet & Violet** a **Mega Evolution**
+naprieč 21 formátmi — od jedného boostera cez bundle, box a ETB až po Ultra Premium
+Collection a zberateľské tiny.
 Výsledok je statická stránka s obrázkami balení, históriou cien a označením
 podhodnotených ponúk.
 
@@ -125,6 +126,25 @@ Gengar.cz je v zozname od začiatku (adaptér `upgates`); slovenská mutácia
 
 Všetko podstatné je v `config/`, kód sa nemusí meniť.
 
+### Portfólio — `config/portfolio.yaml`
+
+Zoznam toho, čo vlastníš. Stránka z neho počíta náklady, aktuálnu hodnotu a rozdiel.
+
+```yaml
+valuation: median        # median = medián ponúk skladom, min = najlacnejšia
+holdings:
+  - key: chaos-rising|booster-box
+    qty: 2
+    price: 219.99        # za jeden kus
+    currency: EUR
+    bought: 2026-07-14
+    shop: Cardyx.sk
+```
+
+`key` je v detaile každého produktu na stránke. Nákup v korunách sa prepočíta
+aktuálnym kurzom. Oceňuje sa retailovou cenou, za ktorú sa produkt **ponúka** —
+nie cenou, za ktorú ho vieš predať; reálne speňaženie býva nižšie.
+
 ### Pridanie edície — `config/editions.yaml`
 
 ```yaml
@@ -139,6 +159,10 @@ Všetko podstatné je v `config/`, kód sa nemusí meniť.
 ```
 
 Vzory sa hľadajú v názve **bez diakritiky a malými písmenami** — `nova`, nie `nová`.
+
+**Pozor na poradie:** rozhoduje prvá zhoda, takže polovičné sety (SV8.5, ME02.5) musia
+byť v súbore **nad** základnými (SV08, ME02). Inak by `SV8.5` spadlo pod `SV08`.
+`tier` je nepovinný — edícia bez neho sa sleduje tiež, len nemá investičné zaradenie.
 
 Keď sa v ponuke objaví formát v neznámej edícii (napr. „ME07 … Booster Bundle“),
 zapíše sa do `data/unknown.csv`. To je signál, že vyšiel nový set — pozri sa tam
