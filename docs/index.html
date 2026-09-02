@@ -135,6 +135,29 @@ td.n{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
 .mv li{font-size:13.5px;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 .mv .empty{color:var(--muted);font-size:13.5px}
 
+.buy-note{font-size:13.5px;color:var(--muted);max-width:78ch;margin:0 0 20px}
+.buy-list{display:grid;gap:12px}
+.buy{display:grid;grid-template-columns:52px 1fr auto;gap:14px;align-items:center;
+  background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:12px 16px}
+.buy .rank{font-family:"IBM Plex Mono",monospace;font-size:15px;font-weight:600;color:var(--muted);text-align:center}
+.buy .name{font-size:14.5px;font-weight:700}
+.buy .why{font-size:12.5px;color:var(--muted);margin-top:3px}
+.buy .right{text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+.scorebar{width:120px;height:5px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.scorebar i{display:block;height:100%;background:var(--accent)}
+.buy .price{font-size:17px}
+.hit{background:var(--ok-soft);border:1px solid var(--ok);border-radius:13px;padding:14px 18px;margin-bottom:20px}
+.hit h3{margin:0 0 8px;font-size:15px;color:var(--ok)}
+.hit ul{list-style:none;margin:0;padding:0;display:grid;gap:7px;font-size:13.5px}
+.hit li{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.wl{margin-top:26px}
+.wl h3{font-size:15px;margin:0 0 10px}
+.tgt{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
+.tgt .row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.tgt input{font:inherit;font-size:13px;padding:7px 9px;border-radius:8px;width:130px;
+  border:1px solid var(--line);background:var(--ground);color:var(--ink)}
+.tgt label{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+@media (max-width:600px){.buy{grid-template-columns:34px 1fr}.buy .right{grid-column:2;align-items:flex-start;text-align:left}}
 .hist-pick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
 .chart{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:18px}
 .chart svg{width:100%;height:300px;display:block}
@@ -161,6 +184,7 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit)}
     <button class="btn scan" id="scan-now" title="Spustí rovnaký sken ako každý večer o 19:00">Spustiť sken</button>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tab-today" aria-selected="true">Dnes</button>
+      <button class="tab" role="tab" id="tab-buy" aria-selected="false">Kúpiť dnes</button>
       <button class="tab" role="tab" id="tab-moves" aria-selected="false">Pohyby</button>
       <button class="tab" role="tab" id="tab-hist" aria-selected="false">História</button>
       <button class="tab" role="tab" id="tab-port" aria-selected="false">Portfólio</button>
@@ -192,6 +216,8 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit)}
     <div class="cards" id="cards"></div>
   </div>
 
+  <div id="view-buy" class="hidden"></div>
+
   <div id="view-moves" class="hidden"></div>
 
   <div id="view-hist" class="hidden">
@@ -211,6 +237,7 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit)}
   </div>
   <div class="dlg-body">
     <div class="tbl-scroll"><table id="d-table"></table></div>
+    <div class="tgt" id="d-target"></div>
     <p class="sub" style="margin-top:14px">Kľúč do portfólia: <code id="d-key" class="mono"></code></p>
   </div>
 </dialog>
@@ -318,7 +345,11 @@ function openDetail(p){
   sub.push(`medián skladom ${eur(p.median_eur)}`);
   if(p.low_eur!=null && p.history.length>3) sub.push(`historicky ${eur(p.low_eur)} – ${eur(p.high_eur)}`);
   if(p.launch_eur) sub.push(`uvádzacia ${eur(p.launch_eur)}${p.vs_launch_pct!=null?` (${p.vs_launch_pct>0?'+':''}${p.vs_launch_pct} %)`:''}`);
-  if(p.released) sub.push(`vydané ${p.released}${p.days_since_release!=null?`, pred ${p.days_since_release} dňami`:''}${p.in_print===false?' — po ukončení tlače':''}`);
+  if(p.released){
+    const d = p.days_since_release;
+    const when = d==null ? '' : (d < 0 ? `, vyjde o ${-d} dní` : `, pred ${d} dňami`);
+    sub.push(`${d!=null && d<0 ? 'vydanie' : 'vydané'} ${p.released}${when}${p.in_print===false?' — po ukončení tlače':''}`);
+  }
   document.getElementById('d-sub').textContent = sub.join(' · ');
   const rows = p.offers.map(o=>`
     <tr>
@@ -334,7 +365,65 @@ function openDetail(p){
   document.getElementById('d-table').innerHTML =
     `<thead><tr><th>Eshop</th><th>Cena</th><th>V €</th><th>Za balíček</th><th>Dostupnosť</th><th>Zmena</th><th>Značky</th><th></th></tr></thead><tbody>${rows}</tbody>`;
   document.getElementById('d-key').textContent = p.key;
+  renderTargetForm(p);
   document.getElementById('detail').showModal();
+}
+
+/* Rebríček „Kúpiť dnes" počíta sken, nie prehliadač — nech je pre rovnaké dáta
+   vždy rovnaký a nech sa dá spätne overiť z latest.json. */
+function renderBuy(){
+  const recs = state.data.recommendations || [];
+  const wl = state.data.watchlist || {met:[], waiting:[]};
+  const box = document.getElementById('view-buy');
+
+  const hit = wl.met.length ? `
+    <div class="hit">
+      <h3>Cieľová cena splnená (${wl.met.length})</h3>
+      <ul>${wl.met.map(m=>`<li>
+        <span><a href="${m.url}" target="_blank" rel="noopener">${m.title}</a></span>
+        <span class="mono">${eur(m.price_eur)} · cieľ ${eur(m.target_eur)} · ${shopName(m.shop_id)}</span>
+      </li>`).join('')}</ul>
+    </div>` : '';
+
+  const maxScore = recs.length ? Math.max(...recs.map(r=>r.score)) : 1;
+  const list = recs.length ? `<div class="buy-list">${recs.map((r,i)=>`
+    <div class="buy">
+      <div class="rank">${i+1}</div>
+      <div>
+        <div class="name">${r.title} <span class="mono" style="color:var(--muted);font-size:12px">${r.format}</span></div>
+        <div class="why">${r.reasons.length ? r.reasons.join(' · ') : 'najlacnejšia dostupná ponuka'}</div>
+        <div class="why">${shopName(r.shop_id)}${r.median_eur!=null?` · medián ${eur(r.median_eur)}`:''}${r.launch_eur?` · uvádzacia ${eur(r.launch_eur)}`:''}</div>
+      </div>
+      <div class="right">
+        <span class="price">${eur(r.price_eur)}</span>
+        ${r.per_pack_eur!=null?`<span class="pp">${eur(r.per_pack_eur)} / balíček</span>`:''}
+        <span class="scorebar" title="skóre ${r.score}"><i style="width:${Math.round(r.score/maxScore*100)}%"></i></span>
+        <a href="${r.url}" target="_blank" rel="noopener">otvoriť</a>
+      </div>
+    </div>`).join('')}</div>`
+    : '<p class="count">Dnes nič nevyčnieva — všetko je približne za bežnú cenu.</p>';
+
+  const waiting = wl.waiting.length ? `
+    <div class="wl">
+      <h3>Čakajú na cenu (${wl.waiting.length})</h3>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>Produkt</th><th>Cieľ</th><th>Najlacnejšie teraz</th><th>Chýba</th><th></th></tr></thead>
+        <tbody>${wl.waiting.map(w=>`<tr>
+          <td>${w.title}${w.found?'':' <span class="pill no">nenájdené</span>'}</td>
+          <td class="n">${eur(w.target_eur)}</td>
+          <td class="n">${w.price_eur!=null?eur(w.price_eur):'nikde skladom'}</td>
+          <td class="n">${w.gap_pct!=null?`+${w.gap_pct} %`:'—'}</td>
+          <td>${w.url?`<a href="${w.url}" target="_blank" rel="noopener">otvoriť</a>`:''}</td>
+        </tr>`).join('')}</tbody></table></div>
+    </div>` : '';
+
+  box.innerHTML = hit + `
+    <p class="buy-note">Poradie je súčet štyroch vecí: ako hlboko je cena pod dnešným
+    mediánom ponúk skladom (max 40 b), ako hlboko pod uvádzacou cenou (25 b),
+    či sedí na historickom minime (20 b) a akú úroveň má edícia (2–10 b, plus 5 b,
+    ak sa už netlačí). Žiadny odhad budúcnosti — len to, čo sa dá dnes odmerať.
+    Ponuky označené <em>overiť</em> sú z rebríčka vynechané. Nie je to investičné poradenstvo.</p>`
+    + list + waiting;
 }
 
 function renderMoves(){
@@ -401,8 +490,8 @@ let portMsg = '';
 const endpoint = () => (state.data.portfolio_endpoint || '').replace(/\/$/, '');
 const token = () => { try { return localStorage.getItem(PKEY) || ''; } catch { return ''; } };
 
-async function portfolioApi(method, body){
-  const url = `${endpoint()}?portfolio=1&t=${encodeURIComponent(token())}`;
+async function portfolioApi(method, body, store='portfolio'){
+  const url = `${endpoint()}?${store}=1&t=${encodeURIComponent(token())}`;
   const res = await fetch(url, {
     method,
     headers: body ? {'content-type':'application/json'} : undefined,
@@ -421,6 +510,66 @@ async function loadHoldings(){
 async function saveHoldings(){
   await portfolioApi('POST', {holdings});
   portMsg = 'Uložené. Ocenenie sa prepočíta hneď, do histórie sa zapíše pri najbližšom skene.';
+}
+
+/* ---------------------------------------------------------- cieľové ceny */
+let targets = null;
+
+async function loadTargets(){
+  const data = await portfolioApi('GET', null, 'watchlist');
+  targets = data.watchlist || [];
+}
+
+async function saveTargets(){
+  await portfolioApi('POST', {watchlist: targets}, 'watchlist');
+}
+
+function renderTargetForm(p){
+  const box = document.getElementById('d-target');
+  if(!endpoint()){ box.innerHTML = ''; return; }
+  if(!token()){
+    box.innerHTML = '<p class="sub">Cieľovú cenu vieš nastaviť po odomknutí portfólia.</p>';
+    return;
+  }
+  if(targets === null){
+    box.innerHTML = '<p class="sub">načítavam cieľové ceny…</p>';
+    loadTargets().then(()=>renderTargetForm(p))
+      .catch(err=>{ box.innerHTML = `<p class="pmsg err">${err.message}</p>`; });
+    return;
+  }
+  const current = targets.find(t=>t.key === p.key);
+  const gap = (current && p.min_eur!=null)
+    ? ((p.min_eur - current.target) / current.target * 100) : null;
+  box.innerHTML = `
+    <div class="row">
+      <div><label for="t-val">Cieľová cena (€)</label>
+        <input id="t-val" type="number" min="0" step="0.5" placeholder="napr. 129"
+          value="${current ? current.target : ''}"></div>
+      <button class="btn" id="t-save">Uložiť cieľ</button>
+      ${current ? '<button class="btn ghost" id="t-del">Zrušiť cieľ</button>' : ''}
+      <span class="pmsg" id="t-msg" style="margin:0 0 6px">${
+        current
+          ? (p.min_eur==null ? 'Zatiaľ nikde skladom.'
+             : (gap<=0 ? 'Cieľ je splnený už teraz.'
+                       : `Najlacnejšie teraz ${eur(p.min_eur)} — ${gap.toFixed(1)} % nad cieľom.`))
+          : 'Keď cena klesne na tvoju hranicu, produkt sa objaví v Kúpiť dnes.'}</span>
+    </div>`;
+
+  document.getElementById('t-save').addEventListener('click', async ()=>{
+    const value = parseFloat(document.getElementById('t-val').value);
+    const msg = document.getElementById('t-msg');
+    if(!(value > 0)){ msg.className = 'pmsg err'; msg.textContent = 'Zadaj cenu väčšiu než nula.'; return; }
+    targets = targets.filter(t=>t.key !== p.key);
+    targets.push({key: p.key, title: p.title, target: value});
+    try { await saveTargets(); renderTargetForm(p); }
+    catch(err){ msg.className = 'pmsg err'; msg.textContent = err.message; }
+  });
+  const del = document.getElementById('t-del');
+  if(del) del.addEventListener('click', async ()=>{
+    targets = targets.filter(t=>t.key !== p.key);
+    try { await saveTargets(); renderTargetForm(p); }
+    catch(err){ document.getElementById('t-msg').textContent = err.message; }
+  });
 }
 
 /* Ocenenie počítame v prehliadači z čerstvo načítaných cien — netreba čakať
@@ -444,14 +593,87 @@ function evaluate(h){
   };
 }
 
+/* Graf hodnoty portfólia: plná čiara je dnešná hodnota, čiarkovaná to, čo si
+   za to zaplatil. Body pribúdajú po jednom za každý sken. */
+function portfolioChart(points){
+  if(!points || points.length < 2){
+    return `<p class="count" style="margin-bottom:22px">Graf sa nakreslí po druhom skene —
+      zatiaľ je ${points && points.length ? 'jeden bod' : 'prázdny'}.</p>`;
+  }
+  const vals = points.flatMap(p=>[p.value, p.cost]).filter(v=>v!=null);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const lo = min - (max-min || max*0.1 || 1)*0.12, hi = max + (max-min || max*0.1 || 1)*0.12;
+  const span = (hi-lo) || 1;
+  const W=1000, H=230, pad={l:66,r:14,t:14,b:26};
+  const x = i => pad.l + i*((W-pad.l-pad.r)/Math.max(1,points.length-1));
+  const y = v => pad.t + (1-(v-lo)/span)*(H-pad.t-pad.b);
+  const path = key => points.map((p,i)=>`${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ');
+  const last = points[points.length-1];
+  const ticks = [lo+span*0.1, lo+span*0.5, lo+span*0.9];
+  const pl = last.value - last.cost;
+  return `<div class="chart" style="margin-bottom:22px">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Vývoj hodnoty portfólia">
+      ${ticks.map(t=>`<line x1="${pad.l}" x2="${W-pad.r}" y1="${y(t)}" y2="${y(t)}" stroke="currentColor" opacity=".12"/>
+        <text x="${pad.l-10}" y="${y(t)+4}" text-anchor="end" font-size="12" fill="currentColor" opacity=".55"
+          font-family="IBM Plex Mono, monospace">${t.toFixed(0)} €</text>`).join('')}
+      <polyline points="${path('cost')}" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-dasharray="6 5" opacity=".45"/>
+      <polyline points="${path('value')}" fill="none" stroke="currentColor" stroke-width="2.5"
+        opacity=".85" style="color:var(--accent)" stroke-linejoin="round"/>
+      <circle cx="${x(points.length-1)}" cy="${y(last.value)}" r="4" fill="currentColor"/>
+      <text x="${pad.l}" y="${H-7}" font-size="12" fill="currentColor" opacity=".55"
+        font-family="IBM Plex Mono, monospace">${points[0].d}</text>
+      <text x="${W-pad.r}" y="${H-7}" text-anchor="end" font-size="12" fill="currentColor" opacity=".55"
+        font-family="IBM Plex Mono, monospace">${last.d}</text>
+    </svg>
+    <div class="legend">
+      <span><i></i> hodnota ${eur(last.value)}</span>
+      <span style="opacity:.6"><i style="border-top:2px dashed currentColor;background:none;height:0"></i> náklady ${eur(last.cost)}</span>
+      <span class="${pl>0?'gain':(pl<0?'loss':'')}">rozdiel ${pl>0?'+':''}${eur(pl)}</span>
+    </div></div>`;
+}
+
+/* Keď Worker nie je nastavený, portfólio sa vedie v config/portfolio.yaml —
+   zapisovať sa tu nedá, ale prehľad a graf majú zmysel aj tak. */
+function readOnlyPortfolio(port){
+  const t = port.totals;
+  const cls = v => v>0 ? 'gain' : (v<0 ? 'loss' : '');
+  const sign = v => v>0 ? '+' : '';
+  const rows = port.items.map(i=>`<tr>
+    <td>${i.found ? i.title : `<span class="loss">${i.title} — nenájdené</span>`}</td>
+    <td class="n">${i.qty}</td>
+    <td class="n">${i.price.toLocaleString('sk-SK')} ${i.currency}</td>
+    <td class="n">${eur(i.cost_eur)}</td>
+    <td class="n">${i.market_min_eur!=null?eur(i.market_min_eur):'—'}</td>
+    <td class="n">${i.vs_market_pct!=null?`<b class="${i.vs_market_pct<0?'gain':'loss'}">${sign(i.vs_market_pct)}${i.vs_market_pct} %</b>`:'—'}</td>
+    <td class="n">${i.value_eur!=null?eur(i.value_eur):'—'}</td>
+    <td class="n"><b class="${cls(i.pl_eur)}">${i.pl_eur!=null?sign(i.pl_eur)+eur(i.pl_eur):'—'}</b></td>
+    <td>${i.shop||''}</td><td>${i.bought||''}</td></tr>`).join('');
+  return portfolioChart(state.data.portfolio_history) + `
+    <div class="port-sum">
+      <div><div class="lbl">Nakúpené za</div><div class="val">${eur(t.cost_eur)}</div></div>
+      <div><div class="lbl">Aktuálna hodnota</div><div class="val">${eur(t.value_eur)}</div></div>
+      <div><div class="lbl">Rozdiel</div><div class="val ${cls(t.pl_eur)}">${sign(t.pl_eur)}${eur(t.pl_eur)}</div></div>
+      <div><div class="lbl">Zhodnotenie</div><div class="val ${cls(t.pl_pct)}">${t.pl_pct!=null?sign(t.pl_pct)+t.pl_pct+' %':'—'}</div></div>
+    </div>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>Produkt</th><th>Ks</th><th>Nákup / ks</th><th>Náklady</th>
+        <th>Najlacnejšie teraz</th><th>Nákup vs trh</th><th>Hodnota</th><th>Rozdiel</th>
+        <th>Obchod</th><th>Kúpené</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+}
+
 function renderPortfolio(){
   const box = document.getElementById('view-port');
 
   if(!endpoint()){
-    box.innerHTML = `<div class="port-empty"><h3>Zápis zo stránky nie je nastavený</h3>
+    const port = state.data.portfolio;
+    box.innerHTML = `<div class="port-empty" style="margin-bottom:22px">
+      <h3>Zápis zo stránky nie je nastavený</h3>
       <p>Chýba adresa Workera. Doplň v GitHube tajomstvá <code>SCRAPE_PROXY_URL</code>
       a <code>SCRAPE_PORTFOLIO_TOKEN</code> a spusti sken — potom sa tu objaví formulár.
-      Dovtedy sa portfólio dá zapisovať do <code>config/portfolio.yaml</code>.</p></div>`;
+      Dovtedy sa portfólio dá zapisovať do <code>config/portfolio.yaml</code>.</p></div>`
+      + (port && port.items.length ? readOnlyPortfolio(port) : '');
     return;
   }
   if(!token()){
@@ -537,6 +759,7 @@ function renderPortfolio(){
     </div>
 
     ${holdings.length ? `
+    ${portfolioChart(state.data.portfolio_history)}
     <div class="port-sum">
       <div><div class="lbl">Nakúpené za</div><div class="val">${eur(totals.cost)}</div></div>
       <div><div class="lbl">Aktuálna hodnota</div><div class="val">${eur(totals.value)}</div></div>
@@ -607,13 +830,14 @@ function renderFooter(){
 
 function setView(name){
   state.view = name;
-  const map = [['tab-today','view-today'],['tab-moves','view-moves'],
+  const map = [['tab-today','view-today'],['tab-buy','view-buy'],['tab-moves','view-moves'],
                ['tab-hist','view-hist'],['tab-port','view-port']];
   for(const [id,view] of map){
     const active = id === 'tab-'+name;
     document.getElementById(id).setAttribute('aria-selected', String(active));
     document.getElementById(view).classList.toggle('hidden', !active);
   }
+  if(name==='buy') renderBuy();
   if(name==='moves') renderMoves();
   if(name==='hist') renderHistory();
   if(name==='port') renderPortfolio();
@@ -704,6 +928,7 @@ async function runScan(){
 }
 document.getElementById('scan-now').addEventListener('click', runScan);
 document.getElementById('tab-today').addEventListener('click', ()=>setView('today'));
+document.getElementById('tab-buy').addEventListener('click', ()=>setView('buy'));
 document.getElementById('tab-moves').addEventListener('click', ()=>setView('moves'));
 document.getElementById('tab-hist').addEventListener('click', ()=>setView('hist'));
 document.getElementById('tab-port').addEventListener('click', ()=>setView('port'));

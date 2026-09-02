@@ -196,23 +196,25 @@ async def fetch_all(shops: list[dict], defaults: dict,
         return await asyncio.gather(*(run(s) for s in shops))
 
 
-async def fetch_remote_portfolio() -> list[dict]:
-    """Načíta portfólio z Cloudflare Workera (KV), kam ho zapisuje stránka.
+async def fetch_from_worker(store: str, field: str) -> list[dict]:
+    """Načíta zoznam z Cloudflare Workera (KV), kam ho zapisuje stránka —
+    portfólio (`portfolio`/`holdings`) alebo cieľové ceny (`watchlist`/`watchlist`).
 
-    Keď Worker nie je nastavený alebo nedostupný, vráti prázdny zoznam —
-    portfólio nikdy nesmie zhodiť sken cien.
+    Keď Worker nie je nastavený alebo nedostupný, vráti prázdny zoznam.
+    Ani portfólio, ani cieľové ceny nikdy nesmú zhodiť sken cien.
     """
     if not (PROXY_URL and PORTFOLIO_TOKEN):
         return []
-    url = f"{PROXY_URL.rstrip('/')}?portfolio=1&t={quote(PORTFOLIO_TOKEN, safe='')}"
+    url = (f"{PROXY_URL.rstrip('/')}?{store}=1"
+           f"&t={quote(PORTFOLIO_TOKEN, safe='')}")
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.get(url)
             resp.raise_for_status()
-            holdings = resp.json().get("holdings") or []
-            return holdings if isinstance(holdings, list) else []
+            items = resp.json().get(field) or []
+            return items if isinstance(items, list) else []
     except Exception as exc:                                  # noqa: BLE001
-        print(f"Portfólio zo stránky sa nepodarilo načítať: {type(exc).__name__}")
+        print(f"{store}: načítanie zo stránky zlyhalo ({type(exc).__name__})")
         return []
 
 
@@ -623,6 +625,307 @@ def build_portfolio(products: list[dict], config: dict, fx: dict) -> dict:
     }
 
 
+# ------------------------------------------------------------------ odporúčania
+
+TIER_POINTS = {"A": 10, "B": 6, "C": 2, "": 3}
+MAX_PER_SHOP = 3          # nech sa rebríček nezaplní jedným eshopom
+TOP_N = 30
+
+
+def score_offer(product: dict, offer: dict) -> tuple[float, list[str]]:
+    """Koľko bodov si ponuka zaslúži a prečo.
+
+    Zámerne to nepočíta žiadny model — je to sčítanie štyroch vecí, ktoré si
+    vieš overiť očami v tabuľke: ako hlboko je cena pod dnešným trhom, ako
+    hlboko pod uvádzacou cenou, či je na historickom minime a či ide o edíciu,
+    ktorá sa už netlačí. Tým pádom je výsledok stále rovnaký pre rovnaké dáta
+    a dá sa mu veriť.
+    """
+    reasons: list[str] = []
+    score = 0.0
+    price = offer["price_eur"]
+
+    median = product.get("median_eur")
+    if median and price < median:
+        below = (median - price) / median
+        score += min(below, UNDER_MARKET_MAX) / UNDER_MARKET_MAX * 40
+        reasons.append(f"{round(below * 100)} % pod mediánom ponúk")
+
+    launch = product.get("launch_eur")
+    if launch and price < launch:
+        below = (launch - price) / launch
+        score += min(below, 0.25) / 0.25 * 25
+        reasons.append(f"{round(below * 100)} % pod uvádzacou cenou")
+
+    low = product.get("low_eur")
+    if low and len(product.get("history") or []) > 3 and price <= low * 1.03:
+        score += 20
+        reasons.append("na historickom minime")
+
+    score += TIER_POINTS.get(product["edition"]["tier"], 3)
+
+    if product.get("in_print") is False:
+        score += 5
+        reasons.append("po ukončení tlače")
+
+    return round(score, 1), reasons
+
+
+def build_recommendations(products: list[dict]) -> list[dict]:
+    """Rebríček „čo dnes stojí za nákup“ — najlepšia ponuka na produkt."""
+    candidates = []
+    for product in products:
+        best = None
+        for offer in product["offers"]:
+            # Ponuka označená `overiť` alebo `skok ceny` je skoro vždy chyba
+            # eshopu alebo iný produkt; do odporúčaní nemá čo robiť.
+            if not offer["in_stock"] or offer["outlier"]:
+                continue
+            if offer["flag"].startswith("overiť"):
+                continue
+            score, reasons = score_offer(product, offer)
+            if best is None or score > best["score"]:
+                best = {
+                    "key": product["key"],
+                    "title": product["title"],
+                    "image": product["image"],
+                    "tier": product["edition"]["tier"],
+                    "series": product["edition"]["series"],
+                    "format": product["format"]["short"],
+                    "shop_id": offer["shop_id"],
+                    "url": offer["url"],
+                    "price_eur": offer["price_eur"],
+                    "per_pack_eur": offer["per_pack_eur"],
+                    "median_eur": product.get("median_eur"),
+                    "low_eur": product.get("low_eur"),
+                    "launch_eur": product.get("launch_eur"),
+                    "in_print": product.get("in_print"),
+                    "score": score,
+                    "reasons": reasons,
+                }
+        if best and best["score"] > 0:
+            candidates.append(best)
+
+    candidates.sort(key=lambda c: (-c["score"], c["price_eur"]))
+    per_shop: dict[str, int] = defaultdict(int)
+    top = []
+    for candidate in candidates:
+        if per_shop[candidate["shop_id"]] >= MAX_PER_SHOP:
+            continue
+        per_shop[candidate["shop_id"]] += 1
+        top.append(candidate)
+        if len(top) >= TOP_N:
+            break
+    return top
+
+
+# ------------------------------------------------------------------ cieľové ceny
+
+def build_watchlist(products: list[dict], targets: list[dict]) -> dict:
+    """Rozdelí sledované produkty na tie, čo cieľovú cenu splnili, a ostatné."""
+    by_key = {p["key"]: p for p in products}
+    met, waiting = [], []
+    for target in targets or []:
+        key = str(target.get("key") or "").strip()
+        limit = float(target.get("target") or 0)
+        if not key or limit <= 0:
+            continue
+        product = by_key.get(key)
+        price = product.get("min_eur") if product else None
+        cheapest = None
+        if product and price is not None:
+            cheapest = next((o for o in product["offers"]
+                             if o["in_stock"] and o["price_eur"] == price), None)
+        entry = {
+            "key": key,
+            "title": product["title"] if product else (target.get("title") or key),
+            "target_eur": round(limit, 2),
+            "price_eur": price,
+            "shop_id": cheapest["shop_id"] if cheapest else "",
+            "url": cheapest["url"] if cheapest else "",
+            "gap_pct": (round((price - limit) / limit * 100, 1)
+                        if price is not None else None),
+            "found": bool(product),
+        }
+        if price is not None and price <= limit:
+            met.append(entry)
+        else:
+            waiting.append(entry)
+    met.sort(key=lambda e: e["gap_pct"] if e["gap_pct"] is not None else 0)
+    waiting.sort(key=lambda e: (e["gap_pct"] is None,
+                                e["gap_pct"] if e["gap_pct"] is not None else 0))
+    return {"met": met, "waiting": waiting}
+
+
+# ------------------------------------------------------------------ história portfólia
+
+PORTFOLIO_FIELDS = ["date", "items", "cost_eur", "value_eur", "pl_eur", "pl_pct"]
+
+
+def append_portfolio_history(portfolio: dict, today: str) -> list[dict]:
+    """Zapíše dnešnú hodnotu portfólia a vráti posledný pol rok na graf.
+
+    Rovnako ako pri cenách sa zápis z toho istého dňa prepisuje, nie pridáva —
+    inak by opakovaný sken nakreslil do grafu tri body na jeden deň.
+    """
+    path = DATA / "portfolio-history.csv"
+    rows: list[dict] = []
+    if path.exists():
+        with open(path, encoding="utf-8", newline="") as fh:
+            rows = [r for r in csv.DictReader(fh) if r.get("date") != today]
+    totals = portfolio.get("totals") or {}
+    if portfolio.get("items"):
+        rows.append({
+            "date": today,
+            "items": len(portfolio["items"]),
+            "cost_eur": totals.get("cost_eur") or 0,
+            "value_eur": totals.get("value_eur") or 0,
+            "pl_eur": totals.get("pl_eur") or 0,
+            "pl_pct": totals.get("pl_pct") if totals.get("pl_pct") is not None else "",
+        })
+    rows.sort(key=lambda r: r["date"])
+    with open(path, "w", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=PORTFOLIO_FIELDS)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({k: row.get(k, "") for k in PORTFOLIO_FIELDS})
+
+    points = []
+    for row in rows[-180:]:
+        try:
+            points.append({"d": row["date"],
+                           "cost": float(row["cost_eur"] or 0),
+                           "value": float(row["value_eur"] or 0)})
+        except (TypeError, ValueError):
+            continue
+    return points
+
+
+# ------------------------------------------------------------------ upozornenia
+
+ALERT_COOLDOWN_DAYS = 7    # to isté upozornenie nechodí každý večer znova
+BIG_DROP_PCT = -10.0       # od koľkých percent stojí pokles za správu
+SUSPICIOUS_DROP_PCT = -50.0  # pod tým to nebýva zľava, ale iný produkt v katalógu
+ALERT_FIELDS = ["date", "key", "kind"]
+
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+
+
+def build_alerts(products: list[dict], movements: dict, watchlist: dict) -> list[dict]:
+    """Tri veci stoja za vyrušenie: splnená cieľová cena, veľký prepad, naskladnenie
+    edície úrovne A/B, ktorá nikde nebola."""
+    tier = {p["key"]: p["edition"]["tier"] for p in products}
+    alerts: list[dict] = []
+
+    for item in watchlist.get("met", []):
+        alerts.append({
+            "key": item["key"], "kind": "target",
+            "title": item["title"],
+            "text": (f"cieľová cena {item['target_eur']:.2f} € splnená — "
+                     f"{item['price_eur']:.2f} €"),
+            "url": item["url"],
+        })
+
+    for item in movements.get("price_drop", []):
+        # Polovičná cena zo dňa na deň nie je zľava — eshop skoro vždy len
+        # prehodil, čo sa skrýva pod tou istou adresou. Nebudíme kvôli tomu.
+        if (item.get("delta") is not None
+                and SUSPICIOUS_DROP_PCT < item["delta"] <= BIG_DROP_PCT):
+            alerts.append({
+                "key": item["key"], "kind": "drop",
+                "title": item["product"],
+                "text": f"zlacnené o {abs(item['delta']):.1f} % na {item['price_eur']:.2f} €",
+                "url": item["url"],
+            })
+
+    for item in movements.get("restocked", []):
+        if tier.get(item["key"]) in ("A", "B"):
+            alerts.append({
+                "key": item["key"], "kind": "restock",
+                "title": item["product"],
+                "text": f"opäť skladom za {item['price_eur']:.2f} €",
+                "url": item["url"],
+            })
+
+    seen = set()
+    unique = []
+    for alert in alerts:
+        ident = (alert["key"], alert["kind"])
+        if ident in seen:
+            continue
+        seen.add(ident)
+        unique.append(alert)
+    return unique
+
+
+def read_alert_log() -> list[dict]:
+    path = DATA / "alerts-sent.csv"
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8", newline="") as fh:
+        return list(csv.DictReader(fh))
+
+
+def due_alerts(alerts: list[dict], log: list[dict], today: str) -> list[dict]:
+    """Vyhodí tie, ktoré už išli v posledných dňoch. Čistá funkcia — testovateľná."""
+    try:
+        now = date.fromisoformat(today)
+    except ValueError:
+        return alerts
+    recent = set()
+    for row in log:
+        try:
+            when = date.fromisoformat(row["date"])
+        except (KeyError, ValueError):
+            continue
+        if (now - when).days < ALERT_COOLDOWN_DAYS:
+            recent.add((row.get("key", ""), row.get("kind", "")))
+    return [a for a in alerts if (a["key"], a["kind"]) not in recent]
+
+
+def write_alert_log(alerts: list[dict], today: str) -> None:
+    path = DATA / "alerts-sent.csv"
+    exists = path.exists()
+    with open(path, "a", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=ALERT_FIELDS)
+        if not exists:
+            writer.writeheader()
+        for alert in alerts:
+            writer.writerow({"date": today, "key": alert["key"], "kind": alert["kind"]})
+
+
+async def send_alerts(alerts: list[dict], today: str) -> int:
+    """Pošle upozornenia na Telegram. Bez nastavených premenných nerobí nič
+    a nikdy nezhodí sken — upozornenie je doplnok, nie účel behu."""
+    if not alerts:
+        return 0
+    if not (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID):
+        print(f"Upozornení na poslanie: {len(alerts)} (Telegram nie je nastavený)")
+        return 0
+    pending = due_alerts(alerts, read_alert_log(), today)
+    if not pending:
+        return 0
+    lines = ["*Cenová mapa Pokémon TCG*"]
+    marks = {"target": "🎯", "drop": "📉", "restock": "📦"}
+    for alert in pending[:20]:
+        title = alert["title"].replace("*", "").replace("_", "")
+        lines.append(f"{marks.get(alert['kind'], '•')} [{title}]({alert['url']}) — {alert['text']}")
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json={"chat_id": TELEGRAM_CHAT_ID, "text": "\n".join(lines),
+                      "parse_mode": "Markdown", "disable_web_page_preview": True})
+            resp.raise_for_status()
+    except Exception as exc:                                   # noqa: BLE001
+        print(f"Telegram: {type(exc).__name__} — upozornenia sa neposlali")
+        return 0
+    write_alert_log(pending, today)
+    print(f"Poslaných {len(pending)} upozornení na Telegram")
+    return len(pending)
+
+
 # ------------------------------------------------------------------ main
 
 async def run(args) -> int:
@@ -677,7 +980,7 @@ async def run(args) -> int:
 
     products, movements = build_products(rows, history, images, today)
     portfolio_config = load_yaml("portfolio.yaml") or {}
-    remote = await fetch_remote_portfolio()
+    remote = await fetch_from_worker("portfolio", "holdings")
     if remote:
         portfolio_config = dict(portfolio_config)
         portfolio_config["holdings"] = (portfolio_config.get("holdings") or []) + remote
@@ -689,8 +992,17 @@ async def run(args) -> int:
               f"{totals['cost_eur']} €, hodnota {totals['value_eur']} €, "
               f"rozdiel {totals['pl_eur']} €")
 
+    targets = await fetch_from_worker("watchlist", "watchlist")
+    targets += (load_yaml("portfolio.yaml") or {}).get("targets") or []
+    watchlist = build_watchlist(products, targets)
+    recommendations = build_recommendations(products)
+    if watchlist["met"]:
+        print(f"Cieľová cena splnená pri {len(watchlist['met'])} produktoch")
+
+    portfolio_history = []
     if not args.dry_run:
         append_history(rows)
+        portfolio_history = append_portfolio_history(portfolio, today)
         if unknown:
             path = DATA / "unknown.csv"
             seen = set()
@@ -726,6 +1038,9 @@ async def run(args) -> int:
         "products": products,
         "movements": movements,
         "portfolio": portfolio,
+        "portfolio_history": portfolio_history,
+        "watchlist": watchlist,
+        "recommendations": recommendations,
         "portfolio_endpoint": PROXY_URL,
         "counts": {"offers": kept, "products": len(products),
                    "unknown": len(unknown)},
@@ -736,6 +1051,9 @@ async def run(args) -> int:
     (DOCS / "latest.json").write_text(
         json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Zapísaných {len(products)} produktov do latest.json")
+
+    if not args.dry_run:
+        await send_alerts(build_alerts(products, movements, watchlist), today)
     return 0
 
 

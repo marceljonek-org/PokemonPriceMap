@@ -693,3 +693,191 @@ def test_every_era_is_represented():
     for series, minimum in (("ME", 7), ("SV", 15), ("SWSH", 15),
                             ("SM", 15), ("XY", 12), ("vintage", 8)):
         assert counts[series] >= minimum, f"séria {series} má len {counts[series]} setov"
+
+
+# ------------------------------------------------------- odporúčania na nákup
+
+def _rank_product(key="pitch-black|etb", tier="A", median=100.0, low=90.0,
+             launch=None, in_print=None, history_len=5, offers=None):
+    return {
+        "key": key, "title": key, "image": "",
+        "edition": {"id": key.split("|")[0], "name": key, "code": "X",
+                    "tier": tier, "series": "ME"},
+        "format": {"id": key.split("|")[1], "name": "ETB", "short": "ETB"},
+        "median_eur": median, "low_eur": low, "launch_eur": launch,
+        "in_print": in_print, "min_eur": min((o["price_eur"] for o in (offers or [])
+                                              if o["in_stock"]), default=None),
+        "history": [{"d": f"2026-0{i+1}-01", "v": median} for i in range(history_len)],
+        "offers": offers or [],
+    }
+
+
+def _rank_offer(shop="alza-sk", price=100.0, in_stock=True, flag="", outlier=False):
+    return {"shop_id": shop, "price": price, "currency": "EUR", "price_eur": price,
+            "per_pack_eur": None, "in_stock": in_stock,
+            "url": f"https://{shop}/x", "name": "ETB", "delta_pct": None,
+            "flag": flag, "outlier": outlier}
+
+
+def test_score_rewards_cheap_offers_more_than_expensive_ones():
+    import scrape
+    product = _rank_product(median=100.0, low=95.0)
+    cheap, _ = scrape.score_offer(product, _rank_offer(price=75.0))
+    dear, _ = scrape.score_offer(product, _rank_offer(price=99.0))
+    assert cheap > dear
+
+
+def test_score_caps_the_discount_bonus():
+    """Ponuka 60 % pod trhom je skoro vždy chyba eshopu, nie príležitosť —
+    nesmie preto vystreliť na vrchol rebríčka viac než reálna zľava 30 %."""
+    import scrape
+    product = _rank_product(median=100.0, low=95.0)
+    at_cap, _ = scrape.score_offer(product, _rank_offer(price=70.0))
+    absurd, _ = scrape.score_offer(product, _rank_offer(price=40.0))
+    assert absurd == at_cap
+
+
+def test_recommendations_skip_flagged_and_out_of_stock_offers():
+    import scrape
+    products = [_rank_product(key="a|etb", offers=[
+        _rank_offer("zardo-cz", 4.10, flag="overiť — 95 % pod trhom"),
+        _rank_offer("alza-sk", 74.0),
+        _rank_offer("pompo-cz", 60.0, in_stock=False),
+        _rank_offer("pgs-sk", 55.0, outlier=True),
+    ])]
+    top = scrape.build_recommendations(products)
+    assert len(top) == 1
+    assert top[0]["shop_id"] == "alza-sk"
+
+
+def test_recommendations_do_not_let_one_shop_fill_the_list():
+    import scrape
+    products = [_rank_product(key=f"e{i}|etb", offers=[_rank_offer("alza-sk", 50.0 + i)])
+                for i in range(8)]
+    top = scrape.build_recommendations(products)
+    assert len(top) == scrape.MAX_PER_SHOP
+
+
+def test_recommendations_explain_themselves():
+    import scrape
+    products = [_rank_product(key="a|etb", median=100.0, low=70.0, launch=90.0,
+                         in_print=False, offers=[_rank_offer("alza-sk", 70.0)])]
+    reasons = scrape.build_recommendations(products)[0]["reasons"]
+    assert any("pod mediánom" in r for r in reasons)
+    assert any("uvádzacou" in r for r in reasons)
+    assert "na historickom minime" in reasons
+    assert "po ukončení tlače" in reasons
+
+
+# ------------------------------------------------------------- cieľové ceny
+
+def test_watchlist_splits_met_and_waiting():
+    import scrape
+    products = [
+        _rank_product(key="a|etb", offers=[_rank_offer("alza-sk", 80.0)]),
+        _rank_product(key="b|etb", offers=[_rank_offer("pgs-sk", 120.0)]),
+    ]
+    result = scrape.build_watchlist(products, [
+        {"key": "a|etb", "target": 85},
+        {"key": "b|etb", "target": 100},
+    ])
+    assert [e["key"] for e in result["met"]] == ["a|etb"]
+    assert result["met"][0]["shop_id"] == "alza-sk"
+    assert result["waiting"][0]["gap_pct"] == 20.0
+
+
+def test_watchlist_survives_unknown_keys_and_nonsense_targets():
+    import scrape
+    result = scrape.build_watchlist([], [
+        {"key": "nieco|etb", "target": 50},
+        {"key": "", "target": 50},
+        {"key": "a|etb", "target": 0},
+    ])
+    assert result["met"] == []
+    assert len(result["waiting"]) == 1
+    assert result["waiting"][0]["found"] is False
+
+
+def test_watchlist_ignores_offers_that_are_not_in_stock():
+    """Cieľová cena splnená ponukou, ktorú si nemôžeš kúpiť, je falošný poplach."""
+    import scrape
+    products = [_rank_product(key="a|etb", offers=[_rank_offer("alza-sk", 40.0, in_stock=False)])]
+    result = scrape.build_watchlist(products, [{"key": "a|etb", "target": 50}])
+    assert result["met"] == []
+    assert result["waiting"][0]["price_eur"] is None
+
+
+# --------------------------------------------------------- história portfólia
+
+def test_portfolio_history_rerun_replaces_same_day(tmp_path, monkeypatch):
+    import scrape
+    monkeypatch.setattr(scrape, "DATA", tmp_path)
+    portfolio = {"items": [{"key": "a|etb"}],
+                 "totals": {"cost_eur": 100.0, "value_eur": 120.0,
+                            "pl_eur": 20.0, "pl_pct": 20.0}}
+    scrape.append_portfolio_history(portfolio, "2026-09-01")
+    points = scrape.append_portfolio_history(portfolio, "2026-09-01")
+    assert len(points) == 1, "druhý beh v ten istý deň nesmie pridať ďalší bod"
+    points = scrape.append_portfolio_history(portfolio, "2026-09-02")
+    assert [p["d"] for p in points] == ["2026-09-01", "2026-09-02"]
+    assert points[-1]["value"] == 120.0 and points[-1]["cost"] == 100.0
+
+
+def test_portfolio_history_stays_empty_without_holdings(tmp_path, monkeypatch):
+    import scrape
+    monkeypatch.setattr(scrape, "DATA", tmp_path)
+    assert scrape.append_portfolio_history({"items": [], "totals": {}}, "2026-09-01") == []
+
+
+# -------------------------------------------------------------- upozornenia
+
+def test_alerts_cover_targets_drops_and_restocks():
+    import scrape
+    products = [_rank_product(key="a|etb", tier="A"), _rank_product(key="b|etb", tier="C")]
+    movements = {
+        "price_drop": [{"key": "a|etb", "product": "A", "price_eur": 70.0,
+                        "delta": -14.0, "url": "u"},
+                       {"key": "b|etb", "product": "B", "price_eur": 70.0,
+                        "delta": -4.0, "url": "u"}],
+        "restocked": [{"key": "a|etb", "product": "A", "price_eur": 70.0, "url": "u"},
+                      {"key": "b|etb", "product": "B", "price_eur": 70.0, "url": "u"}],
+    }
+    watchlist = {"met": [{"key": "c|etb", "title": "C", "target_eur": 60.0,
+                          "price_eur": 55.0, "url": "u"}], "waiting": []}
+    kinds = {(a["key"], a["kind"]) for a in
+             scrape.build_alerts(products, movements, watchlist)}
+    assert ("c|etb", "target") in kinds
+    assert ("a|etb", "drop") in kinds
+    assert ("b|etb", "drop") not in kinds, "4 % pokles nie je dôvod na vyrušenie"
+    assert ("a|etb", "restock") in kinds
+    assert ("b|etb", "restock") not in kinds, "úroveň C nemá budiť telefón"
+
+
+def test_alerts_wait_out_the_cooldown():
+    import scrape
+    alerts = [{"key": "a|etb", "kind": "drop", "title": "A", "text": "", "url": "u"},
+              {"key": "b|etb", "kind": "drop", "title": "B", "text": "", "url": "u"}]
+    log = [{"date": "2026-08-30", "key": "a|etb", "kind": "drop"},
+           {"date": "2026-08-01", "key": "b|etb", "kind": "drop"}]
+    due = scrape.due_alerts(alerts, log, "2026-09-02")
+    assert [a["key"] for a in due] == ["b|etb"], \
+        "nedávno poslané sa má preskočiť, staré poslať znova"
+
+
+def test_alerts_are_not_duplicated_within_one_run():
+    import scrape
+    movements = {"price_drop": [{"key": "a|etb", "product": "A", "price_eur": 70.0,
+                                 "delta": -20.0, "url": "u"}] * 3, "restocked": []}
+    alerts = scrape.build_alerts([_rank_product(key="a|etb")], movements,
+                                 {"met": [], "waiting": []})
+    assert len(alerts) == 1
+
+
+def test_alerts_ignore_half_price_jumps():
+    """Pokles o 68 % za jeden deň býva zmena produktu pod tou istou adresou,
+    nie zľava — takéto upozornenie by bolo len falošný poplach."""
+    import scrape
+    movements = {"price_drop": [{"key": "a|etb", "product": "A", "price_eur": 12.0,
+                                 "delta": -68.0, "url": "u"}], "restocked": []}
+    assert scrape.build_alerts([_rank_product(key="a|etb")], movements,
+                               {"met": [], "waiting": []}) == []

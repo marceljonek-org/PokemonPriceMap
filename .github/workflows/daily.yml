@@ -45,6 +45,9 @@ jobs:
         env:
           SCRAPE_PROXY_URL: ${{ secrets.SCRAPE_PROXY_URL }}
           SCRAPE_PROXY_TOKEN: ${{ secrets.SCRAPE_PROXY_TOKEN }}
+          SCRAPE_PORTFOLIO_TOKEN: ${{ secrets.SCRAPE_PORTFOLIO_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python src/scrape.py \
             ${{ inputs.snapshots && '--snapshots snapshots' || '' }} \
@@ -62,7 +65,9 @@ jobs:
             echo "Bez zmien."
           else
             git commit -m "Sken $(date -u +%Y-%m-%d)"
-            git push
+            # Keby si medzitým niečo pushol z počítača, push by spadol.
+            # Skúsime ho ešte raz po dotiahnutí cudzích zmien.
+            git push || { git pull --rebase && git push; }
           fi
 
       - name: Stiahnuté stránky ako artefakt

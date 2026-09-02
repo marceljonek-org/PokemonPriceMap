@@ -5,8 +5,8 @@ a slovenských eshopoch. Pokrýva **79 setov od klasiky z roku 1999 po Mega Evol
 Base Set/Neo, XY, Sun & Moon, Sword & Shield, Scarlet & Violet a Mega Evolution —
 naprieč 22 formátmi — od jedného boostera cez bundle, box a ETB až po Ultra Premium
 Collection a zberateľské tiny.
-Výsledok je statická stránka s obrázkami balení, históriou cien a označením
-podhodnotených ponúk.
+Výsledok je statická stránka s obrázkami balení, históriou cien, denným rebríčkom
+„čo dnes stojí za nákup“, cieľovými cenami, portfóliom a označením podhodnotených ponúk.
 
 Beží zadarmo: GitHub Actions robí denný sken, Cloudflare Pages hostuje stránku.
 
@@ -61,7 +61,7 @@ pri každom pushi — teda po každom dennom skene. Vlastnú doménu pridáš v
 ## Ako to beží
 
 Workflow `daily.yml` sa spúšťa cronom `0 17 * * *` (17:00 UTC = **19:00 letný čas**)
-a dá sa kedykoľvek spustiť ručne. Päť krokov:
+a dá sa kedykoľvek spustiť ručne. Sedem krokov:
 
 1. **Testy parserov** nad snapshotmi v `tests/fixtures/` — keď je rozbitá parsovacia
    logika, beh spadne ešte pred dotykom so živými webmi.
@@ -70,7 +70,10 @@ a dá sa kedykoľvek spustiť ručne. Päť krokov:
    úrovne A/B/C, sa zahodí.
 4. **Porovnanie s posledným behom** — zmeny cien, preklopenia dostupnosti, nové položky,
    značky `pod trhom` / `overiť`. Stiahnu sa chýbajúce obrázky.
-5. **Commit** dát a obrázkov → Cloudflare Pages nasadí stránku do minúty.
+5. **Vyhodnotenie** — rebríček „Kúpiť dnes“, kontrola cieľových cien, ocenenie
+   portfólia a zápis dnešného bodu do histórie jeho hodnoty.
+6. **Commit** dát a obrázkov → Cloudflare Pages nasadí stránku do minúty.
+7. **Upozornenia** na Telegram, ak sú nastavené (splnený cieľ, veľký pokles, naskladnenie).
 
 ### Poistky proti tichému zlyhaniu
 
@@ -255,6 +258,87 @@ za ktoré sa čerstvo vydaný set v týchto obchodoch bežne predáva.
 
 ---
 
+## Kúpiť dnes — denný rebríček
+
+Záložka *Kúpiť dnes* zoradí dnešné ponuky podľa toho, ako výhodne vyzerajú. Poradie
+počíta sken, nie prehliadač, takže je pre rovnaké dáta vždy rovnaké a dá sa spätne
+overiť z `latest.json`.
+
+| Zložka | Body | Prečo |
+|---|---|---|
+| pod dnešným mediánom ponúk skladom | 0–40 | najpriamejšia miera „lacnejšie než trh“; zľava sa počíta len do 30 %, ďalej to už býva chyba |
+| pod uvádzacou cenou formátu | 0–25 | set pod cenou z vydania sa nekupuje často |
+| na historickom minime (tolerancia 3 %) | 20 | nižšie to zatiaľ nikdy nebolo |
+| úroveň edície A/B/C | 2–10 | slabý set lacno je stále slabý set |
+| po ukončení tlače | 5 | ponuka sa už nedopĺňa |
+
+Ponuky označené `overiť` alebo `skok ceny` sa do rebríčka nedostanú a z jedného
+eshopu sa berú najviac tri položky, nech nezaplní celý zoznam.
+
+Žiadna predpoveď budúcnosti sa tu nepočíta — sú to len dnes merateľné čísla.
+Ceny zberateľských kariet sú špekulatívne; toto nie je investičné poradenstvo.
+
+---
+
+## Cieľové ceny
+
+V detaile produktu (klik na kartu) je pole **Cieľová cena**. Zapíše sa do toho istého
+Cloudflare KV ako portfólio, len pod kľúč `watchlist` — netreba zakladať druhý namespace.
+Funguje po odomknutí heslom portfólia.
+
+Pri každom skene sa cieľ porovná s najlacnejšou ponukou **skladom**:
+
+- splnené ciele sa vypíšu navrchu záložky *Kúpiť dnes* a pošlú sa na Telegram
+- nesplnené sú v tabuľke *Čakajú na cenu* aj s tým, koľko percent chýba
+
+Hromadne sa dajú zadať aj v `config/portfolio.yaml` pod kľúčom `targets:`; oba
+zdroje sa sčítajú.
+
+---
+
+## Graf hodnoty portfólia
+
+Každý sken zapíše jeden riadok do `data/portfolio-history.csv` (dátum, počet položiek,
+náklady, hodnota, rozdiel). Záložka *Portfólio* z toho kreslí graf: plná čiara je
+hodnota, čiarkovaná to, čo si za to zaplatil. Opakovaný sken v ten istý deň riadok
+prepíše, nie pridá — inak by v grafe boli tri body na jeden deň.
+
+Prvý bod pribudne pri najbližšom skene po pridaní prvého nákupu, druhý na druhý deň;
+dovtedy stránka napíše, že graf ešte nie je z čoho nakresliť.
+
+---
+
+## Upozornenia na Telegram
+
+Nepovinné. Bez nastavenia sken beží presne ako doteraz, len na konci vypíše, koľko
+upozornení by poslal.
+
+Posielajú sa tri veci:
+
+| Značka | Kedy |
+|---|---|
+| 🎯 | splnená cieľová cena |
+| 📉 | pokles o 10 % a viac oproti minulému skenu (nad 50 % sa ignoruje — to nebýva zľava, ale iný produkt pod tou istou adresou) |
+| 📦 | edícia úrovne A alebo B je opäť skladom |
+
+To isté upozornenie sa neopakuje **7 dní**; čo už išlo, je v `data/alerts-sent.csv`.
+
+### Nastavenie
+
+1. V Telegrame napíš **@BotFather** → `/newbot` → zadaj meno a používateľské meno bota.
+   Odpovie ti tokenom v tvare `1234567890:AA...`.
+2. Napíš svojmu novému botovi ľubovoľnú správu (bez toho ti nemá kam písať).
+3. Otvor v prehliadači `https://api.telegram.org/bot<TOKEN>/getUpdates` a nájdi
+   `"chat":{"id":123456789` — to číslo je tvoje `chat_id`.
+4. GitHub → *Settings → Secrets and variables → Actions* → *New repository secret*:
+   - `TELEGRAM_BOT_TOKEN` = token z kroku 1
+   - `TELEGRAM_CHAT_ID` = číslo z kroku 3
+
+Ak Telegram neodpovie, sken to len vypíše do logu a pokračuje — upozornenie nikdy
+nesmie zhodiť zber cien.
+
+---
+
 ## Proxy pre blokované eshopy
 
 Šesť eshopov (Zardo, Smarty CZ/SK, Alza CZ/SK, PokecTCG) vracia z IP adries
@@ -346,7 +430,9 @@ docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        156 testov nad gzip snapshotmi
+tests/                        170 testov nad gzip snapshotmi
+data/portfolio-history.csv    denná hodnota portfólia (graf)
+data/alerts-sent.csv          čo už išlo na Telegram (proti opakovaniu)
 tools/demo_from_fixtures.py   náhľad bez siete
 ```
 

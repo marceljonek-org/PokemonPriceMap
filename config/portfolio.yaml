@@ -31,3 +31,16 @@ holdings: []
 #     price: 4990
 #     currency: CZK
 #     bought: 2026-05-02
+
+# Cieľové ceny — pri akej cene ťa produkt zaujme. Sken ich porovná
+# s najlacnejšou ponukou skladom a splnené vypíše v záložke „Kúpiť dnes“
+# (a pošle upozornenie, ak máš nastavený Telegram).
+# Pohodlnejšie sa zadávajú priamo na stránke v detaile produktu; tento
+# zoznam je záložná cesta a sčítava sa s tým, čo zadáš cez stránku.
+targets: []
+
+# targets:
+#   - key: chaos-rising|booster-box
+#     target: 185
+#   - key: prismatic-evolutions|etb
+#     target: 60

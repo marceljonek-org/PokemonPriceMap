@@ -1,5 +1,5 @@
 /**
- * Cenová mapa — Worker s dvoma úlohami.
+ * Cenová mapa — Worker so štyrmi úlohami.
  *
  *  1. PROXY  — sťahuje stránky eshopov, ktoré blokujú IP adresy GitHub Actions.
  *              ?t=<PROXY_TOKEN>&url=<adresa>
@@ -9,7 +9,11 @@
  *              GET  ?portfolio=1&t=<PORTFOLIO_TOKEN>
  *              POST ?portfolio=1&t=<PORTFOLIO_TOKEN>   telo = JSON pole položiek
  *
- *  3. SKEN    — tlačidlo na stránke, ktoré spustí ten istý beh ako cron o 19:00.
+ *  3. CIEĽOVÉ CENY — to isté úložisko, druhý kľúč: pri akej cene ma produkt
+ *              zaujíma. Sken to potom porovná a prípadne pošle upozornenie.
+ *              GET/POST ?watchlist=1&t=<PORTFOLIO_TOKEN>
+ *
+ *  4. SKEN    — tlačidlo na stránke, ktoré spustí ten istý beh ako cron o 19:00.
  *              POST ?scan=1&t=<PORTFOLIO_TOKEN>
  *              Prístup na GitHub drží Worker, aby token nebol vo verejnej stránke.
  *
@@ -32,7 +36,34 @@
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
            "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 
-const KV_KEY = "holdings";
+// Portfólio aj cieľové ceny bývajú v tom istom KV namespace, len pod iným
+// kľúčom — netreba kvôli druhému zoznamu zakladať a viazať ďalší namespace.
+const STORES = {
+  portfolio: { kvKey: "holdings", field: "holdings", clean: cleanHolding },
+  watchlist: { kvKey: "watchlist", field: "watchlist", clean: cleanTarget },
+};
+
+function cleanHolding(h) {
+  return {
+    id: String(h.id || "").slice(0, 40),
+    key: String(h.key || "").slice(0, 120),
+    title: String(h.title || "").slice(0, 160),
+    qty: Number(h.qty) || 0,
+    price: Number(h.price) || 0,
+    currency: String(h.currency || "EUR").slice(0, 3).toUpperCase(),
+    bought: String(h.bought || "").slice(0, 10),
+    shop: String(h.shop || "").slice(0, 80),
+    note: String(h.note || "").slice(0, 200),
+  };
+}
+
+function cleanTarget(t) {
+  return {
+    key: String(t.key || "").slice(0, 120),
+    title: String(t.title || "").slice(0, 160),
+    target: Number(t.target) || 0,
+  };
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -56,8 +87,11 @@ export default {
     const params = new URL(request.url).searchParams;
     const token = params.get("t") || request.headers.get("x-proxy-token") || "";
 
-    // ---------------------------------------------------------- portfólio
-    if (params.get("portfolio")) {
+    // ------------------------------------------- portfólio a cieľové ceny
+    const storeName = params.get("portfolio") ? "portfolio"
+                    : params.get("watchlist") ? "watchlist" : "";
+    if (storeName) {
+      const store = STORES[storeName];
       if (!env.PORTFOLIO_TOKEN || token !== env.PORTFOLIO_TOKEN) {
         return json({ error: "unauthorized" }, 401);
       }
@@ -68,8 +102,8 @@ export default {
       }
 
       if (request.method === "GET") {
-        const stored = await kv.get(KV_KEY);
-        return json({ holdings: stored ? JSON.parse(stored) : [] });
+        const stored = await kv.get(store.kvKey);
+        return json({ [store.field]: stored ? JSON.parse(stored) : [] });
       }
 
       if (request.method === "POST") {
@@ -79,27 +113,17 @@ export default {
         } catch {
           return json({ error: "telo nie je JSON" }, 400);
         }
-        const holdings = Array.isArray(body) ? body : body.holdings;
-        if (!Array.isArray(holdings)) {
+        const items = Array.isArray(body) ? body : body[store.field];
+        if (!Array.isArray(items)) {
           return json({ error: "očakávam pole položiek" }, 400);
         }
-        if (holdings.length > 500) {
+        if (items.length > 500) {
           return json({ error: "priveľa položiek" }, 413);
         }
         // Ukladáme len polia, ktoré poznáme — nech sa do úložiska nedostane
         // čokoľvek, čo pošle prehliadač.
-        const clean = holdings.map((h) => ({
-          id: String(h.id || "").slice(0, 40),
-          key: String(h.key || "").slice(0, 120),
-          title: String(h.title || "").slice(0, 160),
-          qty: Number(h.qty) || 0,
-          price: Number(h.price) || 0,
-          currency: String(h.currency || "EUR").slice(0, 3).toUpperCase(),
-          bought: String(h.bought || "").slice(0, 10),
-          shop: String(h.shop || "").slice(0, 80),
-          note: String(h.note || "").slice(0, 200),
-        }));
-        await kv.put(KV_KEY, JSON.stringify(clean));
+        const clean = items.map(store.clean);
+        await kv.put(store.kvKey, JSON.stringify(clean));
         return json({ ok: true, count: clean.length });
       }
 
