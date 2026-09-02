@@ -1,8 +1,9 @@
 # Cenová mapa Pokémon TCG
 
 Denné sledovanie cien a dostupnosti **zapečatených** Pokémon TCG produktov v 28 českých
-a slovenských eshopoch. Pokrýva celú sériu **Scarlet & Violet** a **Mega Evolution**
-naprieč 21 formátmi — od jedného boostera cez bundle, box a ETB až po Ultra Premium
+a slovenských eshopoch. Pokrýva **79 setov od klasiky z roku 1999 po Mega Evolution** — série
+Base Set/Neo, XY, Sun & Moon, Sword & Shield, Scarlet & Violet a Mega Evolution —
+naprieč 22 formátmi — od jedného boostera cez bundle, box a ETB až po Ultra Premium
 Collection a zberateľské tiny.
 Výsledok je statická stránka s obrázkami balení, históriou cien a označením
 podhodnotených ponúk.
@@ -179,8 +180,13 @@ za ktorú ho vieš predať; reálne speňaženie býva nižšie.
 
 Vzory sa hľadajú v názve **bez diakritiky a malými písmenami** — `nova`, nie `nová`.
 
-**Pozor na poradie:** rozhoduje prvá zhoda, takže polovičné sety (SV8.5, ME02.5) musia
-byť v súbore **nad** základnými (SV08, ME02). Inak by `SV8.5` spadlo pod `SV08`.
+**Pozor na poradie:** rozhoduje prvá zhoda, takže polovičné sety (SV8.5, ME02.5, SWSH4.5)
+musia byť v súbore **nad** základnými (SV08, ME02, SWSH04). Inak by `SV8.5` spadlo pod `SV08`.
+
+**Pozor na generické názvy.** Staré sety majú mená, ktoré sa objavujú aj v moderných
+produktoch — SV10 Destined Rivals je celý o Team Rockete. Preto klasický Team Rocket
+vyžaduje dobový znak (`1st edition`, rok) a `Evolutions` či `Generations` musia mať
+za sebou názov formátu. Bez toho by monitor hádzal moderné produkty do roku 2000.
 `tier` je nepovinný — edícia bez neho sa sleduje tiež, len nemá investičné zaradenie.
 
 Keď sa v ponuke objaví formát v neznámej edícii (napr. „ME07 … Booster Bundle“),
@@ -301,7 +307,7 @@ riadky `proxy: true` — alebo nechať, nič to nekazí.
 
 ```bash
 pip install -r requirements.txt
-make test          # 139 testov nad snapshotmi, bez siete
+make test          # 156 testov nad snapshotmi, bez siete
 make demo          # postaví docs/latest.json zo snapshotov
 python -m http.server -d docs 8000   # náhľad na http://localhost:8000
 make scan          # ostrý sken (potrebuje sieť)
@@ -340,7 +346,7 @@ docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        139 testov nad gzip snapshotmi
+tests/                        156 testov nad gzip snapshotmi
 tools/demo_from_fixtures.py   náhľad bez siete
 ```
 

@@ -175,6 +175,8 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit)}
       <span class="sep"></span>
       <button class="f" data-series="ME" aria-pressed="false">Mega Evolution</button>
       <button class="f" data-series="SV" aria-pressed="false">Scarlet &amp; Violet</button>
+      <button class="f" data-series="SWSH" aria-pressed="false">Sword &amp; Shield</button>
+      <button class="f" data-series="OLD" aria-pressed="false" title="Sun &amp; Moon, XY a klasika">Staršie</button>
       <span class="sep"></span>
       <button class="f" data-fmt="booster" aria-pressed="false">Booster</button>
       <button class="f" data-fmt="bundle" aria-pressed="false">Bundle</button>
@@ -233,11 +235,18 @@ function sparkline(points){
     <circle cx="${last[0]}" cy="${last[1]}" r="2.2" fill="currentColor"/></svg>`;
 }
 
+/* Chip „Staršie" zastupuje tri série naraz, nech sa lišta nerozrastie do šírky. */
+const OLD_SERIES = ['SM', 'XY', 'vintage'];
+function matchesSeries(series){
+  if(state.series.has(series)) return true;
+  return state.series.has('OLD') && OLD_SERIES.includes(series);
+}
+
 function visibleProducts(){
   const q = state.q.trim().toLowerCase();
   return state.data.products.filter(p=>{
     if(state.onlyTier && !['A','B'].includes(p.edition.tier)) return false;
-    if(state.series.size && !state.series.has(p.edition.series)) return false;
+    if(state.series.size && !matchesSeries(p.edition.series)) return false;
     if(state.formats.size && !state.formats.has(p.format.id)) return false;
     if(state.onlyStock && p.in_stock_count === 0) return false;
     if(q){
@@ -614,7 +623,7 @@ function boot(data){
   state.data = data;
   document.getElementById('subtitle').textContent =
     `${data.date} · ${data.shops.filter(s=>s.ok).length} z ${data.shops.length} eshopov · ` +
-    `Mega Evolution a Scarlet & Violet, zapečatené produkty`;
+    `${data.counts.products} produktov od klasiky po Mega Evolution`;
   const today = new Date().toISOString().slice(0,10);
   if(data.date !== today){
     const bar = document.getElementById('stale');

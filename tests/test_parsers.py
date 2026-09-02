@@ -236,6 +236,11 @@ def test_stock_from_text(text, expected):
     ("Pokémon TCG: ME02.5 Ascended Heroes Mini Tin", "ascended-heroes", "mini-tin", 2),
     ("Pokémon TCG: SV8.5 Prismatic Evolutions Booster Bundle Display",
      "prismatic-evolutions", "bundle-display", 48),
+    # séria Sword & Shield
+    ("Pokémon TCG Shining Fates - Elite Trainer Box", "shining-fates", "etb", 9),
+    ("Pokémon TCG: Evolving Skies Booster Box", "evolving-skies", "booster-box", 36),
+    ("Pokémon TCG: Champion's Path Elite Trainer Box", "champions-path", "etb", 9),
+    ("Pokémon TCG: SWSH12.5 Crown Zenith Booster", "crown-zenith", "booster", 1),
 ])
 def test_classify_hits(name, edition, fmt, packs):
     hit = classify.classify(name)
@@ -248,7 +253,6 @@ def test_classify_hits(name, edition, fmt, packs):
 @pytest.mark.parametrize("name", [
     "Pokémon TCG: Storm Emeralda Booster Box - japonský",
     "Pokémon TCG: Pitch Black Booster Box Case (6x Booster Box)",
-    "Pokémon TCG: Lost Origin Booster Box Sword and Shield 11",   # mimo SV a ME
     "Spin Master Bitzee Bouda pro pejsky",
     "Album Ultimate Guard - Flexxfolio 360 18-vreckový",
     "Ampharos - 090/086 - ME04: Chaos Rising (CRI)",              # jednotlivá karta
@@ -293,6 +297,19 @@ def test_tiers_are_valid_and_series_complete():
     series = [e.series for e in classify.editions()]
     assert series.count("ME") >= 7, "chýbajú sety Mega Evolution"
     assert series.count("SV") >= 15, "chýbajú sety Scarlet & Violet"
+    assert series.count("SWSH") >= 15, "chýbajú sety Sword & Shield"
+
+
+def test_swsh_half_sets_win_over_base_sets():
+    """SWSH4.5 sa nesmie chytiť na vzor pre SWSH04."""
+    assert classify.classify("Pokémon TCG: SWSH4.5 Shining Fates - Booster") \
+        .edition.id == "shining-fates"
+    assert classify.classify("Pokémon TCG: SWSH04 Vivid Voltage - Booster") \
+        .edition.id == "vivid-voltage"
+    assert classify.classify("Pokémon TCG: SWSH12.5 Crown Zenith - Booster") \
+        .edition.id == "crown-zenith"
+    assert classify.classify("Pokémon TCG: SWSH12 Silver Tempest - Booster") \
+        .edition.id == "silver-tempest"
 
 
 def test_half_sets_win_over_base_sets():
@@ -620,3 +637,59 @@ def test_history_ignores_absurd_points_but_keeps_launch_prices():
     product = scrape.build_products(rows, history, {}, today)[0][0]
     assert product["low_eur"] == 60.00
     assert all(point["v"] >= 20 for point in product["history"])
+
+
+# ------------------------------------------------------------- staršie éry
+
+@pytest.mark.parametrize("name,edition,fmt", [
+    ("Pokémon TCG: Hidden Fates Elite Trainer Box", "hidden-fates", "etb"),
+    ("Pokémon TCG: Cosmic Eclipse Booster Box", "cosmic-eclipse", "booster-box"),
+    ("Pokémon TCG: Shining Legends Elite Trainer Box", "shining-legends", "etb"),
+    ("Pokémon TCG: XY Evolutions Booster Box", "xy-evolutions", "booster-box"),
+    ("Pokémon TCG: Roaring Skies Booster Box", "roaring-skies", "booster-box"),
+    ("Pokémon TCG: Neo—Neo Genesis Booster Pack (Lugia)", "neo-genesis", "booster"),
+    ("Pokémon TCG Base Set Booster Pack 1999", "base-set", "booster"),
+])
+def test_older_eras(name, edition, fmt):
+    hit = classify.classify(name)
+    assert hit is not None, name
+    assert hit.edition.id == edition
+    assert hit.format.id == fmt
+
+
+def test_team_rocket_needs_a_period_marker():
+    """SV10 Destined Rivals je celý o Team Rockete. Bez dobového znaku (1st edition,
+    rok) sa "team rocket" nesmie zaradiť ku klasike z roku 2000."""
+    assert classify.classify("Pokémon TCG: Team Rocket Tin - Persian") is None
+    assert classify.classify(
+        "Pokémon TCG: SV10 Destined Rivals Team Rocket's Mewtwo ex Box"
+    ).edition.id == "destined-rivals"
+    assert classify.classify(
+        "Pokémon TCG: Team Rocket 1st Edition Booster Pack"
+    ).edition.id == "team-rocket"
+
+
+def test_japanese_sv10_name_is_excluded():
+    """„Glory of Team Rocket" je japonský názov SV10 — ani klasika, ani sledovaný set."""
+    assert classify.classify("Pokémon TCG: Glory of Team Rocket Booster Box") is None
+
+
+def test_promo_boxes_group_by_year():
+    """Pokémon Day nemá kód setu a každý eshop ho píše inak — kľúčom je
+    ročník, aby sa ten istý produkt nerozpadol na tri položky."""
+    names = ["Pokémon TCG: Pokémon Day 2026 Collection",
+             "Pokémon TCG Pokémon Day 2026 Pikachu Promo Box",
+             "Pokemon Day 2026 - 3 boostery a promo karta"]
+    hits = [classify.classify(n) for n in names]
+    assert all(h and h.format.id == "event-collection" for h in hits)
+    assert len({h.variant for h in hits}) == 1, "ten istý ročník má mať jeden kľúč"
+    other = classify.classify("Pokémon TCG: Poké Ball Tin 2024 (reprint)")
+    assert other.variant != hits[0].variant
+
+
+def test_every_era_is_represented():
+    from collections import Counter
+    counts = Counter(e.series for e in classify.editions())
+    for series, minimum in (("ME", 7), ("SV", 15), ("SWSH", 15),
+                            ("SM", 15), ("XY", 12), ("vintage", 8)):
+        assert counts[series] >= minimum, f"séria {series} má len {counts[series]} setov"

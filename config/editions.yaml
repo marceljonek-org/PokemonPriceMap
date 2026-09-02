@@ -1,4 +1,4 @@
-# Sledované edície — celá séria Scarlet & Violet a Mega Evolution.
+# Sledované edície — od klasiky z roku 1999 po Mega Evolution.
 #
 # `released` = dátum anglického vydania. Používa sa na "dní od vydania" a na odhad,
 # či je set ešte v tlači. Zdroje: cardrake.com/guides/upcoming-sets (séria ME
@@ -202,6 +202,422 @@ editions:
     released: 2023-03-31
     patterns: ["\\bsv\\s*0?1\\b", "scarlet\\s*(&|a|and)\\s*violet\\s*-?\\s*(booster|elite|box)"]
 
+
+  # ---------------- Sword & Shield (2020–2023) ----------------
+  # Celá éra je dávno po ukončení tlače, preto je pri nej "dní od vydania"
+  # a príznak out-of-print najzaujímavejší. Tier majú len sety, ktoré menuje
+  # `edicie-s-vysokym-investicnym-potencialom.md` — zvyšku som ho nevymýšľal.
+  # Polovičné sety musia byť nad základnými (SWSH4.5 pred SWSH04).
+
+  - id: crown-zenith
+    name: Crown Zenith
+    code: SWSH12.5
+    series: SWSH
+    released: 2023-01-20
+    patterns: ["crown\\s+zenith", "\\bswsh\\s*12[.,]5\\b"]
+
+  - id: silver-tempest
+    name: Silver Tempest
+    code: SWSH12
+    series: SWSH
+    tier: B
+    released: 2022-11-11
+    note: Alt art Lugia V, konzistentný rast
+    patterns: ["silver\\s+tempest", "\\bswsh\\s*12\\b"]
+
+  - id: lost-origin
+    name: Lost Origin
+    code: SWSH11
+    series: SWSH
+    tier: B
+    released: 2022-09-09
+    note: Alt art Giratina V, konzistentný rast
+    patterns: ["lost\\s+origin", "\\bswsh\\s*11\\b"]
+
+  - id: pokemon-go
+    name: Pokémon GO
+    code: SWSH10.5
+    series: SWSH
+    released: 2022-07-01
+    patterns: ["pokemon\\s+go\\b", "\\bswsh\\s*10[.,]5\\b"]
+
+  - id: astral-radiance
+    name: Astral Radiance
+    code: SWSH10
+    series: SWSH
+    released: 2022-05-27
+    patterns: ["astral\\s+radiance", "\\bswsh\\s*10\\b"]
+
+  - id: brilliant-stars
+    name: Brilliant Stars
+    code: SWSH09
+    series: SWSH
+    released: 2022-02-25
+    patterns: ["brilliant\\s+stars", "\\bswsh\\s*0?9\\b"]
+
+  - id: fusion-strike
+    name: Fusion Strike
+    code: SWSH08
+    series: SWSH
+    released: 2021-11-12
+    patterns: ["fusion\\s+strike", "\\bswsh\\s*0?8\\b"]
+
+  - id: celebrations
+    name: Celebrations
+    code: SWSH7.5
+    series: SWSH
+    tier: B
+    released: 2021-10-08
+    note: Set k 25. výročiu; Classic Collection Charizard drží hodnotu roky
+    patterns: ["celebrations", "25th\\s+anniversary", "\\bswsh\\s*0?7[.,]5\\b"]
+
+  - id: evolving-skies
+    name: Evolving Skies
+    code: SWSH07
+    series: SWSH
+    tier: A
+    released: 2021-08-27
+    note: Umbreon VMAX Alt Art — najdôležitejšia moderná karta
+    patterns: ["evolving\\s+skies", "\\bswsh\\s*0?7\\b"]
+
+  - id: chilling-reign
+    name: Chilling Reign
+    code: SWSH06
+    series: SWSH
+    released: 2021-06-18
+    patterns: ["chilling\\s+reign", "\\bswsh\\s*0?6\\b"]
+
+  - id: battle-styles
+    name: Battle Styles
+    code: SWSH05
+    series: SWSH
+    released: 2021-03-19
+    patterns: ["battle\\s+styles", "\\bswsh\\s*0?5\\b"]
+
+  - id: shining-fates
+    name: Shining Fates
+    code: SWSH4.5
+    series: SWSH
+    released: 2021-02-19
+    note: Shiny Charizard VMAX, dlhodobo žiadaný
+    patterns: ["shining\\s+fates", "\\bswsh\\s*0?4[.,]5\\b"]
+
+  - id: vivid-voltage
+    name: Vivid Voltage
+    code: SWSH04
+    series: SWSH
+    released: 2020-11-13
+    patterns: ["vivid\\s+voltage", "\\bswsh\\s*0?4\\b"]
+
+  - id: champions-path
+    name: Champion's Path
+    code: SWSH3.5
+    series: SWSH
+    released: 2020-09-25
+    patterns: ["champion'?s\\s+path", "\\bswsh\\s*0?3[.,]5\\b"]
+
+  - id: darkness-ablaze
+    name: Darkness Ablaze
+    code: SWSH03
+    series: SWSH
+    released: 2020-08-14
+    patterns: ["darkness\\s+ablaze", "\\bswsh\\s*0?3\\b"]
+
+  - id: rebel-clash
+    name: Rebel Clash
+    code: SWSH02
+    series: SWSH
+    released: 2020-05-01
+    patterns: ["rebel\\s+clash", "\\bswsh\\s*0?2\\b"]
+
+  - id: sword-shield-base
+    name: Sword & Shield
+    code: SWSH01
+    series: SWSH
+    released: 2020-02-07
+    patterns: ["\\bswsh\\s*0?1\\b", "sword\\s*(&|a|and)\\s*shield\\s*-?\\s*(booster|elite|box)"]
+
+
+  # ---------------- Sun & Moon (2017–2019) ----------------
+  - id: cosmic-eclipse
+    name: Cosmic Eclipse
+    code: "SM12"
+    series: SM
+    released: 2019-11-01
+    patterns: ["cosmic\\s+eclipse", "\\bsm\\s*12\\b"]
+
+  - id: hidden-fates
+    name: Hidden Fates
+    code: "SM11.5"
+    series: SM
+    tier: B
+    released: 2019-08-23
+    note: Shiny Charizard GX, dlhodobo žiadaný
+    patterns: ["hidden\\s+fates", "\\bsm\\s*11[.,]5\\b"]
+
+  - id: unified-minds
+    name: Unified Minds
+    code: "SM11"
+    series: SM
+    released: 2019-08-02
+    patterns: ["unified\\s+minds", "\\bsm\\s*11\\b"]
+
+  - id: unbroken-bonds
+    name: Unbroken Bonds
+    code: "SM10"
+    series: SM
+    released: 2019-05-03
+    patterns: ["unbroken\\s+bonds", "\\bsm\\s*10\\b"]
+
+  - id: detective-pikachu
+    name: Detective Pikachu
+    code: "SM"
+    series: SM
+    released: 2019-04-05
+    patterns: ["detective\\s+pikachu"]
+
+  - id: team-up
+    name: Team Up
+    code: "SM09"
+    series: SM
+    released: 2019-02-01
+    patterns: ["\\bteam\\s+up\\b", "\\bsm\\s*0?9\\b"]
+
+  - id: lost-thunder
+    name: Lost Thunder
+    code: "SM08"
+    series: SM
+    released: 2018-11-02
+    patterns: ["lost\\s+thunder", "\\bsm\\s*0?8\\b"]
+
+  - id: dragon-majesty
+    name: Dragon Majesty
+    code: "SM7.5"
+    series: SM
+    released: 2018-09-07
+    patterns: ["dragon\\s+majesty", "\\bsm\\s*0?7[.,]5\\b"]
+
+  - id: celestial-storm
+    name: Celestial Storm
+    code: "SM07"
+    series: SM
+    released: 2018-08-03
+    patterns: ["celestial\\s+storm", "\\bsm\\s*0?7\\b"]
+
+  - id: forbidden-light
+    name: Forbidden Light
+    code: "SM06"
+    series: SM
+    released: 2018-05-04
+    patterns: ["forbidden\\s+light", "\\bsm\\s*0?6\\b"]
+
+  - id: ultra-prism
+    name: Ultra Prism
+    code: "SM05"
+    series: SM
+    released: 2018-02-02
+    patterns: ["ultra\\s+prism", "\\bsm\\s*0?5\\b"]
+
+  - id: crimson-invasion
+    name: Crimson Invasion
+    code: "SM04"
+    series: SM
+    released: 2017-11-03
+    patterns: ["crimson\\s+invasion", "\\bsm\\s*0?4\\b"]
+
+  - id: shining-legends
+    name: Shining Legends
+    code: "SM3.5"
+    series: SM
+    released: 2017-10-06
+    patterns: ["shining\\s+legends", "\\bsm\\s*0?3[.,]5\\b"]
+
+  - id: burning-shadows
+    name: Burning Shadows
+    code: "SM03"
+    series: SM
+    released: 2017-08-04
+    patterns: ["burning\\s+shadows", "\\bsm\\s*0?3\\b"]
+
+  - id: guardians-rising
+    name: Guardians Rising
+    code: "SM02"
+    series: SM
+    released: 2017-05-05
+    patterns: ["guardians\\s+rising", "\\bsm\\s*0?2\\b"]
+
+  - id: sun-moon-base
+    name: Sun & Moon
+    code: "SM01"
+    series: SM
+    released: 2017-02-03
+    patterns: ["\\bsm\\s*0?1\\b", "sun\\s*(&|a|and)\\s*moon\\s*-?\\s*(booster|elite|box)"]
+
+
+  # ---------------- XY (2014–2016) ----------------
+  - id: xy-evolutions
+    name: Evolutions
+    code: "XY12"
+    series: XY
+    tier: B
+    released: 2016-11-02
+    note: Reprint Base Setu, stabilný dopyt
+    patterns: ["xy\\s*evolutions", "\\bevolutions\\s+(booster|elite|box|bundle)", "\\bxy\\s*12\\b"]
+
+  - id: steam-siege
+    name: Steam Siege
+    code: "XY11"
+    series: XY
+    released: 2016-08-03
+    patterns: ["steam\\s+siege", "\\bxy\\s*11\\b"]
+
+  - id: fates-collide
+    name: Fates Collide
+    code: "XY10"
+    series: XY
+    released: 2016-05-02
+    patterns: ["fates\\s+collide", "\\bxy\\s*10\\b"]
+
+  - id: generations
+    name: Generations
+    code: "XY"
+    series: XY
+    released: 2016-02-22
+    patterns: ["xy\\s*generations", "\\bgenerations\\s+(booster|elite|box|collection)"]
+
+  - id: breakpoint
+    name: BREAKpoint
+    code: "XY09"
+    series: XY
+    released: 2016-02-03
+    patterns: ["break\\s*point", "\\bxy\\s*0?9\\b"]
+
+  - id: breakthrough
+    name: BREAKthrough
+    code: "XY08"
+    series: XY
+    released: 2015-11-04
+    patterns: ["break\\s*through", "\\bxy\\s*0?8\\b"]
+
+  - id: ancient-origins
+    name: Ancient Origins
+    code: "XY07"
+    series: XY
+    released: 2015-08-12
+    patterns: ["ancient\\s+origins", "\\bxy\\s*0?7\\b"]
+
+  - id: roaring-skies
+    name: Roaring Skies
+    code: "XY06"
+    series: XY
+    released: 2015-05-06
+    patterns: ["roaring\\s+skies", "\\bxy\\s*0?6\\b"]
+
+  - id: primal-clash
+    name: Primal Clash
+    code: "XY05"
+    series: XY
+    released: 2015-02-04
+    patterns: ["primal\\s+clash", "\\bxy\\s*0?5\\b"]
+
+  - id: phantom-forces
+    name: Phantom Forces
+    code: "XY04"
+    series: XY
+    released: 2014-11-05
+    patterns: ["phantom\\s+forces", "\\bxy\\s*0?4\\b"]
+
+  - id: furious-fists
+    name: Furious Fists
+    code: "XY03"
+    series: XY
+    released: 2014-08-13
+    patterns: ["furious\\s+fists", "\\bxy\\s*0?3\\b"]
+
+  - id: flashfire
+    name: Flashfire
+    code: "XY02"
+    series: XY
+    released: 2014-05-07
+    patterns: ["flashfire", "\\bxy\\s*0?2\\b"]
+
+  - id: xy-base
+    name: XY
+    code: "XY01"
+    series: XY
+    released: 2014-02-05
+    patterns: ["\\bxy\\s*0?1\\b"]
+
+
+  # ---------------- Klasika (1999–2002) ----------------
+  - id: legendary-collection
+    name: Legendary Collection
+    code: "LC"
+    series: vintage
+    released: 2002-05-24
+    patterns: ["legendary\\s+collection"]
+
+  - id: neo-genesis
+    name: Neo Genesis
+    code: "Neo1"
+    series: vintage
+    released: 2000-12-16
+    patterns: ["neo\\s*[-—]?\\s*genesis"]
+
+  - id: neo-discovery
+    name: Neo Discovery
+    code: "Neo2"
+    series: vintage
+    released: 2001-06-01
+    patterns: ["neo\\s*[-—]?\\s*discovery"]
+
+  - id: neo-revelation
+    name: Neo Revelation
+    code: "Neo3"
+    series: vintage
+    released: 2001-09-21
+    patterns: ["neo\\s*[-—]?\\s*revelation"]
+
+  - id: neo-destiny
+    name: Neo Destiny
+    code: "Neo4"
+    series: vintage
+    released: 2002-02-28
+    patterns: ["neo\\s*[-—]?\\s*destiny"]
+
+  - id: team-rocket
+    name: Team Rocket
+    code: "TR"
+    series: vintage
+    released: 2000-04-24
+    # SV10 Destined Rivals je celý o Team Rockete, takže samotné "team rocket"
+    # by chytalo moderné produkty. Vyžadujeme dobový znak.
+    patterns: ["team\\s+rocket\\s+(1st|first)\\s+edition", "\\bwotc\\b.*team\\s+rocket",
+               "team\\s+rocket\\b.*\\b(1999|2000)\\b"]
+
+  - id: fossil
+    name: Fossil
+    code: "FO"
+    series: vintage
+    released: 1999-10-10
+    patterns: ["\\bfossil\\b"]
+
+  - id: jungle
+    name: Jungle
+    code: "JU"
+    series: vintage
+    released: 1999-06-16
+    patterns: ["\\bjungle\\b"]
+
+  - id: base-set
+    name: Base Set
+    code: "BS"
+    series: vintage
+    tier: A
+    released: 1999-01-09
+    note: Najvyšší dokázaný strop v hobby
+    patterns: ["base\\s+set"]
+
   # ---------------- Zberná položka ----------------
   # Priradí sa len premiovým kolekciám, ktoré sa predávajú bez kódu setu.
   # Prázdne `patterns` znamená, že sa nikdy nenaviaže podľa názvu sama od seba.
@@ -266,6 +682,14 @@ formats:
     packs: null
     edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
     patterns: ["premium\\s+(figure\\s+)?collection", "premium\\s+deck\\s+set"]
+
+  - id: event-collection
+    name: Promo balenie
+    short: Promo
+    packs: null
+    edition_optional: true   # Pokémon Day a spol. nemajú kód setu
+    patterns: ["pokemon\\s+day", "pok[eé]\\s*ball\\s+tin", "trainer'?s\\s+toolkit",
+               "advent|adventn|kalend[áa]r"]
 
   - id: illustration-collection
     name: Illustration Collection
@@ -371,6 +795,7 @@ pack_overrides:
 # a jednotlivé karty vypadnú samy — tu sú len prípady, ktoré by inak prešli.
 exclude_patterns:
   - "japon|japan|jap\\.|\\bjp\\b|\\(jap"
+  - "glory\\s+of\\s+(the\\s+)?team\\s+rocket"   # japonský názov SV10, nie klasika z r. 2000
   - "[čc][íi]nsk|chinese"
   - "k[óo]rejsk|korean"
   - "\\bcase\\b|\\bcarton\\b"

@@ -170,10 +170,10 @@ def looks_like_new_edition(name: str) -> bool:
     return bool(re.search(r"\bme\s*\d{1,2}(?:[.,]\d)?\b|\bsv\s*\d{1,2}(?:[.,]\d)?\b", n))
 
 
-_NOISE = re.compile(
-    r"pokemon|pok[eé]mon|\btcg\b|\bkarty\b|\bkartov[aá]\b|\bhra\b|"
-    r"\(\d{4}\)|\b\d{4}\b|\bnov[ée]\b|\bnew\b"
-)
+_BASE_NOISE = (r"pokemon|pok[eé]mon|\btcg\b|\bkarty\b|\bkartov[aá]\b|\bhra\b|"
+               r"\bnov[ée]\b|\bnew\b|\bzberate[ľl]sk[áa]\b")
+_NOISE = re.compile(_BASE_NOISE + r"|\(\d{4}\)|\b\d{4}\b")
+_NOISE_KEEP_YEARS = re.compile(_BASE_NOISE)
 
 
 def subject_of(normalized_name: str, fmt: Format) -> str:
@@ -185,13 +185,26 @@ def subject_of(normalized_name: str, fmt: Format) -> str:
     Bez toho by všetky Ultra Premium Collection splynuli do jedného produktu,
     lebo nemajú kód setu, podľa ktorého by sa dali rozlíšiť.
     """
-    text = normalized_name
-    for pattern in fmt.patterns:                 # odrež názov formátu a všetko za ním
-        match = pattern.search(text)
+    def slug(raw: str, drop_years: bool = True) -> str:
+        cleaned = (_NOISE if drop_years else _NOISE_KEEP_YEARS).sub(" ", raw)
+        cleaned = re.sub(r"[^a-z0-9]+", " ", cleaned)
+        return "-".join(w for w in cleaned.split() if len(w) > 1 or w.isdigit())[:60]
+
+    prefix, matched = normalized_name, ""
+    for pattern in fmt.patterns:                 # odrež názov formátu
+        match = pattern.search(normalized_name)
         if match:
-            text = text[: match.start()]
+            prefix = normalized_name[: match.start()]
+            matched = match.group(0)
             break
-    text = _NOISE.sub(" ", text)
-    text = re.sub(r"[^a-z0-9]+", " ", text)
-    words = [w for w in text.split() if len(w) > 1 or w.isdigit()]
-    return "-".join(words[:5])
+
+    subject = slug(prefix)
+    if subject:
+        return "-".join(subject.split("-")[:5])
+
+    # Pri promo baleniach nezostane pred názvom formátu nič — identitou je samotný
+    # formát a ročník ("pokemon day 2026"). Rok berieme z celého názvu, nech sa
+    # ten istý produkt z rôznych eshopov zaradí pod jeden kľúč.
+    year = re.search(r"\b(20\d{2})\b", normalized_name)
+    parts = [slug(matched)] + ([year.group(1)] if year else [])
+    return "-".join(p for p in parts if p)
