@@ -35,6 +35,7 @@ class Edition:
     code: str
     tier: str          # A/B/C podľa investičného rozboru, "" ak nie je zaradená
     series: str        # ME / SV / special
+    released: str      # dátum vydania, "" ak nie je dohľadaný
     note: str
     patterns: tuple
 
@@ -65,6 +66,7 @@ def _config() -> dict:
         Edition(
             id=e["id"], name=e["name"], code=e.get("code") or "",
             tier=e.get("tier") or "", series=e.get("series") or "",
+            released=str(e.get("released") or ""),
             note=e.get("note", ""),
             patterns=tuple(re.compile(normalize(p), re.I) for p in e["patterns"]),
         )
@@ -82,12 +84,19 @@ def _config() -> dict:
         (o["edition"], o["format"]): o["packs"] for o in raw.get("pack_overrides", [])
     }
     excludes = tuple(re.compile(normalize(p), re.I) for p in raw.get("exclude_patterns", []))
+    launch = {k: float(v) for k, v in (raw.get("launch_price_eur") or {}).items()}
     return {
         "editions": editions,
         "formats": formats,
         "overrides": overrides,
         "excludes": excludes,
+        "launch": launch,
     }
+
+
+def launch_price(format_id: str) -> float | None:
+    """Orientačná uvádzacia cena formátu v eurách, ak je známa."""
+    return _config()["launch"].get(format_id)
 
 
 def editions() -> list[Edition]:

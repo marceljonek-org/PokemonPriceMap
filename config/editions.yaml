@@ -1,5 +1,11 @@
 # Sledované edície — celá séria Scarlet & Violet a Mega Evolution.
 #
+# `released` = dátum anglického vydania. Používa sa na "dní od vydania" a na odhad,
+# či je set ešte v tlači. Zdroje: cardrake.com/guides/upcoming-sets (séria ME
+# a 30th Celebration), cardcodex.com/pokemon/scarlet-violet (séria SV).
+# Neisté: ME06 Delta Reign (ohlásené, nepotvrdené) a dvojica Black Bolt / White Flare
+# (zdroje sa rozchádzajú o niekoľko týždňov). ME01 a ME02 nemajú dohľadaný dátum.
+#
 # POZOR NA PORADIE: rozhoduje prvá zhoda, preto musia byť polovičné sety
 # (SV8.5, ME02.5) NAD základnými (SV08, ME02) — inak by "SV8.5" spadlo pod "SV08".
 #
@@ -14,6 +20,7 @@ editions:
     series: ME
     tier: A
     note: Najväčší anglický set v histórii, Mega Gengar ex SIR
+    released: 2026-01-30
     patterns: ["ascend(ed|ant)\\s+heroes", "\\bme\\s*0?2[.,]5\\b"]
 
   - id: phantasmal-flames
@@ -35,6 +42,7 @@ editions:
     series: ME
     tier: B
     note: Menší print run, najvypredanejší sledovaný set
+    released: 2026-03-27
     patterns: ["perfect\\s+order", "\\bme\\s*0?3\\b"]
 
   - id: chaos-rising
@@ -43,6 +51,7 @@ editions:
     series: ME
     tier: B
     note: Mega Greninja, menší set, lepší pull rate
+    released: 2026-05-22
     patterns: ["chaos\\s+rising", "\\bme\\s*0?4\\b"]
 
   - id: pitch-black
@@ -51,6 +60,7 @@ editions:
     series: ME
     tier: C
     note: Bežný hlavný set, cenová kotva
+    released: 2026-07-17
     patterns: ["pitch\\s+black", "\\bme\\s*0?5\\b"]
 
   - id: delta-reign
@@ -59,6 +69,7 @@ editions:
     series: ME
     tier: B
     note: Hoennskí starteri, stabilný rast zapečatených boxov
+    released: 2026-11-06
     patterns: ["delta\\s+reign", "mega\\s+reign", "\\bme\\s*0?6\\b"]
 
   # ---------------- Výročný set ----------------
@@ -68,6 +79,7 @@ editions:
     series: special
     tier: A
     note: Výročný set, vydanie 16. 9. 2026
+    released: 2026-09-16
     patterns: ["30th\\s+(celebration|anniversary)", "30\\.?\\s*(výro[čc]ie|vyroci|výro[čc]í)"]
 
   # ---------------- Scarlet & Violet: polovičné sety ----------------
@@ -77,6 +89,7 @@ editions:
     series: SV
     tier: A
     note: Blue-chip set, 9 Eeveelution SIR kariet
+    released: 2025-01-17
     patterns: ["prismatic\\s+evolution", "\\bsv\\s*0?8[.,]5\\b"]
 
   - id: white-flare
@@ -84,6 +97,7 @@ editions:
     code: SV10.5
     series: SV
     note: Dvojča Black Bolt, spoločný kód SV10.5
+    released: 2025-06-06
     patterns: ["white\\s+flare"]
 
   - id: black-bolt
@@ -91,18 +105,21 @@ editions:
     code: SV10.5
     series: SV
     note: Dvojča White Flare, spoločný kód SV10.5
+    released: 2025-06-06
     patterns: ["black\\s+bolt"]
 
   - id: shrouded-fable
     name: Shrouded Fable
     code: SV6.5
     series: SV
+    released: 2024-08-02
     patterns: ["shrouded\\s+fable", "\\bsv\\s*0?6[.,]5\\b"]
 
   - id: paldean-fates
     name: Paldean Fates
     code: SV4.5
     series: SV
+    released: 2024-01-26
     patterns: ["paldean\\s+fates", "\\bsv\\s*0?4[.,]5\\b"]
 
   - id: pokemon-151
@@ -110,6 +127,7 @@ editions:
     code: SV3.5
     series: SV
     note: Nostalgický set, dlhodobo silný dopyt
+    released: 2023-09-22
     patterns: ["\\b151\\b", "\\bsv\\s*0?3[.,]5\\b"]
 
   # ---------------- Scarlet & Violet: hlavné sety ----------------
@@ -117,54 +135,63 @@ editions:
     name: Destined Rivals
     code: SV10
     series: SV
+    released: 2025-05-30
     patterns: ["destined\\s+rivals", "\\bsv\\s*10\\b"]
 
   - id: journey-together
     name: Journey Together
     code: SV09
     series: SV
+    released: 2025-03-28
     patterns: ["journey\\s+together", "\\bsv\\s*0?9\\b"]
 
   - id: surging-sparks
     name: Surging Sparks
     code: SV08
     series: SV
+    released: 2024-11-08
     patterns: ["surging\\s+sparks", "\\bsv\\s*0?8\\b"]
 
   - id: stellar-crown
     name: Stellar Crown
     code: SV07
     series: SV
+    released: 2024-09-13
     patterns: ["stellar\\s+crown", "\\bsv\\s*0?7\\b"]
 
   - id: twilight-masquerade
     name: Twilight Masquerade
     code: SV06
     series: SV
+    released: 2024-05-24
     patterns: ["twilight\\s+masquerade", "\\bsv\\s*0?6\\b"]
 
   - id: temporal-forces
     name: Temporal Forces
     code: SV05
     series: SV
+    released: 2024-03-22
     patterns: ["temporal\\s+forces", "\\bsv\\s*0?5\\b"]
 
   - id: paradox-rift
     name: Paradox Rift
     code: SV04
     series: SV
+    released: 2023-11-03
     patterns: ["paradox\\s+rift", "\\bsv\\s*0?4\\b"]
 
   - id: obsidian-flames
     name: Obsidian Flames
     code: SV03
     series: SV
+    released: 2023-08-11
     patterns: ["obsidian\\s+flames", "\\bsv\\s*0?3\\b"]
 
   - id: paldea-evolved
     name: Paldea Evolved
     code: SV02
     series: SV
+    released: 2023-06-09
     patterns: ["paldea\\s+evolved", "\\bsv\\s*0?2\\b"]
 
   - id: scarlet-violet-base
@@ -172,6 +199,7 @@ editions:
     code: SV01
     series: SV
     note: Základný set série
+    released: 2023-03-31
     patterns: ["\\bsv\\s*0?1\\b", "scarlet\\s*(&|a|and)\\s*violet\\s*-?\\s*(booster|elite|box)"]
 
   # ---------------- Zberná položka ----------------
@@ -317,6 +345,21 @@ formats:
     short: Booster
     packs: 1
     patterns: ["\\bbooster\\b", "\\bboostr?e\\b"]
+
+# Orientačná uvádzacia cena v CZ/SK pri vydaní setu, v eurách.
+# NIE je to oficiálne MSRP od Pokémon Company — to sa pre CZ/SK nezverejňuje.
+# Sú to ceny, za ktoré sa čerstvo vydaný set v týchto obchodoch bežne predáva;
+# odvodené z vlastných dát monitoru pre ME05 Pitch Black (vydaný 17. 7. 2026).
+# Slúžia na značku „pod uvádzacou cenou". Kde chýbajú, značka sa nezobrazí.
+launch_price_eur:
+  booster: 5.99
+  blister-3: 17.99
+  bundle: 36.90
+  half-box: 109.00
+  booster-box: 214.00
+  etb: 74.90
+  ex-box: 24.90
+  mini-tin: 12.90
 
 pack_overrides:
   - edition: 30th-celebration

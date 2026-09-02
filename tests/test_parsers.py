@@ -532,3 +532,50 @@ def test_empty_portfolio_is_not_an_error():
     portfolio = scrape.build_portfolio([], {}, {"czk_eur": 1 / 24.0})
     assert portfolio["items"] == []
     assert portfolio["totals"]["cost_eur"] == 0
+
+
+# ------------------------------------------------------------- investičné metriky
+
+def test_launch_price_table_covers_core_formats():
+    for fmt in ("booster", "bundle", "booster-box", "etb"):
+        assert classify.launch_price(fmt), f"{fmt} nemá uvádzaciu cenu"
+    assert classify.launch_price("ultra-premium") is None, \
+        "UPC nemá jednotnú uvádzaciu cenu, nesmie tam byť vymyslená"
+
+
+def test_release_dates_are_present_and_parseable():
+    from datetime import date
+    dated = [e for e in classify.editions() if e.released]
+    assert len(dated) >= 20, "väčšina edícií má mať dátum vydania"
+    for edition in dated:
+        date.fromisoformat(edition.released)
+
+
+def test_older_sets_are_marked_out_of_print():
+    """Sety staršie než ~18 mesiacov už zvyčajne nie sú v tlači — to je pri
+    zapečatených produktoch hlavný dôvod, prečo cena rastie."""
+    import scrape
+    from datetime import date, timedelta
+    today = date.today().isoformat()
+    old = (date.today() - timedelta(days=900)).isoformat()
+    rows = [{"date": today, "shop_id": "s1", "edition_id": "obsidian-flames",
+             "format_id": "etb", "variant": "", "packs": 9, "name": "x",
+             "url": "https://x/", "price": 90, "currency": "EUR", "price_eur": 90,
+             "per_pack_eur": 10, "in_stock": "1", "image": ""}]
+    products, _ = scrape.build_products(rows, [], {}, today)
+    assert products[0]["in_print"] is False
+    assert products[0]["days_since_release"] > 550
+
+
+def test_purchase_is_scored_against_cheapest_offer():
+    """Kľúčová otázka portfólia: kúpil som pod cenou, za ktorú sa to dá kúpiť dnes?"""
+    import scrape
+    products = [_product("k|f", "X", 100.0, 90.0)]
+    fx = {"czk_eur": 1 / 24.0}
+    cheap = scrape.build_portfolio(products, {"holdings": [
+        {"key": "k|f", "qty": 1, "price": 72, "currency": "EUR"}]}, fx)["items"][0]
+    pricey = scrape.build_portfolio(products, {"holdings": [
+        {"key": "k|f", "qty": 1, "price": 108, "currency": "EUR"}]}, fx)["items"][0]
+    assert cheap["market_min_eur"] == 90.0
+    assert cheap["vs_market_pct"] == -20.0     # kúpené o 20 % pod trhom
+    assert pricey["vs_market_pct"] == 20.0

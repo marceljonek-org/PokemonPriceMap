@@ -126,24 +126,43 @@ Gengar.cz je v zozname od začiatku (adaptér `upgates`); slovenská mutácia
 
 Všetko podstatné je v `config/`, kód sa nemusí meniť.
 
-### Portfólio — `config/portfolio.yaml`
+### Portfólio
 
-Zoznam toho, čo vlastníš. Stránka z neho počíta náklady, aktuálnu hodnotu a rozdiel.
+Zoznam toho, čo vlastníš. Stránka z neho počíta náklady, aktuálnu hodnotu, rozdiel
+a hlavne to, **či si kúpil pod cenou** — porovnanie nákupnej ceny s najlacnejšou
+ponukou skladom dnes.
+
+Zapisovať sa dá dvoma spôsobmi.
+
+**A) Priamo v aplikácii (odporúčané).** Záložka *Portfólio* → formulár; produkt sa
+vyberá zo zoznamu, aby sa dal oceniť. Ukladá sa do Cloudflare KV cez ten istý Worker,
+ktorý robí proxy. Nastavenie:
+
+1. Cloudflare → **Storage & databases → KV → Create** namespace, napr. `cenova-mapa-portfolio`
+2. Worker → *Settings* → **Bindings** → *Add* → **KV namespace**, premenná `PORTFOLIO`,
+   vyber ten namespace
+3. Worker → *Settings* → *Variables and Secrets* → pridaj secret **`PORTFOLIO_TOKEN`**
+   (iné heslo než `PROXY_TOKEN` — toto sa zadáva v prehliadači)
+4. GitHub → *Secrets and variables → Actions* → pridaj **`SCRAPE_PORTFOLIO_TOKEN`**
+   s rovnakou hodnotou
+5. Spusti sken. V záložke *Portfólio* zadaj heslo — uloží sa len v tvojom prehliadači
+   a posiela sa výhradne na tvoj Worker.
+
+**B) Súborom `config/portfolio.yaml`** — na hromadné zadanie alebo keď Worker nechceš:
 
 ```yaml
 valuation: median        # median = medián ponúk skladom, min = najlacnejšia
 holdings:
-  - key: chaos-rising|booster-box
+  - key: chaos-rising|etb
     qty: 2
-    price: 219.99        # za jeden kus
-    currency: EUR
+    price: 62.50         # za jeden kus
+    currency: EUR        # CZK sa prepočíta kurzom dňa
     bought: 2026-07-14
-    shop: Cardyx.sk
+    shop: Alza.sk
 ```
 
-`key` je v detaile každého produktu na stránke. Nákup v korunách sa prepočíta
-aktuálnym kurzom. Oceňuje sa retailovou cenou, za ktorú sa produkt **ponúka** —
-nie cenou, za ktorú ho vieš predať; reálne speňaženie býva nižšie.
+Obidva zdroje sa sčítajú. Oceňuje sa cenou, za ktorú sa produkt **ponúka** — nie cenou,
+za ktorú ho vieš predať; reálne speňaženie býva nižšie.
 
 ### Pridanie edície — `config/editions.yaml`
 
@@ -184,6 +203,23 @@ images:
 Kľúč je `<edition_id>|<format_id>`. Prebije automaticky vybraný obrázok z eshopu.
 Obrázok sa stiahne raz, zmenší na 400 px a uloží ako WebP do `docs/img/` — stránka
 teda nikdy nehotlinkuje na cudzí server.
+
+---
+
+## Investičné metriky
+
+| Značka | Čo znamená |
+|---|---|
+| `pod trhom X %` | 5–30 % pod mediánom ponúk skladom |
+| `overiť` | viac než 30 % pod mediánom — skoro vždy chyba eshopu |
+| `najnižšie doteraz` | najlacnejšia ponuka skladom je na úrovni historického minima (tolerancia 1 %) |
+| `X % pod uvádzacou` | aspoň 3 % pod orientačnou uvádzacou cenou formátu |
+| `po ukončení tlače` | od vydania ubehlo viac než 550 dní (~18 mesiacov) |
+| `za balíček` | cena delená počtom boosterov — jediné číslo, ktorým sa porovná bundle proti boxu |
+
+Dátumy vydania a uvádzacie ceny sú v `config/editions.yaml` vrátane zdrojov.
+Uvádzacia cena **nie je oficiálne MSRP** — to sa pre CZ/SK nezverejňuje; sú to ceny,
+za ktoré sa čerstvo vydaný set v týchto obchodoch bežne predáva.
 
 ---
 
@@ -239,7 +275,7 @@ riadky `proxy: true` — alebo nechať, nič to nekazí.
 
 ```bash
 pip install -r requirements.txt
-make test          # 117 testov nad snapshotmi, bez siete
+make test          # 139 testov nad snapshotmi, bez siete
 make demo          # postaví docs/latest.json zo snapshotov
 python -m http.server -d docs 8000   # náhľad na http://localhost:8000
 make scan          # ostrý sken (potrebuje sieť)
@@ -278,7 +314,7 @@ docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        117 testov nad gzip snapshotmi
+tests/                        139 testov nad gzip snapshotmi
 tools/demo_from_fixtures.py   náhľad bez siete
 ```
 

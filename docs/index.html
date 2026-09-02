@@ -46,8 +46,27 @@ h1{font-size:27px;font-weight:700;margin:0;letter-spacing:-.02em}
   background:var(--surface);color:var(--ink);min-width:220px}
 #q:focus{outline:2px solid var(--accent);outline-offset:1px}
 .pill.low{background:var(--accent-soft);color:var(--accent)}
+.pill.eol{background:var(--surface-2);color:var(--muted)}
 /* v portfóliu je plus dobrá správa — opačne než pri raste ceny v obchode */
 .gain{color:var(--ok)} .loss{color:var(--crit)}
+.pform{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:16px 18px;margin-bottom:20px}
+.pform h3{margin:0 0 12px;font-size:15px}
+.pform .grid{display:grid;grid-template-columns:2fr 70px 110px 90px 1.2fr 130px auto;gap:8px;align-items:end}
+.pform label{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.pform input,.pform select{font:inherit;font-size:13px;width:100%;padding:7px 9px;border-radius:8px;
+  border:1px solid var(--line);background:var(--ground);color:var(--ink)}
+.pform input:focus,.pform select:focus{outline:2px solid var(--accent);outline-offset:1px}
+.btn{font:inherit;font-size:13px;font-weight:600;padding:8px 15px;border-radius:8px;border:1px solid var(--accent);
+  background:var(--accent);color:#fff;cursor:pointer;white-space:nowrap}
+@media (prefers-color-scheme:dark){.btn{color:#14132a}}
+.btn.ghost{background:transparent;color:var(--muted);border-color:var(--line)}
+.btn.ghost:hover{color:var(--crit);border-color:var(--crit)}
+.pmsg{font-size:13px;margin-top:10px;color:var(--muted)}
+.pmsg.err{color:var(--crit)}
+.pmsg.ok{color:var(--ok)}
+.unlock{max-width:56ch}
+.unlock .row{display:flex;gap:8px;margin-top:12px}
+@media (max-width:860px){.pform .grid{grid-template-columns:1fr 1fr}}
 .port-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:22px}
 .port-sum div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
 .port-sum .lbl{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
@@ -255,6 +274,9 @@ function renderCards(){
           : '<span class="pill no">nikde skladom</span>'}
         ${flag ? `<span class="pill flag">${flag}</span>` : ''}
         ${atHistoricLow(p) ? '<span class="pill low">najnižšie doteraz</span>' : ''}
+        ${p.vs_launch_pct!=null && p.vs_launch_pct<=-3
+          ? `<span class="pill ok">${Math.abs(p.vs_launch_pct).toFixed(0)} % pod uvádzacou</span>` : ''}
+        ${p.in_print===false ? '<span class="pill eol">po ukončení tlače</span>' : ''}
         <div class="prow">
           <span class="price"${p.min_eur==null?' style="color:var(--muted)"':''}>${eur(p.min_eur!=null?p.min_eur:p.min_any_eur)}</span>
           ${p.min_per_pack_eur!=null
@@ -276,6 +298,8 @@ function openDetail(p){
   if(p.packs) sub.push(`${p.packs} balíčkov`);
   sub.push(`medián skladom ${eur(p.median_eur)}`);
   if(p.low_eur!=null && p.history.length>3) sub.push(`historicky ${eur(p.low_eur)} – ${eur(p.high_eur)}`);
+  if(p.launch_eur) sub.push(`uvádzacia ${eur(p.launch_eur)}${p.vs_launch_pct!=null?` (${p.vs_launch_pct>0?'+':''}${p.vs_launch_pct} %)`:''}`);
+  if(p.released) sub.push(`vydané ${p.released}${p.days_since_release!=null?`, pred ${p.days_since_release} dňami`:''}${p.in_print===false?' — po ukončení tlače':''}`);
   document.getElementById('d-sub').textContent = sub.join(' · ');
   const rows = p.offers.map(o=>`
     <tr>
@@ -351,60 +375,203 @@ function renderHistory(){
     <div class="legend"><span><i></i> najnižšia cena skladom · ${p.title}</span></div>`;
 }
 
+const PKEY = 'cenova-mapa-portfolio-token';
+let holdings = null;          // lokálna kópia, kým sa neuloží
+let portMsg = '';
+
+const endpoint = () => (state.data.portfolio_endpoint || '').replace(/\/$/, '');
+const token = () => { try { return localStorage.getItem(PKEY) || ''; } catch { return ''; } };
+
+async function portfolioApi(method, body){
+  const url = `${endpoint()}?portfolio=1&t=${encodeURIComponent(token())}`;
+  const res = await fetch(url, {
+    method,
+    headers: body ? {'content-type':'application/json'} : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if(res.status === 401) throw new Error('Nesprávne heslo portfólia.');
+  if(!res.ok) throw new Error(`Worker odpovedal ${res.status}.`);
+  return res.json();
+}
+
+async function loadHoldings(){
+  const data = await portfolioApi('GET');
+  holdings = (data.holdings || []).map(h => ({...h}));
+}
+
+async function saveHoldings(){
+  await portfolioApi('POST', {holdings});
+  portMsg = 'Uložené. Ocenenie sa prepočíta hneď, do histórie sa zapíše pri najbližšom skene.';
+}
+
+/* Ocenenie počítame v prehliadači z čerstvo načítaných cien — netreba čakať
+   na nočný beh, aby si po pridaní položky videl, ako si nakúpil. */
+function evaluate(h){
+  const product = state.data.products.find(p => p.key === h.key);
+  const rate = state.data.fx.czk_per_eur || 24.1;
+  const unitCost = h.currency === 'CZK' ? h.price / rate : h.price;
+  const basis = state.data.portfolio.basis === 'min' ? 'min_eur' : 'median_eur';
+  const unitValue = product ? (product[basis] ?? product.min_eur ?? product.min_any_eur) : null;
+  const market = product ? product.min_eur : null;
+  return {
+    product, unitCost,
+    cost: unitCost * h.qty,
+    unitValue,
+    value: unitValue != null ? unitValue * h.qty : null,
+    pl: unitValue != null ? (unitValue - unitCost) * h.qty : null,
+    plPct: unitValue != null && unitCost ? (unitValue - unitCost) / unitCost * 100 : null,
+    market,
+    vsMarket: market ? (unitCost - market) / market * 100 : null,
+  };
+}
+
 function renderPortfolio(){
-  const port = state.data.portfolio;
   const box = document.getElementById('view-port');
-  if(!port || !port.items.length){
-    box.innerHTML = `
-      <div class="port-empty">
-        <h3>Portfólio je zatiaľ prázdne</h3>
-        <p>Zoznam toho, čo vlastníš, je v súbore <code>config/portfolio.yaml</code> v repozitári.
-        Uprav ho priamo na GitHube — otvor súbor, klikni na ceruzku, doplň položky a ulož.
-        Prepočet sa objaví po najbližšom skene.</p>
-        <pre>holdings:
-  - key: chaos-rising|booster-box
-    qty: 2
-    price: 219.99
-    currency: EUR
-    bought: 2026-07-14
-    shop: Cardyx.sk</pre>
-        <p><code>key</code> nájdeš v detaile ktoréhokoľvek produktu tu na stránke —
-        stačí naň kliknúť a je dole pod tabuľkou.</p>
-      </div>`;
+
+  if(!endpoint()){
+    box.innerHTML = `<div class="port-empty"><h3>Zápis zo stránky nie je nastavený</h3>
+      <p>Chýba adresa Workera. Doplň v GitHube tajomstvá <code>SCRAPE_PROXY_URL</code>
+      a <code>SCRAPE_PORTFOLIO_TOKEN</code> a spusti sken — potom sa tu objaví formulár.
+      Dovtedy sa portfólio dá zapisovať do <code>config/portfolio.yaml</code>.</p></div>`;
     return;
   }
-  const t = port.totals;
-  const sign = v => v>0 ? '+' : '';
+  if(!token()){
+    box.innerHTML = `<div class="port-empty unlock"><h3>Portfólio je zamknuté</h3>
+      <p>Zadaj heslo portfólia (premenná <code>PORTFOLIO_TOKEN</code> vo Workeri).
+      Uloží sa len v tomto prehliadači, nikam sa neposiela okrem tvojho Workera.</p>
+      <div class="row"><input id="tok" type="password" placeholder="heslo portfólia"
+        style="flex:1;padding:8px 11px;border-radius:8px;border:1px solid var(--line);background:var(--ground);color:var(--ink);font:inherit">
+      <button class="btn" id="tok-go">Odomknúť</button></div>
+      <p class="pmsg err" id="tok-msg"></p></div>`;
+    const go = async () => {
+      const value = document.getElementById('tok').value.trim();
+      if(!value) return;
+      try { localStorage.setItem(PKEY, value); } catch {}
+      try { await loadHoldings(); renderPortfolio(); }
+      catch(err){
+        try { localStorage.removeItem(PKEY); } catch {}
+        document.getElementById('tok-msg').textContent = err.message;
+      }
+    };
+    document.getElementById('tok-go').addEventListener('click', go);
+    document.getElementById('tok').addEventListener('keydown', e => { if(e.key==='Enter') go(); });
+    return;
+  }
+  if(holdings === null){
+    box.innerHTML = '<p class="count">načítavam portfólio…</p>';
+    loadHoldings().then(renderPortfolio).catch(err => {
+      box.innerHTML = `<div class="port-empty"><h3>Portfólio sa nepodarilo načítať</h3>
+        <p class="pmsg err">${err.message}</p>
+        <button class="btn ghost" onclick="localStorage.removeItem('${PKEY}');location.reload()">Zabudnúť heslo</button></div>`;
+    });
+    return;
+  }
+
+  const rows = holdings.map((h,i) => {
+    const e = evaluate(h);
+    const cls = v => v>0 ? 'gain' : (v<0 ? 'loss' : '');
+    const sign = v => v>0 ? '+' : '';
+    return `<tr>
+      <td>${e.product ? e.product.title : `<span class="loss">${h.title || h.key} — nenájdené</span>`}</td>
+      <td class="n">${h.qty}</td>
+      <td class="n">${h.price.toLocaleString('sk-SK')} ${h.currency}</td>
+      <td class="n">${eur(e.cost)}</td>
+      <td class="n">${e.market!=null?eur(e.market):'—'}</td>
+      <td class="n">${e.vsMarket!=null
+        ? `<b class="${e.vsMarket<0?'gain':'loss'}">${sign(e.vsMarket)}${e.vsMarket.toFixed(1)} %</b>`
+        : '—'}</td>
+      <td class="n">${e.value!=null?eur(e.value):'—'}</td>
+      <td class="n"><b class="${cls(e.pl)}">${e.pl!=null?sign(e.pl)+eur(e.pl):'—'}</b></td>
+      <td class="n"><b class="${cls(e.plPct)}">${e.plPct!=null?sign(e.plPct)+e.plPct.toFixed(1)+' %':'—'}</b></td>
+      <td>${h.shop||''}</td><td>${h.bought||''}</td>
+      <td><button class="btn ghost" data-del="${i}" title="Odstrániť">×</button></td>
+    </tr>`;
+  }).join('');
+
+  const totals = holdings.reduce((acc,h) => {
+    const e = evaluate(h);
+    acc.cost += e.cost; if(e.value!=null) acc.value += e.value; return acc;
+  }, {cost:0, value:0});
+  const pl = totals.value - totals.cost;
+  const plPct = totals.cost ? pl / totals.cost * 100 : null;
   const cls = v => v>0 ? 'gain' : (v<0 ? 'loss' : '');
-  const rows = port.items.map(i=>`
-    <tr>
-      <td>${i.found ? i.title : `<span style="color:var(--crit)">${i.key} — nenájdené</span>`}</td>
-      <td class="n">${i.qty}</td>
-      <td class="n">${i.price.toLocaleString('sk-SK')} ${i.currency}</td>
-      <td class="n">${eur(i.cost_eur)}</td>
-      <td class="n">${i.unit_value_eur!=null?eur(i.unit_value_eur):'—'}</td>
-      <td class="n">${i.value_eur!=null?eur(i.value_eur):'—'}</td>
-      <td class="n"><b class="${cls(i.pl_eur)}">${i.pl_eur!=null?sign(i.pl_eur)+eur(i.pl_eur):'—'}</b></td>
-      <td class="n"><b class="${cls(i.pl_pct)}">${i.pl_pct!=null?sign(i.pl_pct)+i.pl_pct+' %':'—'}</b></td>
-      <td>${i.bought||''}</td>
-    </tr>`).join('');
+  const sign = v => v>0 ? '+' : '';
+
+  const options = state.data.products.map(p =>
+    `<option value="${p.title.replace(/"/g,'&quot;')}" data-key="${p.key}">`).join('');
+
   box.innerHTML = `
+    <div class="pform">
+      <h3>Pridať nákup</h3>
+      <div class="grid">
+        <div><label for="f-name">Produkt</label>
+          <input id="f-name" list="plist" placeholder="začni písať názov edície…" autocomplete="off">
+          <datalist id="plist">${options}</datalist></div>
+        <div><label for="f-qty">Ks</label><input id="f-qty" type="number" min="1" step="1" value="1"></div>
+        <div><label for="f-price">Cena / ks</label><input id="f-price" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label for="f-cur">Mena</label><select id="f-cur"><option>EUR</option><option>CZK</option></select></div>
+        <div><label for="f-shop">Obchod</label><input id="f-shop" placeholder="napr. Cardyx.sk"></div>
+        <div><label for="f-date">Kúpené</label><input id="f-date" type="date"></div>
+        <div><button class="btn" id="f-add">Pridať</button></div>
+      </div>
+      <p class="pmsg ${portMsg.startsWith('Chyba')?'err':'ok'}" id="p-msg">${portMsg}</p>
+    </div>
+
+    ${holdings.length ? `
     <div class="port-sum">
-      <div><div class="lbl">Nakúpené za</div><div class="val">${eur(t.cost_eur)}</div></div>
-      <div><div class="lbl">Aktuálna hodnota</div><div class="val">${eur(t.value_eur)}</div></div>
-      <div><div class="lbl">Rozdiel</div><div class="val ${cls(t.pl_eur)}">${sign(t.pl_eur)}${eur(t.pl_eur)}</div></div>
-      <div><div class="lbl">Zhodnotenie</div><div class="val ${cls(t.pl_pct)}">${t.pl_pct!=null?sign(t.pl_pct)+t.pl_pct+' %':'—'}</div></div>
+      <div><div class="lbl">Nakúpené za</div><div class="val">${eur(totals.cost)}</div></div>
+      <div><div class="lbl">Aktuálna hodnota</div><div class="val">${eur(totals.value)}</div></div>
+      <div><div class="lbl">Rozdiel</div><div class="val ${cls(pl)}">${sign(pl)}${eur(pl)}</div></div>
+      <div><div class="lbl">Zhodnotenie</div><div class="val ${cls(plPct)}">${plPct!=null?sign(plPct)+plPct.toFixed(1)+' %':'—'}</div></div>
     </div>
     <div class="tbl-scroll"><table>
       <thead><tr><th>Produkt</th><th>Ks</th><th>Nákup / ks</th><th>Náklady</th>
-        <th>Trh / ks</th><th>Hodnota</th><th>Rozdiel</th><th>%</th><th>Kúpené</th></tr></thead>
+        <th>Najlacnejšie teraz</th><th>Nákup vs trh</th><th>Hodnota</th><th>Rozdiel</th><th>%</th>
+        <th>Obchod</th><th>Kúpené</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-    <p class="sub" style="margin-top:14px;max-width:70ch">
-      Oceňuje sa ${port.basis==='median'?'mediánom ponúk skladom':'najlacnejšou ponukou skladom'}.
-      Je to cena, za ktorú sa produkt v obchodoch <em>ponúka</em> — nie cena, za ktorú ho vieš predať.
-      Reálne speňaženie býva nižšie, počítaj s tým.
-      ${t.unmatched ? `<br><b>${t.unmatched}</b> položiek sa nepodarilo spárovať s produktom — skontroluj <code>key</code>.` : ''}
-    </p>`;
+    <p class="sub" style="margin-top:14px;max-width:74ch">
+      <b>Nákup vs trh</b> porovnáva tvoju nákupnú cenu s najlacnejšou ponukou skladom dnes —
+      zelené číslo znamená, že si vtedy kúpil lacnejšie, než sa dá kúpiť teraz.
+      <b>Hodnota</b> sa počíta ${state.data.portfolio.basis==='min'?'najlacnejšou ponukou':'mediánom ponúk skladom'};
+      je to cena, za ktorú sa produkt <em>ponúka</em>, nie za ktorú ho vieš predať.
+    </p>` : '<p class="count">Zatiaľ nič — pridaj prvý nákup hore.</p>'}`;
+
+  document.getElementById('f-add').addEventListener('click', addHolding);
+  box.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      holdings.splice(Number(btn.dataset.del), 1);
+      try { await saveHoldings(); } catch(err){ portMsg = 'Chyba: ' + err.message; }
+      renderPortfolio();
+    });
+  });
+}
+
+async function addHolding(){
+  const name = document.getElementById('f-name').value.trim();
+  const price = parseFloat(document.getElementById('f-price').value);
+  const qty = parseInt(document.getElementById('f-qty').value, 10) || 1;
+  const msg = document.getElementById('p-msg');
+  const product = state.data.products.find(p => p.title === name);
+
+  if(!name || !price){ msg.className = 'pmsg err'; msg.textContent = 'Vyplň produkt a cenu.'; return; }
+  if(!product){
+    msg.className = 'pmsg err';
+    msg.textContent = 'Taký produkt v zozname nie je — vyber ho z ponuky, aby sa dal oceniť.';
+    return;
+  }
+  holdings.push({
+    id: String(Date.now()),
+    key: product.key,
+    title: product.title,
+    qty, price,
+    currency: document.getElementById('f-cur').value,
+    shop: document.getElementById('f-shop').value.trim(),
+    bought: document.getElementById('f-date').value,
+    note: '',
+  });
+  try { await saveHoldings(); }
+  catch(err){ portMsg = 'Chyba: ' + err.message; }
+  renderPortfolio();
 }
 
 function renderFooter(){

@@ -56,6 +56,7 @@ RETRIES = 3
 # nie podmienka behu.
 PROXY_URL = os.environ.get("SCRAPE_PROXY_URL", "").strip()
 PROXY_TOKEN = os.environ.get("SCRAPE_PROXY_TOKEN", "").strip()
+PORTFOLIO_TOKEN = os.environ.get("SCRAPE_PORTFOLIO_TOKEN", "").strip()
 
 
 def via_proxy(url: str, shop: dict) -> str:
@@ -71,6 +72,7 @@ OUTLIER_LOW = 0.3         # cena pod 30 % predchádzajúcej = podozrivá
 OUTLIER_HIGH = 3.0
 UNDER_MARKET_MIN = 0.05   # 5 % pod mediánom = zaujímavé
 UNDER_MARKET_MAX = 0.30   # nad 30 % = skôr chyba eshopu než príležitosť
+IN_PRINT_DAYS = 550       # ~18 mesiacov; potom sa set zvyčajne prestáva tlačiť
 
 
 # ------------------------------------------------------------------ config
@@ -191,6 +193,26 @@ async def fetch_all(shops: list[dict], defaults: dict,
                 return result
 
         return await asyncio.gather(*(run(s) for s in shops))
+
+
+async def fetch_remote_portfolio() -> list[dict]:
+    """Načíta portfólio z Cloudflare Workera (KV), kam ho zapisuje stránka.
+
+    Keď Worker nie je nastavený alebo nedostupný, vráti prázdny zoznam —
+    portfólio nikdy nesmie zhodiť sken cien.
+    """
+    if not (PROXY_URL and PORTFOLIO_TOKEN):
+        return []
+    url = f"{PROXY_URL.rstrip('/')}?portfolio=1&t={quote(PORTFOLIO_TOKEN, safe='')}"
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            holdings = resp.json().get("holdings") or []
+            return holdings if isinstance(holdings, list) else []
+    except Exception as exc:                                  # noqa: BLE001
+        print(f"Portfólio zo stránky sa nepodarilo načítať: {type(exc).__name__}")
+        return []
 
 
 # ------------------------------------------------------------------ kurz
@@ -471,6 +493,19 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
             if before > 0:
                 min_delta = round((min_eur - before) / before * 100, 1)
         values = [v for _, v in points]
+        launch = classify.launch_price(format_id)
+        vs_launch = None
+        if launch and min_eur:
+            vs_launch = round((min_eur - launch) / launch * 100, 1)
+        days_since = None
+        in_print = None
+        if edition.released:
+            try:
+                released_on = date.fromisoformat(edition.released)
+                days_since = (date.fromisoformat(today) - released_on).days
+                in_print = days_since < IN_PRINT_DAYS
+            except ValueError:
+                days_since = None
         products.append({
             "key": key,
             "title": title,
@@ -481,6 +516,11 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
             "packs": packs,
             "low_eur": round(min(values), 2) if values else None,
             "high_eur": round(max(values), 2) if values else None,
+            "launch_eur": launch,
+            "vs_launch_pct": vs_launch,
+            "released": edition.released,
+            "days_since_release": days_since,
+            "in_print": in_print,
             "image": image,
             "min_eur": min_eur,
             "min_any_eur": round(min_any, 2),
@@ -522,6 +562,7 @@ def build_portfolio(products: list[dict], config: dict, fx: dict) -> dict:
         unit_cost = to_eur(price, currency, fx) if price else 0.0
 
         unit_value = None
+        market_min = product["min_eur"] if product else None
         if product:
             unit_value = product["median_eur"] if basis == "median" else product["min_eur"]
             if unit_value is None:
@@ -544,6 +585,9 @@ def build_portfolio(products: list[dict], config: dict, fx: dict) -> dict:
             "value_eur": value,
             "pl_eur": round(value - cost, 2) if value else None,
             "pl_pct": round((value - cost) / cost * 100, 1) if (value and cost) else None,
+            "market_min_eur": market_min,
+            "vs_market_pct": (round((unit_cost - market_min) / market_min * 100, 1)
+                              if (market_min and unit_cost) else None),
             "bought": str(entry.get("bought") or ""),
             "shop": str(entry.get("shop") or ""),
             "note": str(entry.get("note") or ""),
@@ -618,7 +662,13 @@ async def run(args) -> int:
         print("Pokračujem napriek chybám (--force).")
 
     products, movements = build_products(rows, history, images, today)
-    portfolio = build_portfolio(products, load_yaml("portfolio.yaml") or {}, fx)
+    portfolio_config = load_yaml("portfolio.yaml") or {}
+    remote = await fetch_remote_portfolio()
+    if remote:
+        portfolio_config = dict(portfolio_config)
+        portfolio_config["holdings"] = (portfolio_config.get("holdings") or []) + remote
+        print(f"Portfólio zo stránky: {len(remote)} položiek")
+    portfolio = build_portfolio(products, portfolio_config, fx)
     if portfolio["items"]:
         totals = portfolio["totals"]
         print(f"Portfólio: {len(portfolio['items'])} položiek, náklady "
@@ -662,6 +712,7 @@ async def run(args) -> int:
         "products": products,
         "movements": movements,
         "portfolio": portfolio,
+        "portfolio_endpoint": PROXY_URL,
         "counts": {"offers": kept, "products": len(products),
                    "unknown": len(unknown)},
     }

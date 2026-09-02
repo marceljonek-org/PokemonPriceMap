@@ -1,28 +1,108 @@
 /**
- * Cenová mapa — proxy pre eshopy, ktoré blokujú IP adresy GitHub Actions.
+ * Cenová mapa — Worker s dvoma úlohami.
  *
- * Nasadí sa ako Cloudflare Worker. Sken mu pošle URL, Worker ju stiahne
- * zo svojej siete a vráti obsah. Nič nemení, nič neukladá.
+ *  1. PROXY  — sťahuje stránky eshopov, ktoré blokujú IP adresy GitHub Actions.
+ *              ?t=<PROXY_TOKEN>&url=<adresa>
  *
- * Tri poistky, aby z toho nebola otvorená proxy pre kohokoľvek na internete:
- *   1. PROXY_TOKEN  — bez správneho tokenu Worker odpovie 401
- *   2. ALLOWED_HOSTS — pustí len domény, ktoré sú v zozname
- *   3. len GET, len http/https
+ *  2. PORTFÓLIO — úložisko toho, čo mám kúpené, aby sa dalo zapisovať priamo
+ *              zo stránky a nemuselo sa editovať na GitHube.
+ *              GET  ?portfolio=1&t=<PORTFOLIO_TOKEN>
+ *              POST ?portfolio=1&t=<PORTFOLIO_TOKEN>   telo = JSON pole položiek
  *
- * Premenné sa nastavujú v Cloudflare: Worker → Settings → Variables.
+ * Tokeny sú dva zámerne. PORTFOLIO_TOKEN si zadáš v prehliadači a uloží sa ti
+ * lokálne; keby to bol ten istý token ako pri proxy, mal by ho v ruke každý,
+ * kto otvorí stránku, a mohol by cez Worker sťahovať čokoľvek.
+ *
+ * Premenné (Settings → Variables and Secrets):
+ *   PROXY_TOKEN      secret  — heslo pre sťahovanie stránok
+ *   PORTFOLIO_TOKEN  secret  — heslo pre portfólio
+ *   ALLOWED_HOSTS    text    — domény, ktoré smie proxy sťahovať
+ * Väzba (Settings → Bindings → KV namespace):
+ *   PORTFOLIO        → KV namespace, napr. "cenova-mapa-portfolio"
+ *                      (kód znesie aj zápis "Portfolio" alebo "portfolio")
  */
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
            "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 
+const KV_KEY = "holdings";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type",
+};
+
+const json = (data, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8",
+               "cache-control": "no-store", ...CORS },
+  });
+
 export default {
   async fetch(request, env) {
-    if (request.method !== "GET") {
-      return new Response("only GET", { status: 405 });
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: CORS });
     }
 
     const params = new URL(request.url).searchParams;
     const token = params.get("t") || request.headers.get("x-proxy-token") || "";
+
+    // ---------------------------------------------------------- portfólio
+    if (params.get("portfolio")) {
+      if (!env.PORTFOLIO_TOKEN || token !== env.PORTFOLIO_TOKEN) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      // Dashboard nedovolí väzbu premenovať, tak berieme aj iné zápisy mena.
+      const kv = env.PORTFOLIO || env.Portfolio || env.portfolio;
+      if (!kv) {
+        return json({ error: "chýba väzba na KV namespace PORTFOLIO" }, 500);
+      }
+
+      if (request.method === "GET") {
+        const stored = await kv.get(KV_KEY);
+        return json({ holdings: stored ? JSON.parse(stored) : [] });
+      }
+
+      if (request.method === "POST") {
+        let body;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: "telo nie je JSON" }, 400);
+        }
+        const holdings = Array.isArray(body) ? body : body.holdings;
+        if (!Array.isArray(holdings)) {
+          return json({ error: "očakávam pole položiek" }, 400);
+        }
+        if (holdings.length > 500) {
+          return json({ error: "priveľa položiek" }, 413);
+        }
+        // Ukladáme len polia, ktoré poznáme — nech sa do úložiska nedostane
+        // čokoľvek, čo pošle prehliadač.
+        const clean = holdings.map((h) => ({
+          id: String(h.id || "").slice(0, 40),
+          key: String(h.key || "").slice(0, 120),
+          title: String(h.title || "").slice(0, 160),
+          qty: Number(h.qty) || 0,
+          price: Number(h.price) || 0,
+          currency: String(h.currency || "EUR").slice(0, 3).toUpperCase(),
+          bought: String(h.bought || "").slice(0, 10),
+          shop: String(h.shop || "").slice(0, 80),
+          note: String(h.note || "").slice(0, 200),
+        }));
+        await kv.put(KV_KEY, JSON.stringify(clean));
+        return json({ ok: true, count: clean.length });
+      }
+
+      return json({ error: "only GET/POST" }, 405);
+    }
+
+    // ---------------------------------------------------------- proxy
+    if (request.method !== "GET") {
+      return new Response("only GET", { status: 405 });
+    }
     if (!env.PROXY_TOKEN || token !== env.PROXY_TOKEN) {
       return new Response("unauthorized", { status: 401 });
     }
@@ -43,8 +123,9 @@ export default {
     const allowed = (env.ALLOWED_HOSTS || "")
       .split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
     const host = parsed.hostname.toLowerCase();
-    const ok = allowed.some((h) => host === h || host.endsWith("." + h));
-    if (!ok) return new Response("host not allowed", { status: 403 });
+    if (!allowed.some((h) => host === h || host.endsWith("." + h))) {
+      return new Response("host not allowed", { status: 403 });
+    }
 
     let upstream;
     try {
@@ -66,7 +147,7 @@ export default {
       return new Response("upstream error: " + err, { status: 502 });
     }
 
-    // Telo posielame ako je; status necháme, nech scraper vidí pravdu (403 zostane 403).
+    // Status necháme tak, ako prišiel — nech scraper vidí pravdu (403 zostane 403).
     return new Response(upstream.body, {
       status: upstream.status,
       headers: {
