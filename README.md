@@ -206,6 +206,32 @@ teda nikdy nehotlinkuje na cudzí server.
 
 ---
 
+## Tlačidlo „Spustiť sken“
+
+Na stránke vpravo hore je tlačidlo, ktoré spustí presne ten istý beh ako cron o 19:00.
+Stránka nesmie poznať prístup na GitHub, tak dispatch robí Worker; chráni ho to isté
+heslo ako portfólio (`PORTFOLIO_TOKEN`), takže tlačidlo funguje až po odomknutí
+v záložke *Portfólio*.
+
+Vo Workeri pribudnú tri premenné:
+
+| Názov | Typ | Hodnota |
+|---|---|---|
+| `GITHUB_TOKEN` | Secret | token z GitHubu (nižšie) |
+| `GITHUB_REPO` | Text | `meno/repo`, napr. `marceljonek-org/PokemonPriceMap` |
+| `GITHUB_WORKFLOW` | Text | nepovinné, default `daily.yml` |
+
+Token: GitHub → *Settings* (účet, nie repo) → *Developer settings* →
+*Personal access tokens* → **Fine-grained tokens** → *Generate new token*.
+Repository access: len toto repo. Permissions → Repository permissions →
+**Actions: Read and write**. Ak repo patrí organizácii a fine-grained token neprejde
+(GitHub vráti 403), použi klasický token so zaškrtnutými `repo` a `workflow`.
+
+Po spustení stránka každých 20 sekúnd kontroluje `latest.json`; keď sa objaví nový
+sken, obnoví sa sama. Po desiatich minútach čakanie vzdá a odkáže ťa na Actions.
+
+---
+
 ## Investičné metriky
 
 | Značka | Čo znamená |

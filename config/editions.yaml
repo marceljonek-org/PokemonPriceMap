@@ -377,3 +377,13 @@ exclude_patterns:
   - "\\d+\\s*[x×]\\s*(booster\\s+box|bundle)"
   - "po[sš]koden|damaged"
   - "ultra\\s+pro|ultimate\\s+guard|gamegenic|dragon\\s+shield"
+  # Súčiastky vybrané zo zapečatených balení sa predávajú zvlášť. Majú v názve
+  # formát ("... from ETB"), takže by sa zaradili ako ten formát a rozbili by
+  # medián — obaly z Pitch Black ETB za 4,10 € oproti ETB za 82 €.
+  - "\\bfrom\\s+etb\\b|\\bz\\s+etb\\b"
+  - "sleeves?|rukáv|obaly\\s+na\\s+karty"
+  - "playmat|podlo[žz]k|hracia\\s+plocha"
+  - "\\bdice\\b|\\bkocky\\b|damage\\s+counter|po[šs]kodenie"
+  - "deck\\s+box|divider|predel|toploader|\\bbinder\\b(?!\\s+collection)"
+  - "\\bcoin\\b|\\bminca\\b|\\bpin\\b(?!\\s+collection)"
+  - "energy\\s+cards|z[áa]kladn[ée]\\s+energie"

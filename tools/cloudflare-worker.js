@@ -9,6 +9,10 @@
  *              GET  ?portfolio=1&t=<PORTFOLIO_TOKEN>
  *              POST ?portfolio=1&t=<PORTFOLIO_TOKEN>   telo = JSON pole položiek
  *
+ *  3. SKEN    — tlačidlo na stránke, ktoré spustí ten istý beh ako cron o 19:00.
+ *              POST ?scan=1&t=<PORTFOLIO_TOKEN>
+ *              Prístup na GitHub drží Worker, aby token nebol vo verejnej stránke.
+ *
  * Tokeny sú dva zámerne. PORTFOLIO_TOKEN si zadáš v prehliadači a uloží sa ti
  * lokálne; keby to bol ten istý token ako pri proxy, mal by ho v ruke každý,
  * kto otvorí stránku, a mohol by cez Worker sťahovať čokoľvek.
@@ -17,6 +21,9 @@
  *   PROXY_TOKEN      secret  — heslo pre sťahovanie stránok
  *   PORTFOLIO_TOKEN  secret  — heslo pre portfólio
  *   ALLOWED_HOSTS    text    — domény, ktoré smie proxy sťahovať
+ *   GITHUB_TOKEN     secret  — fine-grained PAT s právom Actions: Read and write
+ *   GITHUB_REPO      text    — "meno/repo", napr. "marceljonek-org/PokemonPriceMap"
+ *   GITHUB_WORKFLOW  text    — nepovinné, názov súboru workflowu (default daily.yml)
  * Väzba (Settings → Bindings → KV namespace):
  *   PORTFOLIO        → KV namespace, napr. "cenova-mapa-portfolio"
  *                      (kód znesie aj zápis "Portfolio" alebo "portfolio")
@@ -97,6 +104,40 @@ export default {
       }
 
       return json({ error: "only GET/POST" }, 405);
+    }
+
+    // ---------------------------------------------------------- ručný sken
+    if (params.get("scan")) {
+      if (!env.PORTFOLIO_TOKEN || token !== env.PORTFOLIO_TOKEN) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      if (request.method !== "POST") return json({ error: "only POST" }, 405);
+      if (!env.GITHUB_TOKEN || !env.GITHUB_REPO) {
+        return json({ error: "chýba GITHUB_TOKEN alebo GITHUB_REPO" }, 500);
+      }
+      const workflow = env.GITHUB_WORKFLOW || "daily.yml";
+      const url = `https://api.github.com/repos/${env.GITHUB_REPO}` +
+                  `/actions/workflows/${workflow}/dispatches`;
+      let res;
+      try {
+        res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "cenova-mapa-worker",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ ref: "main" }),
+        });
+      } catch (err) {
+        return json({ error: "GitHub nedostupný: " + err }, 502);
+      }
+      if (res.status === 204) return json({ ok: true });
+      const detail = await res.text();
+      return json({ error: `GitHub odpovedal ${res.status}`, detail: detail.slice(0, 300) },
+                   res.status === 401 || res.status === 403 ? 403 : 502);
     }
 
     // ---------------------------------------------------------- proxy

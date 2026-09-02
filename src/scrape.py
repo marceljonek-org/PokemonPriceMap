@@ -72,6 +72,7 @@ OUTLIER_LOW = 0.3         # cena pod 30 % predchádzajúcej = podozrivá
 OUTLIER_HIGH = 3.0
 UNDER_MARKET_MIN = 0.05   # 5 % pod mediánom = zaujímavé
 UNDER_MARKET_MAX = 0.30   # nad 30 % = skôr chyba eshopu než príležitosť
+ABSURD_RATIO = 0.25       # pod štvrtinou mediánu = takmer isto nie ten produkt
 IN_PRINT_DAYS = 550       # ~18 mesiacov; potom sa set zvyčajne prestáva tlačiť
 
 
@@ -431,7 +432,16 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
         in_stock = [o for o in offers if o["in_stock"] == "1"]
         prices_in_stock = sorted(float(o["price_eur"]) for o in in_stock)
         median_eur = statistics.median(prices_in_stock) if prices_in_stock else None
-        min_eur = prices_in_stock[0] if prices_in_stock else None
+
+        # Druhý prechod: ponuka hlboko pod mediánom skoro nikdy nie je ten
+        # produkt — býva to súčiastka vybraná z balenia alebo chybný odčet.
+        # Nechávame ju v tabuľke so značkou `overiť`, ale nesmie určovať
+        # "najlacnejšie skladom" ani historické minimum.
+        trusted = [p for p in prices_in_stock
+                   if median_eur is None or p >= median_eur * (1 - UNDER_MARKET_MAX)]
+        if trusted and len(trusted) < len(prices_in_stock):
+            median_eur = statistics.median(trusted)
+        min_eur = trusted[0] if trusted else None
 
         key = f"{edition_id}|{format_id}|{variant}" if variant else f"{edition_id}|{format_id}"
         packs = offers[0]["packs"] or None
@@ -485,7 +495,11 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
                 "outlier": bool(offer.get("outlier")),
             })
 
-        points = sorted(series[(edition_id, format_id, variant)].items())[-60:]
+        # Historické body čistíme len od nezmyslov (pod štvrtinou dnešného
+        # mediánu) — ceny pri vydaní bývajú legitímne oveľa nižšie než dnes.
+        raw_points = sorted(series[(edition_id, format_id, variant)].items())
+        floor = median_eur * ABSURD_RATIO if median_eur else 0
+        points = [(d, v) for d, v in raw_points if v >= floor][-60:]
         min_any = min(float(o["price_eur"]) for o in offers)
         min_delta = None
         if min_eur is not None and len(points) >= 2 and points[-1][0] == today:

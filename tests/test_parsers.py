@@ -579,3 +579,44 @@ def test_purchase_is_scored_against_cheapest_offer():
     assert cheap["market_min_eur"] == 90.0
     assert cheap["vs_market_pct"] == -20.0     # kúpené o 20 % pod trhom
     assert pricey["vs_market_pct"] == 20.0
+
+
+# ------------------------------------------------------------- odolnosť cien
+
+def _offer_row(shop, price, today, in_stock="1"):
+    return {"date": today, "shop_id": shop, "edition_id": "pitch-black",
+            "format_id": "etb", "variant": "", "packs": 9, "name": "ETB",
+            "url": f"https://{shop}/x", "price": price, "currency": "EUR",
+            "price_eur": price, "per_pack_eur": round(price / 9, 2),
+            "in_stock": in_stock, "image": ""}
+
+
+def test_absurdly_cheap_offer_does_not_set_the_minimum():
+    """Obaly vybrané z ETB za 4,10 € nesmú vyzerať ako najlacnejšie ETB.
+    Ponuka zostane v tabuľke so značkou `overiť`, ale nerozhoduje o cene."""
+    import scrape
+    from datetime import date
+    today = date.today().isoformat()
+    rows = [_offer_row("zardo-cz", 4.10, today), _offer_row("alza-sk", 74.90, today),
+            _offer_row("pompo-cz", 78.60, today), _offer_row("fyft-cz", 91.02, today)]
+    product = scrape.build_products(rows, [], {}, today)[0][0]
+    assert product["min_eur"] == 74.90, "minimum sa nesmie chytiť na chybnú ponuku"
+    assert 74 < product["median_eur"] < 92
+    assert any(o["price_eur"] == 4.10 and "overiť" in o["flag"] for o in product["offers"]), \
+        "chybná ponuka má zostať viditeľná so značkou"
+
+
+def test_history_ignores_absurd_points_but_keeps_launch_prices():
+    """Historické minimum smie byť výrazne pod dnešnou cenou — tak vyzerá
+    nákup pri vydaní. Zahodiť sa má len nezmysel pod štvrtinou mediánu."""
+    import scrape
+    from datetime import date, timedelta
+    today = date.today().isoformat()
+    older = (date.today() - timedelta(days=3)).isoformat()
+    oldest = (date.today() - timedelta(days=5)).isoformat()
+    history = [_offer_row("alza-sk", 60.00, older),      # legitímna nižšia cena
+               _offer_row("zardo-cz", 4.10, oldest)]     # nezmysel
+    rows = [_offer_row("alza-sk", 80.00, today), _offer_row("pompo-cz", 84.00, today)]
+    product = scrape.build_products(rows, history, {}, today)[0][0]
+    assert product["low_eur"] == 60.00
+    assert all(point["v"] >= 20 for point in product["history"])

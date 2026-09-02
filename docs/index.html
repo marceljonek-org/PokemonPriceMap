@@ -25,6 +25,12 @@ body{margin:0;background:var(--ground);color:var(--ink);
 .wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
 a{color:var(--accent)}
 
+.head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn.scan{background:transparent;color:var(--accent);border:1px solid var(--line);font-size:13px;padding:7px 14px}
+.btn.scan:hover:not(:disabled){border-color:var(--accent)}
+.btn.scan:disabled{opacity:.55;cursor:default}
+.scan-msg{font-size:12.5px;color:var(--muted);text-align:right;margin-top:6px;min-height:1em}
+.scan-msg.err{color:var(--crit)}
 .stale{background:var(--crit);color:#fff;padding:9px 20px;font-size:14px;text-align:center}
 header{padding:30px 0 18px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between}
 h1{font-size:27px;font-weight:700;margin:0;letter-spacing:-.02em}
@@ -151,12 +157,16 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit)}
       <h1>Cenová mapa Pokémon TCG</h1>
       <div class="sub" id="subtitle">načítavam…</div>
     </div>
+    <div class="head-right">
+    <button class="btn scan" id="scan-now" title="Spustí rovnaký sken ako každý večer o 19:00">Spustiť sken</button>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tab-today" aria-selected="true">Dnes</button>
       <button class="tab" role="tab" id="tab-moves" aria-selected="false">Pohyby</button>
       <button class="tab" role="tab" id="tab-hist" aria-selected="false">História</button>
       <button class="tab" role="tab" id="tab-port" aria-selected="false">Portfólio</button>
     </div>
+    </div>
+    <div class="scan-msg" id="scan-msg"></div>
   </header>
 
   <div id="view-today">
@@ -640,6 +650,50 @@ for(const [id,key] of [['only-stock','onlyStock'],['only-tier','onlyTier']]){
 document.getElementById('q').addEventListener('input', e=>{
   state.q = e.target.value; renderCards();
 });
+/* Ručný sken: stránka nesmie poznať GitHub token, tak dispatch robí Worker.
+   Overuje sa tým istým heslom ako portfólio. */
+let scanPoll = null;
+async function runScan(){
+  const btn = document.getElementById('scan-now');
+  const msg = document.getElementById('scan-msg');
+  if(!endpoint()){ msg.className='scan-msg err'; msg.textContent='Chýba adresa Workera.'; return; }
+  if(!token()){
+    msg.className='scan-msg err';
+    msg.textContent='Najprv odomkni heslo v záložke Portfólio.';
+    setView('port'); return;
+  }
+  btn.disabled = true;
+  msg.className='scan-msg'; msg.textContent='spúšťam…';
+  try{
+    const res = await fetch(`${endpoint()}?scan=1&t=${encodeURIComponent(token())}`, {method:'POST'});
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || `Worker odpovedal ${res.status}`);
+  }catch(err){
+    btn.disabled = false;
+    msg.className='scan-msg err'; msg.textContent = err.message;
+    return;
+  }
+
+  const started = state.data.generated_at;
+  let waited = 0;
+  msg.textContent = 'sken beží, trvá 2–5 minút — stránka sa obnoví sama';
+  clearInterval(scanPoll);
+  scanPoll = setInterval(async ()=>{
+    waited += 20;
+    try{
+      const fresh = await (await fetch('latest.json?v=' + Date.now())).json();
+      if(fresh.generated_at !== started){ clearInterval(scanPoll); location.reload(); return; }
+    }catch{}
+    if(waited >= 600){
+      clearInterval(scanPoll);
+      btn.disabled = false;
+      msg.textContent = 'sken stále beží alebo skončil chybou — pozri Actions na GitHube';
+    }else{
+      msg.textContent = `sken beží… ${waited} s`;
+    }
+  }, 20000);
+}
+document.getElementById('scan-now').addEventListener('click', runScan);
 document.getElementById('tab-today').addEventListener('click', ()=>setView('today'));
 document.getElementById('tab-moves').addEventListener('click', ()=>setView('moves'));
 document.getElementById('tab-hist').addEventListener('click', ()=>setView('hist'));
