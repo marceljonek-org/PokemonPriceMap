@@ -447,6 +447,42 @@ def parse_opencart(tree: HTMLParser, shop: dict) -> list[Offer]:
 
 # ---------------------------------------------------------------- registry
 
+def parse_sparkys(tree: HTMLParser, shop: dict) -> list[Offer]:
+    """Sparkys/Alltoys: vlastná platforma s prefixom `rf-`.
+
+    Celý názov je v atribúte `title` karty — text vnútri býva skrátený troma
+    bodkami, takže by sa z neho edícia nedala spoľahlivo prečítať. Cena sa
+    berie z `.rf-ProductCard-price`; vedľa nej býva prečiarknutá pôvodná cena
+    v `.rf-ProductCard-originalPrice`, ktorú treba obísť, inak by sa zapisovala
+    cena pred zľavou.
+    """
+    offers = []
+    for card in tree.css(".rf-ProductCard"):
+        name = _attr(card, "title") or _text(card.css_first(".rf-ProductCard-title"))
+        link = card.css_first("a[itemprop='url'], a.rf-h-stretchedLink")
+        url = urljoin(shop["base"], _attr(link, "href"))
+        node = card.css_first(".rf-ProductCard-price .rf-Price-content")
+        if node is None:
+            # Bez zľavy nie je trieda --price, ale prvá cena na karte je tá platná.
+            for candidate in card.css(".rf-Price-content"):
+                parent = candidate.parent.parent if candidate.parent else None
+                if parent and "originalPrice" in _attr(parent, "class"):
+                    continue
+                node = candidate
+                break
+        price = parse_price(_text(node))
+        stock_text = _text(card.css_first(".rf-Stock-text"))
+        image = _attr(card.css_first("img"), "data-src")
+        if not name or price is None:
+            continue
+        offers.append(Offer(
+            shop_id=shop["id"], name=name, url=url, price=price,
+            currency=shop["currency"], in_stock=stock_from_text(stock_text),
+            stock_text=stock_text, image=image,
+        ))
+    return offers
+
+
 PARSERS = {
     "shoptet": parse_shoptet,
     "upgates": parse_upgates,
@@ -458,6 +494,7 @@ PARSERS = {
     "woocommerce": parse_woocommerce,
     "xzone": parse_xzone,
     "opencart": parse_opencart,
+    "sparkys": parse_sparkys,
 }
 
 

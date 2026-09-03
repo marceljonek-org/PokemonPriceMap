@@ -1,6 +1,6 @@
 # Cenová mapa Pokémon TCG
 
-Denné sledovanie cien a dostupnosti **zapečatených** Pokémon TCG produktov v 28 českých
+Denné sledovanie cien a dostupnosti **zapečatených** Pokémon TCG produktov v 31 českých
 a slovenských eshopoch. Pokrýva **79 setov od klasiky z roku 1999 po Mega Evolution** — série
 Base Set/Neo, XY, Sun & Moon, Sword & Shield, Scarlet & Violet a Mega Evolution —
 naprieč 22 formátmi — od jedného boostera cez bundle, box a ETB až po Ultra Premium
@@ -65,7 +65,7 @@ a dá sa kedykoľvek spustiť ručne. Sedem krokov:
 
 1. **Testy parserov** nad snapshotmi v `tests/fixtures/` — keď je rozbitá parsovacia
    logika, beh spadne ešte pred dotykom so živými webmi.
-2. **Sken 28 eshopov** vrátane stránkovania, max 4 eshopy naraz. Kurz CZK/EUR z ECB.
+2. **Sken 31 eshopov** vrátane stránkovania, max 4 eshopy naraz. Kurz CZK/EUR z ECB.
 3. **Klasifikácia** názvov na edíciu + formát; čo nie je sledovaný formát v edícii
    úrovne A/B/C, sa zahodí.
 4. **Porovnanie s posledným behom** — zmeny cien, preklopenia dostupnosti, nové položky,
@@ -77,7 +77,7 @@ a dá sa kedykoľvek spustiť ručne. Sedem krokov:
 
 ### Poistky proti tichému zlyhaniu
 
-Pri 26 eshopoch je výpadok jedného normálna prevádzka, nie dôvod zahodiť celý beh.
+Pri 31 eshopoch je výpadok jedného normálna prevádzka, nie dôvod zahodiť celý beh.
 Fatálne je až to, keď vypadne väčšia časť eshopov alebo keď objem dát spadne na zlomok.
 
 | Situácia | Čo sa stane |
@@ -100,12 +100,12 @@ so zaškrtnutým **force**.
 
 ## Sledované eshopy
 
-28 eshopov na 11 platformách. Adaptér je parser pre danú platformu — ďalší eshop
+31 eshopov na 12 platformách. Adaptér je parser pre danú platformu — ďalší eshop
 na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 
 | Adaptér | Eshopy | Ako sa čítajú dáta |
 |---|---|---|
-| `shoptet` | Cardstore.cz, Fyft.cz, Nekonecno.sk, Pokemon4U.cz, TCG4You.cz, Card Empire SK, CC Planet, KúzelnéHry.sk | mikrodáta `data-micro-*` (schema.org) |
+| `shoptet` | Cardstore.cz, Fyft.cz, Nekonecno.sk, Pokemon4U.cz, TCG4You.cz, Card Empire SK, CC Planet, KúzelnéHry.sk, Kartovo.net, Konzoliste.cz | mikrodáta `data-micro-*` (schema.org) |
 | `pgs` | PGS.sk, Smarty.cz, Smarty.sk | `data-gaItem` JSON + `.productList-item-price` |
 | `woocommerce` | PokecTCG.cz, Pokélio.cz, GeekHall.cz | `li.product`, alebo `article.product_card` v šablónach z Oxygen Builderu |
 | `upgates` | Zardo Cards, Gengar.cz | `article.card-item` |
@@ -116,10 +116,17 @@ na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 | `alza` | Alza.cz, Alza.sk | `div.box.browsingitem` |
 | `digihry` | Digihry.sk | mikrodáta `itemprop` |
 | `opencart` | Dazzle.sk | `.product-grid .product`; stužka PREDOBJEDNÁVKA prebíja text o sklade |
+| `sparkys` | Sparkys.sk | `.rf-ProductCard`; názov z atribútu `title`, cena z `.rf-ProductCard-price` (nie z prečiarknutej pôvodnej) |
 
-Zvažované a zatiaľ nezaradené: **Charizard.sk** (PrestaShop) a **Cheapgame.cz** —
-ich HTML sa nepodarilo spoľahlivo stiahnuť na overenie selektorov, takže by šlo
-o neotestovaný kód. Dajú sa doplniť neskôr.
+Zvažované a zatiaľ nezaradené:
+
+- **Charizard.sk** (PrestaShop) a **Cheapgame.cz** — ich HTML sa nepodarilo spoľahlivo
+  stiahnuť na overenie selektorov, takže by šlo o neotestovaný kód.
+- **Kraken Cards** (krakencards.eu) — katalóg sa vykresľuje až v prehliadači, v HTML
+  nie je ani jeden produkt. Sťahovať by ho vedel len bezhlavý prehliadač, čo je iný
+  spôsob zberu než zvyšok appky.
+- **alky.sk** (BSSHOP) — v celej Pokémon kategórii je jediný produkt v našom zábere;
+  zvyšok sú japonské a kórejské importy a doplnky.
 
 Gengar.cz je v zozname od začiatku (adaptér `upgates`); slovenská mutácia
 `gengar.cz/sk` je ten istý sklad, len v eurách, preto ju nesledujeme zvlášť.
@@ -423,14 +430,14 @@ Keď eshop prekope šablónu, test spadne. Vtedy:
 .github/workflows/pages.yml   záloha pre GitHub Pages
 config/                       eshopy, edície, ručné obrázky
 src/scrape.py                 orchestrácia, poistky, agregácia
-src/adapters.py               11 parserov podľa platformy eshopu
+src/adapters.py               12 parserov podľa platformy eshopu
 src/classify.py               názov -> edícia + formát + počet balíčkov
 src/images.py                 sťahovanie a konverzia obrázkov
 docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        170 testov nad gzip snapshotmi
+tests/                        188 testov nad gzip snapshotmi
 data/portfolio-history.csv    denná hodnota portfólia (graf)
 data/alerts-sent.csv          čo už išlo na Telegram (proti opakovaniu)
 tools/demo_from_fixtures.py   náhľad bez siete
@@ -442,11 +449,13 @@ tools/demo_from_fixtures.py   náhľad bez siete
 
 ## Známe riziká
 
-- **Osem eshopov je označených `optional: true`** — Alza CZ/SK, Smarty CZ/SK,
-  Zardo Cards, PokecTCG.cz a Veselý drak CZ/SK. Z IP adries GitHub Actions vracajú
-  403 alebo padajú do timeoutu. Nerátajú sa do zdravotnej kontroly behu a prejavia sa
-  ako „nedostupný“ v pätičke stránky. Ak niektorý z nich začne fungovať, stačí mu
-  riadok `optional: true` zmazať.
+- **Jedenásť eshopov je označených `optional: true`.** Osem z nich preto, že z IP
+  adries GitHub Actions vracajú 403 alebo padajú do timeoutu — Alza CZ/SK, Smarty CZ/SK,
+  Zardo Cards, PokecTCG.cz a Veselý drak CZ/SK. Ďalšie tri sú nové a ešte nemajú za
+  sebou ani jeden ostrý beh: Kartovo.net, Konzoliste.cz a Sparkys.sk. Optional eshop
+  sa neráta do zdravotnej kontroly behu a prejaví sa len ako „nedostupný“ v pätičke.
+  Keď nový eshop prvý raz dobehne, stačí mu riadok `optional: true` zmazať — vtedy
+  ho poistky začnú strážiť ako zvyšok.
 - **Zimný čas.** Cron je v UTC, takže od konca októbra beží sken o 18:00. Ak chceš
   držať 19:00, prepni v `daily.yml` na `0 18 * * *`.
 - **GitHub vypína cron** v repozitároch bez aktivity 60 dní. Denný commit dát to pokrýva.

@@ -309,3 +309,44 @@ shops:
       - https://www.kuzelnehry.sk/pokemon-booster-boxy/
       - https://www.kuzelnehry.sk/pokemon-elite-trainer-boxy/
       - https://www.kuzelnehry.sk/pokemon-herne-baliky/
+
+  - id: kartovo-net
+    name: Kartovo.net
+    country: SK
+    currency: EUR
+    adapter: shoptet
+    base: https://www.kartovo.net
+    optional: true      # nový eshop; po prvom úspešnom behu riadok zmaž
+    urls:
+      # /pokemon/ sú u nich jednotlivé karty — zapečatené je v týchto štyroch
+      - https://www.kartovo.net/booster-boxy/
+      - https://www.kartovo.net/boostre/
+      - https://www.kartovo.net/elite-trainer-boxy/
+      - https://www.kartovo.net/boxy-a-sety/
+
+  - id: konzoliste-cz
+    name: Konzoliste.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    base: https://www.konzoliste.cz
+    optional: true      # nový eshop; po prvom úspešnom behu riadok zmaž
+    urls:
+      - https://www.konzoliste.cz/pokemon-karty-tcg/
+      - https://www.konzoliste.cz/pokemon-boostery/
+      - https://www.konzoliste.cz/pokemon-booster-boxy/
+      - https://www.konzoliste.cz/pokemon-elite-trainer-boxy/
+      - https://www.konzoliste.cz/pokemon-balicky/
+      - https://www.konzoliste.cz/pokemon-ex-boxy/
+      - https://www.konzoliste.cz/pokemon-tin-plechovky/
+
+  - id: sparkys-sk
+    name: Sparkys.sk
+    country: SK
+    currency: EUR
+    adapter: sparkys
+    base: https://www.sparkys.sk
+    optional: true      # nový eshop; po prvom úspešnom behu riadok zmaž
+    urls:
+      # Široká kategória /pokemon-5443/ je z troch štvrtín plyšáky a figúrky.
+      - https://www.sparkys.sk/zberatelske-karty-pokemon/

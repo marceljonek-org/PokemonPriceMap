@@ -29,19 +29,24 @@ SHOPS = {
     "xzone": {"id": "xzone-sk", "base": "https://www.xzone.sk", "currency": "EUR"},
     "geekhall": {"id": "geekhall-cz", "base": "https://geekhall.cz", "currency": "CZK"},
     "dazzle": {"id": "dazzle-sk", "base": "https://www.dazzle.sk", "currency": "EUR"},
+    "kartovo": {"id": "kartovo-net", "base": "https://www.kartovo.net", "currency": "EUR"},
+    "konzoliste": {"id": "konzoliste-cz", "base": "https://www.konzoliste.cz", "currency": "CZK"},
+    "sparkys": {"id": "sparkys-sk", "base": "https://www.sparkys.sk", "currency": "EUR"},
 }
 
 ADAPTER_OF = {
     "cardstore": "shoptet", "zardo": "upgates", "pompo": "pompo", "digihry": "digihry",
     "pgs": "pgs", "veselydrak": "veselydrak", "alza": "alza", "cardyx": "shopify",
     "pokectcg": "woocommerce", "xzone": "xzone", "geekhall": "woocommerce",
-    "dazzle": "opencart",
+    "dazzle": "opencart", "kartovo": "shoptet", "konzoliste": "shoptet",
+    "sparkys": "sparkys",
 }
 
 MIN_OFFERS = {
     "cardstore": 10, "zardo": 8, "pompo": 20, "digihry": 30,
     "pgs": 20, "veselydrak": 18, "alza": 20, "cardyx": 25,
     "pokectcg": 40, "xzone": 20, "geekhall": 10, "dazzle": 18,
+    "kartovo": 8, "konzoliste": 10, "sparkys": 15,
 }
 
 
@@ -881,3 +886,27 @@ def test_alerts_ignore_half_price_jumps():
                                  "delta": -68.0, "url": "u"}], "restocked": []}
     assert scrape.build_alerts([_rank_product(key="a|etb")], movements,
                                {"met": [], "waiting": []}) == []
+
+
+def test_sparkys_reads_the_discounted_price_not_the_original():
+    """Na Sparkys svieti vedľa seba prečiarknutá pôvodná a platná cena.
+    Zapisovať sa musí tá, za ktorú dnes nakúpiš."""
+    offers = {o.name: o for o in offers_for("sparkys")}
+    etb = offers["Pokémon TCG: SV10 Destined Rivals - Elite Trainer Box"]
+    assert etb.price == 179.99, "vzala sa prečiarknutá cena pred zľavou"
+    assert etb.in_stock is True
+
+
+def test_sparkys_keeps_the_full_name_from_the_title_attribute():
+    """Text v karte býva skrátený troma bodkami — bez plného názvu
+    by sa edícia nedala zaradiť."""
+    for offer in offers_for("sparkys"):
+        assert "…" not in offer.name and "..." not in offer.name
+
+
+def test_new_shoptet_shops_classify_into_tracked_formats():
+    """Kartovo aj Konzoliste sú Shoptet — ide o to, či ich názvy prejdú
+    klasifikáciou, nie či sa naparsujú."""
+    for name, minimum in (("kartovo", 8), ("konzoliste", 10)):
+        hits = [o for o in offers_for(name) if classify.classify(o.name)]
+        assert len(hits) >= minimum, f"{name}: len {len(hits)} zaradených"
