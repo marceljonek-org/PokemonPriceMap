@@ -350,3 +350,15 @@ shops:
     urls:
       # Široká kategória /pokemon-5443/ je z troch štvrtín plyšáky a figúrky.
       - https://www.sparkys.sk/zberatelske-karty-pokemon/
+
+  - id: mobilonline-sk
+    name: Mobilonline.sk
+    country: SK
+    currency: EUR
+    adapter: jsonld
+    base: https://www.mobilonline.sk
+    optional: true      # nový eshop; po prvom úspešnom behu riadok zmaž
+    urls:
+      # 88 položiek na 4 stranách; väčšina sú JP/KR/CN importy, tie klasifikácia
+      # zahodí sama. Katalóg je v schema.org ItemList, takže dáta sú strojové.
+      - https://www.mobilonline.sk/kategoria/gaming-a-hry/znacka/pokemon

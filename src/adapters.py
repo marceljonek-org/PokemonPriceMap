@@ -483,6 +483,82 @@ def parse_sparkys(tree: HTMLParser, shop: dict) -> list[Offer]:
     return offers
 
 
+def _jsonld_lists(tree: HTMLParser) -> list[dict]:
+    """Vytiahne všetky schema.org ItemList bloky zo stránky."""
+    lists = []
+    for node in tree.css('script[type="application/ld+json"]'):
+        try:
+            data = json.loads(node.text())
+        except (ValueError, TypeError):
+            continue
+        for block in (data if isinstance(data, list) else [data]):
+            if isinstance(block, dict) and block.get("@type") == "ItemList":
+                lists.append(block)
+    return lists
+
+
+def parse_jsonld(tree: HTMLParser, shop: dict) -> list[Offer]:
+    """Eshopy, ktoré vypisujú katalóg ako schema.org ItemList (napr. Grandus).
+
+    Je to najspoľahlivejší zdroj zo všetkých platforiem: názov, cena, mena aj
+    dostupnosť sú v strojovom tvare, takže sa nedá pomýliť prečiarknutá cena
+    so zľavnenou ani skrátený názov s celým.
+    """
+    offers = []
+    for block in _jsonld_lists(tree):
+        for entry in block.get("itemListElement") or []:
+            item = entry.get("item") if isinstance(entry, dict) else None
+            if not isinstance(item, dict):
+                continue
+            offer = item.get("offers") or {}
+            if isinstance(offer, list):
+                offer = offer[0] if offer else {}
+            price = parse_price(str(offer.get("price", "")))
+            name = str(item.get("name") or "").strip()
+            if not name or price is None:
+                continue
+            availability = str(offer.get("availability") or "")
+            in_stock = None
+            if availability:
+                in_stock = "instock" in availability.lower().replace("_", "")
+            offers.append(Offer(
+                shop_id=shop["id"], name=name,
+                url=urljoin(shop["base"], str(item.get("url") or offer.get("url") or "")),
+                price=price,
+                currency=str(offer.get("priceCurrency") or shop["currency"]).upper(),
+                in_stock=in_stock, stock_text=availability,
+                image=str(item.get("image") or ""),
+                sku=str(item.get("sku") or ""),
+            ))
+    return offers
+
+
+# Grandus si stránkovanie drží v dátach Next.js, nie v odkazoch v HTML.
+PAGE_COUNT = re.compile(r'pagination\\?"\s*:\s*\{[^}]*?pageCount\\?"\s*:\s*(\d+)')
+CURRENT_PAGE = re.compile(r'pagination\\?"\s*:\s*\{[^}]*?currentPage\\?"\s*:\s*(\d+)')
+
+
+def jsonld_next_page(tree: HTMLParser, body: str, current_url: str) -> str | None:
+    """Ďalšia strana je `?page=N`. Koniec poznáme z `pageCount` v dátach stránky;
+    keby ho tam raz prestali dávať, zastavíme na strane, ktorá nie je plná —
+    bez poistky by sa posledná strana vracala donekonečna.
+    """
+    total = PAGE_COUNT.search(body)
+    current_match = CURRENT_PAGE.search(body)
+    current = int(current_match.group(1)) if current_match else None
+    if current is None:
+        found = re.search(r"[?&]page=(\d+)", current_url)
+        current = int(found.group(1)) if found else 1
+    if total and current >= int(total.group(1)):
+        return None
+    if not total:
+        counts = [len(b.get("itemListElement") or []) for b in _jsonld_lists(tree)]
+        if not counts or max(counts) < 24:
+            return None
+    base = current_url.split("?")[0]
+    return f"{base}?page={current + 1}"
+
+
 PARSERS = {
     "shoptet": parse_shoptet,
     "upgates": parse_upgates,
@@ -495,6 +571,7 @@ PARSERS = {
     "xzone": parse_xzone,
     "opencart": parse_opencart,
     "sparkys": parse_sparkys,
+    "jsonld": parse_jsonld,
 }
 
 
@@ -518,6 +595,8 @@ def next_page(adapter: str, body: str, current_url: str) -> str | None:
     if adapter == "upgates":
         return link_rel_next(tree, current_url) or max_page_links(
             tree, current_url, ".pagination-wrap a, .pagination a")
+    if adapter == "jsonld":
+        return jsonld_next_page(tree, body, current_url)
     if adapter == "xzone":
         # Xzone nemá odkaz na ďalšiu stranu v HTML; ideme naslepo a scrape.py
         # zastaví, keď stránka nevráti ani jednu položku.

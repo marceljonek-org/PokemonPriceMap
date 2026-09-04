@@ -25,7 +25,10 @@ def normalize(text: str) -> str:
     text = unicodedata.normalize("NFKD", text or "")
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
     text = text.replace(" ", " ").replace("—", "-").replace("–", "-")
-    return re.sub(r"\s+", " ", text).strip().lower()
+    text = re.sub(r"\s+", " ", text).strip().lower()
+    # Časť eshopov píše "Pokéball" jedným slovom. Bez zjednotenia by tá istá
+    # plechovka bežala ako dva produkty s vlastnou cenou.
+    return re.sub(r"\bpokeball\b", "poke ball", text)
 
 
 @dataclass(frozen=True)
@@ -170,9 +173,20 @@ def looks_like_new_edition(name: str) -> bool:
     return bool(re.search(r"\bme\s*\d{1,2}(?:[.,]\d)?\b|\bsv\s*\d{1,2}(?:[.,]\d)?\b", n))
 
 
+# Xzone.cz uvádza všetko ako "Karetní hra Pokémon TCG - ...", Xzone.sk ako
+# "Kartová hra ...". Kým tu chýbalo české slovo, ten istý produkt z dvoch
+# mutácií toho istého eshopu skončil pod dvoma kľúčmi.
 _BASE_NOISE = (r"pokemon|pok[eé]mon|\btcg\b|\bkarty\b|\bkartov[aá]\b|\bhra\b|"
+               r"\bkaretn[ií]\b|\bhry\b|"
                r"\bnov[ée]\b|\bnew\b|\bzberate[ľl]sk[áa]\b")
 _NOISE = re.compile(_BASE_NOISE + r"|\(\d{4}\)|\b\d{4}\b")
+
+# Množné čísla, ktoré eshopy striedajú pri tom istom produkte
+# ("First Partners" vs "First Partner", "Poké Ball Tins" vs "Poké Ball Tin").
+_PLURALS = {p: p[:-2] + "y" if p.endswith("ies") else p.rstrip("es") if p.endswith("xes") else p[:-1]
+            for p in ("partners", "tins", "boxes", "packs", "decks", "cards",
+                      "collections", "boosters", "blisters", "bundles", "trainers",
+                      "toolkits", "figures", "tools", "sets")}
 _NOISE_KEEP_YEARS = re.compile(_BASE_NOISE)
 
 
@@ -185,10 +199,17 @@ def subject_of(normalized_name: str, fmt: Format) -> str:
     Bez toho by všetky Ultra Premium Collection splynuli do jedného produktu,
     lebo nemajú kód setu, podľa ktorého by sa dali rozlíšiť.
     """
+    def stem(word: str) -> str:
+        """Zjednotí jednotné a množné číslo, ale len pri slovách, ktoré pomenúvajú
+        typ balenia. Plošné zhadzovanie koncového -s sa nedá použiť: pokazilo by
+        mená pokémonov, ktoré sa na -s končia (Terapagos, Zapdos, Moltres)."""
+        return _PLURALS.get(word, word)
+
     def slug(raw: str, drop_years: bool = True) -> str:
         cleaned = (_NOISE if drop_years else _NOISE_KEEP_YEARS).sub(" ", raw)
         cleaned = re.sub(r"[^a-z0-9]+", " ", cleaned)
-        return "-".join(w for w in cleaned.split() if len(w) > 1 or w.isdigit())[:60]
+        return "-".join(stem(w) for w in cleaned.split()
+                        if len(w) > 1 or w.isdigit())[:60]
 
     prefix, matched = normalized_name, ""
     for pattern in fmt.patterns:                 # odrež názov formátu
@@ -198,9 +219,22 @@ def subject_of(normalized_name: str, fmt: Format) -> str:
             matched = match.group(0)
             break
 
+    # Rozlišovač, ktorý stojí až ZA názvom formátu — "… Illustration Collection
+    # - Series 3". Bez neho by Series 2 a Series 3 splynuli do jedného produktu
+    # a medián by sa počítal z cien dvoch rôznych sérií.
+    tail = ""
+    if matched:
+        rest = normalized_name[normalized_name.find(matched) + len(matched):]
+        found = re.search(r"\b(?:series|serie|vol|volume)\.?\s*(\d{1,2})\b", rest)
+        if found:
+            tail = f"series-{found.group(1)}"
+
     subject = slug(prefix)
     if subject:
-        return "-".join(subject.split("-")[:5])
+        parts = subject.split("-")[:5]
+        if tail:
+            parts.append(tail)
+        return "-".join(parts)
 
     # Pri promo baleniach nezostane pred názvom formátu nič — identitou je samotný
     # formát a ročník ("pokemon day 2026"). Rok berieme z celého názvu, nech sa

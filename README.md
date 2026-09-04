@@ -1,6 +1,6 @@
 # Cenová mapa Pokémon TCG
 
-Denné sledovanie cien a dostupnosti **zapečatených** Pokémon TCG produktov v 31 českých
+Denné sledovanie cien a dostupnosti **zapečatených** Pokémon TCG produktov v 32 českých
 a slovenských eshopoch. Pokrýva **79 setov od klasiky z roku 1999 po Mega Evolution** — série
 Base Set/Neo, XY, Sun & Moon, Sword & Shield, Scarlet & Violet a Mega Evolution —
 naprieč 22 formátmi — od jedného boostera cez bundle, box a ETB až po Ultra Premium
@@ -65,7 +65,7 @@ a dá sa kedykoľvek spustiť ručne. Sedem krokov:
 
 1. **Testy parserov** nad snapshotmi v `tests/fixtures/` — keď je rozbitá parsovacia
    logika, beh spadne ešte pred dotykom so živými webmi.
-2. **Sken 31 eshopov** vrátane stránkovania, max 4 eshopy naraz. Kurz CZK/EUR z ECB.
+2. **Sken 32 eshopov** vrátane stránkovania, max 4 eshopy naraz. Kurz CZK/EUR z ECB.
 3. **Klasifikácia** názvov na edíciu + formát; čo nie je sledovaný formát v edícii
    úrovne A/B/C, sa zahodí.
 4. **Porovnanie s posledným behom** — zmeny cien, preklopenia dostupnosti, nové položky,
@@ -77,7 +77,7 @@ a dá sa kedykoľvek spustiť ručne. Sedem krokov:
 
 ### Poistky proti tichému zlyhaniu
 
-Pri 31 eshopoch je výpadok jedného normálna prevádzka, nie dôvod zahodiť celý beh.
+Pri 32 eshopoch je výpadok jedného normálna prevádzka, nie dôvod zahodiť celý beh.
 Fatálne je až to, keď vypadne väčšia časť eshopov alebo keď objem dát spadne na zlomok.
 
 | Situácia | Čo sa stane |
@@ -100,7 +100,7 @@ so zaškrtnutým **force**.
 
 ## Sledované eshopy
 
-31 eshopov na 12 platformách. Adaptér je parser pre danú platformu — ďalší eshop
+32 eshopov na 13 platformách. Adaptér je parser pre danú platformu — ďalší eshop
 na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 
 | Adaptér | Eshopy | Ako sa čítajú dáta |
@@ -116,6 +116,7 @@ na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 | `alza` | Alza.cz, Alza.sk | `div.box.browsingitem` |
 | `digihry` | Digihry.sk | mikrodáta `itemprop` |
 | `opencart` | Dazzle.sk | `.product-grid .product`; stužka PREDOBJEDNÁVKA prebíja text o sklade |
+| `jsonld` | Mobilonline.sk | schema.org `ItemList` v `<script type="application/ld+json">` — názov, cena, mena aj dostupnosť v strojovom tvare |
 | `sparkys` | Sparkys.sk | `.rf-ProductCard`; názov z atribútu `title`, cena z `.rf-ProductCard-price` (nie z prečiarknutej pôvodnej) |
 
 Zvažované a zatiaľ nezaradené:
@@ -262,6 +263,38 @@ sken, obnoví sa sama. Po desiatich minútach čakanie vzdá a odkáže ťa na A
 Dátumy vydania a uvádzacie ceny sú v `config/editions.yaml` vrátane zdrojov.
 Uvádzacia cena **nie je oficiálne MSRP** — to sa pre CZ/SK nezverejňuje; sú to ceny,
 za ktoré sa čerstvo vydaný set v týchto obchodoch bežne predáva.
+
+---
+
+## Keď jeden produkt vyzerá ako dva
+
+Eshopy píšu ten istý tovar tuctom spôsobov. Kľúč produktu sa skladá z edície,
+formátu a „variantu" vytiahnutého z názvu — a každý rozdiel v pravopise vie
+ten kľúč rozbiť. Rozbitý kľúč je horší než chýbajúci eshop: medián sa počíta
+z polovice ponúk, „najlacnejšie skladom" ukazuje na nesprávnu ponuku a produkt
+je v zozname dvakrát.
+
+Čo sa už stalo v ostrých dátach a proti čomu je odvtedy test:
+
+| Prípad | Čo to spôsobilo |
+|---|---|
+| `Ultra-Premium` so spojovníkom | spadlo na generický *Premium Collection*; Mega Charizard X ex UPC bežal ako dva produkty |
+| `Karetní hra Pokémon TCG - …` | české slovo chýbalo v šume, Xzone.cz mal vlastný kľúč oproti Xzone.sk |
+| `Pokéball` jedným slovom | tá istá plechovka v dvoch košoch |
+| `First Partners` vs `First Partner` | 11 a 4 ponuky zvlášť |
+| `Series 2` / `Series 3` | opačný problém — **zlepené** do jedného produktu, medián z dvoch rôznych sérií |
+| `Mini Tin Display` | debna desiatich plechoviek (280 €) v koši s jednou (8 €) |
+| `Booster Bundle - Sealed Display` | display za 2 610 € medzi bundle po 45 € |
+| `Minor Imperfections` | ETB s odretou krabicou ako plnohodnotná ponuka |
+
+Dve pravidlá, ktoré z toho plynú pri pridávaní formátu do `config/editions.yaml`:
+**špecifickejší formát musí byť v súbore vyššie** (vyhráva prvá zhoda — preto je
+`mini-tin-display` nad `mini-tin`), a **medzi slovami v regexe počítaj so
+spojovníkom** (`[\s-]+`, nie `\s+`).
+
+Zlepenia sa hľadajú ľahko: v `docs/latest.json` porovnaj varianty v rovnakom
+formáte, ktoré sa líšia o pár znakov, a v každom kľúči skontroluj, či sa názvy
+ponúk nelíšia v podstatnom slove.
 
 ---
 
@@ -430,14 +463,14 @@ Keď eshop prekope šablónu, test spadne. Vtedy:
 .github/workflows/pages.yml   záloha pre GitHub Pages
 config/                       eshopy, edície, ručné obrázky
 src/scrape.py                 orchestrácia, poistky, agregácia
-src/adapters.py               12 parserov podľa platformy eshopu
+src/adapters.py               13 parserov podľa platformy eshopu
 src/classify.py               názov -> edícia + formát + počet balíčkov
 src/images.py                 sťahovanie a konverzia obrázkov
 docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        188 testov nad gzip snapshotmi
+tests/                        203 testov nad gzip snapshotmi
 data/portfolio-history.csv    denná hodnota portfólia (graf)
 data/alerts-sent.csv          čo už išlo na Telegram (proti opakovaniu)
 tools/demo_from_fixtures.py   náhľad bez siete
@@ -449,10 +482,10 @@ tools/demo_from_fixtures.py   náhľad bez siete
 
 ## Známe riziká
 
-- **Jedenásť eshopov je označených `optional: true`.** Osem z nich preto, že z IP
+- **Dvanásť eshopov je označených `optional: true`.** Osem z nich preto, že z IP
   adries GitHub Actions vracajú 403 alebo padajú do timeoutu — Alza CZ/SK, Smarty CZ/SK,
-  Zardo Cards, PokecTCG.cz a Veselý drak CZ/SK. Ďalšie tri sú nové a ešte nemajú za
-  sebou ani jeden ostrý beh: Kartovo.net, Konzoliste.cz a Sparkys.sk. Optional eshop
+  Zardo Cards, PokecTCG.cz a Veselý drak CZ/SK. Ďalšie štyri sú nové a ešte nemajú za
+  sebou ani jeden ostrý beh: Kartovo.net, Konzoliste.cz, Sparkys.sk a Mobilonline.sk. Optional eshop
   sa neráta do zdravotnej kontroly behu a prejaví sa len ako „nedostupný“ v pätičke.
   Keď nový eshop prvý raz dobehne, stačí mu riadok `optional: true` zmazať — vtedy
   ho poistky začnú strážiť ako zvyšok.

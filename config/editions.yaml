@@ -636,7 +636,10 @@ formats:
     name: Bundle Display
     short: Display
     packs: 48
-    patterns: ["bundle\\s+display", "booster\\s+bundle\\s+box"]
+    # Časť eshopov vsunie medzi "bundle" a "display" ďalšie slovo
+    # ("Booster Bundle - Sealed Display"); bez toho by sa celý display
+    # za 2 610 € zaradil medzi jednotlivé bundle po 45 €.
+    patterns: ["bundle\\b[\\s\\-–]*(sealed\\s+)?display", "booster\\s+bundle\\s+box"]
 
   - id: half-box
     name: Half Booster Box
@@ -667,21 +670,24 @@ formats:
     short: UPC
     packs: null
     edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
-    patterns: ["ultra\\s+premium\\s+collection", "\\bupc\\b"]
+    # Časť eshopov píše "Ultra-Premium" so spojovníkom. Bez neho v regexe
+    # spadne názov až na generický "premium collection" a ten istý produkt
+    # sa rozdelí na dve položky s vlastnými cenami.
+    patterns: ["ultra[\\s-]+premium[\\s-]+collection", "\\bupc\\b"]
 
   - id: super-premium
     name: Super Premium Collection
     short: SPC
     packs: null
     edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
-    patterns: ["super\\s+premium\\s+collection"]
+    patterns: ["super[\\s-]+premium[\\s-]+collection"]
 
   - id: premium-collection
     name: Premium Collection
     short: Premium
     packs: null
     edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
-    patterns: ["premium\\s+(figure\\s+)?collection", "premium\\s+deck\\s+set"]
+    patterns: ["premium[\\s-]+(figure[\\s-]+)?collection", "premium[\\s-]+deck[\\s-]+set"]
 
   - id: event-collection
     name: Promo balenie
@@ -703,6 +709,15 @@ formats:
     short: ex Box
     packs: 4
     patterns: ["\\bex\\s+box\\b", "mega\\s+ex\\s+box"]
+
+  # MUSÍ byť pred `mini-tin` — prvá zhoda vyhráva. Display je debna desiatich
+  # plechoviek za 165–390 €; keď spadol do toho istého koša ako jedna plechovka
+  # za 8 €, medián aj "najlacnejšie skladom" boli pre celú edíciu mimo.
+  - id: mini-tin-display
+    name: Mini Tin Display
+    short: Tin Display
+    packs: 20
+    patterns: ["mini\\s*tin[\\s\\-–]*(box\\s+)?display", "display[\\s\\-–]*mini\\s*tin"]
 
   - id: mini-tin
     name: Mini Tin
@@ -801,6 +816,9 @@ exclude_patterns:
   - "\\bcase\\b|\\bcarton\\b"
   - "\\d+\\s*[x×]\\s*(booster\\s+box|bundle)"
   - "po[sš]koden|damaged"
+  # Balenie s poškodenou krabicou nie je ten istý tovar — pri zapečatených
+  # produktoch je stav krabice polovica hodnoty. Miešalo by to medián.
+  - "imperfect|imperfection"
   - "ultra\\s+pro|ultimate\\s+guard|gamegenic|dragon\\s+shield"
   # Súčiastky vybrané zo zapečatených balení sa predávajú zvlášť. Majú v názve
   # formát ("... from ETB"), takže by sa zaradili ako ten formát a rozbili by

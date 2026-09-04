@@ -32,6 +32,8 @@ SHOPS = {
     "kartovo": {"id": "kartovo-net", "base": "https://www.kartovo.net", "currency": "EUR"},
     "konzoliste": {"id": "konzoliste-cz", "base": "https://www.konzoliste.cz", "currency": "CZK"},
     "sparkys": {"id": "sparkys-sk", "base": "https://www.sparkys.sk", "currency": "EUR"},
+    "mobilonline": {"id": "mobilonline-sk", "base": "https://www.mobilonline.sk",
+                    "currency": "EUR"},
 }
 
 ADAPTER_OF = {
@@ -39,14 +41,14 @@ ADAPTER_OF = {
     "pgs": "pgs", "veselydrak": "veselydrak", "alza": "alza", "cardyx": "shopify",
     "pokectcg": "woocommerce", "xzone": "xzone", "geekhall": "woocommerce",
     "dazzle": "opencart", "kartovo": "shoptet", "konzoliste": "shoptet",
-    "sparkys": "sparkys",
+    "sparkys": "sparkys", "mobilonline": "jsonld",
 }
 
 MIN_OFFERS = {
     "cardstore": 10, "zardo": 8, "pompo": 20, "digihry": 30,
     "pgs": 20, "veselydrak": 18, "alza": 20, "cardyx": 25,
     "pokectcg": 40, "xzone": 20, "geekhall": 10, "dazzle": 18,
-    "kartovo": 8, "konzoliste": 10, "sparkys": 15,
+    "kartovo": 8, "konzoliste": 10, "sparkys": 15, "mobilonline": 20,
 }
 
 
@@ -910,3 +912,123 @@ def test_new_shoptet_shops_classify_into_tracked_formats():
     for name, minimum in (("kartovo", 8), ("konzoliste", 10)):
         hits = [o for o in offers_for(name) if classify.classify(o.name)]
         assert len(hits) >= minimum, f"{name}: len {len(hits)} zaradených"
+
+
+def test_hyphen_does_not_split_ultra_premium_collection():
+    """Časť eshopov píše „Ultra-Premium Collection" so spojovníkom. Kým to regex
+    nezvládal, spadol taký názov na generický `premium-collection` a ten istý
+    produkt sa v appke rozdelil na dve položky s vlastnými cenami — medián aj
+    „najlacnejšie skladom" potom rátali z polovice ponúk."""
+    names = [
+        "Pokémon TCG: Mega Charizard X ex Ultra-Premium Collection",
+        "Pokémon TCG: Mega Charizard X ex Ultra Premium Collection (2025)",
+        "Pokémon TCG Mega Charizard X EX Ultra Premium Collection",
+    ]
+    hits = [classify.classify(n) for n in names]
+    assert all(h and h.format.id == "ultra-premium" for h in hits)
+    assert len({h.variant for h in hits}) == 1, "ten istý produkt má mať jeden kľúč"
+
+    supers = [classify.classify("Pokémon TCG: Charizard ex Super-Premium Collection"),
+              classify.classify("Pokémon TCG: Charizard ex Super Premium Collection")]
+    assert all(h and h.format.id == "super-premium" for h in supers)
+    assert len({h.variant for h in supers}) == 1
+
+    plain = classify.classify("Pokémon TCG: Eevee Premium Collection")
+    assert plain.format.id == "premium-collection", "generický formát musí zostať"
+
+
+def test_jsonld_reads_price_currency_and_stock_from_structured_data():
+    offers = {o.name: o for o in offers_for("mobilonline")}
+    booster = offers["Pokémon TCG: SV10 Destined Rivals - Booster"]
+    assert booster.price == 8.9
+    assert booster.currency == "EUR"
+    assert booster.in_stock is True
+    assert booster.url.startswith("https://www.mobilonline.sk/produkt/")
+
+
+def test_jsonld_paging_stops_on_the_last_page():
+    """Bez zastavenia by sa posledná strana vracala donekonečna."""
+    body = load("mobilonline")
+    url = "https://www.mobilonline.sk/kategoria/gaming-a-hry/znacka/pokemon"
+    assert adapters.next_page("jsonld", body, url) == url + "?page=2"
+    last = body.replace('currentPage\\":1', 'currentPage\\":4')
+    assert adapters.next_page("jsonld", last, url + "?page=4") is None
+
+
+# --------------------------------------------- zlepené a rozdelené produkty
+#
+# Všetky prípady nižšie sa naozaj stali v ostrých dátach: ten istý produkt
+# bežal pod dvoma kľúčmi (a medián sa rátal z polovice ponúk), alebo naopak
+# dva rôzne produkty spadli do jedného koša (a medián nedával zmysel vôbec).
+
+def _key(name):
+    hit = classify.classify(name)
+    return None if hit is None else f"{hit.edition.id}|{hit.format.id}|{hit.variant}"
+
+
+def test_czech_card_game_prefix_does_not_make_a_second_product():
+    """Xzone.cz píše „Karetní hra Pokémon TCG - …", Xzone.sk „Kartová hra …".
+    České slovo chýbalo v zozname šumu, tak sa ten istý produkt z dvoch mutácií
+    toho istého eshopu rozpadol na dva kľúče."""
+    assert _key("Karetní hra Pokémon TCG - Mega Zygarde ex Premium Collection") == \
+           _key("Pokémon TCG: Mega Zygarde ex Premium Collection")
+    assert _key("Karetní hra Pokémon TCG - First Partner Illustration Collection Series 3") == \
+           _key("Kartová hra Pokémon TCG - First Partner Illustration Collection Series 3")
+
+
+def test_pokeball_spelled_as_one_word_is_the_same_tin():
+    assert _key("Pokémon Pokéball Tin 2024 reprint") == \
+           _key("Pokémon TCG: Poké Ball Tin 2024 Reprint")
+    assert _key("Pokémon TCG: 2025 Poké Ball Tins") == \
+           _key("Pokémon TCG: Poké Ball Tin 2025")
+    assert _key("Pokémon TCG: Poké Ball Tin 2024") != _key("Pokémon TCG: Poké Ball Tin 2025"), \
+        "ročníky sú rôzne produkty a musia zostať oddelené"
+
+
+def test_series_number_keeps_illustration_collections_apart():
+    """Číslo série stojí až ZA názvom formátu. Kým sa neťahalo, Series 2 a
+    Series 3 splynuli do jedného produktu a medián sa počítal z cien oboch."""
+    s2 = _key("Pokémon TCG: First Partner Illustration Collection – Series 2")
+    s3 = _key("Pokémon TCG: First Partner Illustration Collection - Series 3")
+    assert s2 != s3
+    assert s3 == _key("Pokémon TCG: First Partners Illustration Collection - Series 3"), \
+        "jednotné a množné číslo je ten istý produkt"
+
+
+def test_plural_stemming_does_not_mangle_pokemon_names():
+    """Plošné zhadzovanie koncového -s by z Terapagosa spravilo „Terapago"
+    a z Moltresa „Moltre" — variant sa zobrazuje ako názov produktu."""
+    assert classify.classify(
+        "Pokémon TCG: Terapagos EX Ultra Premium Collection").variant == "terapagos-ex"
+    assert classify.classify(
+        "Pokémon TCG: Zapdos ex Premium Collection").variant == "zapdos-ex"
+
+
+def test_mini_tin_display_is_not_a_mini_tin():
+    """Debna desiatich plechoviek za 280 € nesmie byť v koši s jednou za 8 €."""
+    single = classify.classify("Pokémon TCG: Scarlet & Violet 151 Mini Tin")
+    display = classify.classify("Pokémon TCG: 151 Mini Tin Display")
+    assert single.format.id == "mini-tin"
+    assert display.format.id == "mini-tin-display"
+    assert classify.classify(
+        "Pokémon Prismatic Evolutions Mini Tin Display Box").format.id == "mini-tin-display"
+
+
+def test_bundle_display_survives_a_word_in_the_middle():
+    """„Booster Bundle - Sealed Display" za 2 610 € sa zaraďovalo medzi
+    jednotlivé bundle po 45 €."""
+    assert classify.classify(
+        "Pokémon TCG - Scarlet & Violet - 151 - Booster Bundle - Sealed Display"
+    ).format.id == "bundle-display"
+    assert classify.classify(
+        "Pokémon TCG: Ascended Heroes - Booster Bundle").format.id == "bundle"
+
+
+def test_damaged_boxes_are_excluded():
+    """Pri zapečatených produktoch je stav krabice polovica hodnoty —
+    ETB s odretou krabicou nie je tá istá položka."""
+    for name in ("Pokémon TCG - Sword & Shield - Celebrations - Elite Trainer Box - Minor Imperfections",
+                 "Pokémon TCG - Scarlet & Violet - Stellar Crown - Elite Trainer Box ( Small Imperfections )",
+                 "Pokémon TCG - Sword and Shield - Elite Trainer Box - Zacian ( little imperfect )"):
+        assert classify.classify(name) is None, name
+    assert classify.classify("Pokémon TCG: Stellar Crown Elite Trainer Box") is not None
