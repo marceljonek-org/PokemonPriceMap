@@ -15,9 +15,11 @@ shops:
     base: https://www.cardstore.cz
     urls:
       - https://www.cardstore.cz/booster-boxy/
+      - https://www.cardstore.cz/booster-balicky/
       - https://www.cardstore.cz/pokemon-booster-bundle/
       - https://www.cardstore.cz/elite-trainer-boxy-etb/
-      - https://www.cardstore.cz/pokemon-boostery/
+      - https://www.cardstore.cz/pokemon-specialni-sety/
+      - https://www.cardstore.cz/pokemon-tins-plechovky/
 
   - id: fyft-cz
     name: Fyft.cz
@@ -26,7 +28,8 @@ shops:
     adapter: shoptet
     base: https://www.fyft.cz
     urls:
-      - https://www.fyft.cz/pokemon/
+      - https://www.fyft.cz/pokemon-boostery-packy-boxy/
+      - https://www.fyft.cz/pokemon-elite-trainer-box/
 
   - id: nekonecno-sk
     name: Nekonecno.sk
@@ -50,6 +53,12 @@ shops:
     base: https://www.pokemon4u.cz
     urls:
       - https://www.pokemon4u.cz/pokemon-booster/
+      - https://www.pokemon4u.cz/pokemon-booster-box/
+      - https://www.pokemon4u.cz/pokemon-elite-trainer-box/
+      - https://www.pokemon4u.cz/pokemon-premium-collection/
+      - https://www.pokemon4u.cz/pokemon-tin/
+      - https://www.pokemon4u.cz/pokemon-v-box/
+      - https://www.pokemon4u.cz/pokemon-blister/
 
   - id: zardo-cz
     name: Zardo Cards
@@ -60,8 +69,11 @@ shops:
     optional: true      # 403 z IP adries GitHub Actions (beh 29. 8.)
     proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
     urls:
-      - https://www.zardo.cards/en/pokemon-boosters/
-      - https://www.zardo.cards/en/products-2/
+      - https://www.zardo.cards/boostery-pokemon
+      - https://www.zardo.cards/booster-boxy-pokemon
+      - https://www.zardo.cards/elitetrainerbox
+      - https://www.zardo.cards/specialni-sety-pokemon
+      - https://www.zardo.cards/plechovky
 
   - id: gengar-cz
     name: Gengar.cz
@@ -71,6 +83,11 @@ shops:
     base: https://www.gengar.cz
     urls:
       - https://www.gengar.cz/pokemon-booster
+      - https://www.gengar.cz/booster-box
+      - https://www.gengar.cz/elite-trainer-box
+      - https://www.gengar.cz/collection
+      - https://www.gengar.cz/pokemon-tin-plechovky
+      - https://www.gengar.cz/vintage-produkty
 
   - id: pompo-cz
     name: Pompo.cz
@@ -108,7 +125,10 @@ shops:
     base: https://www.pgs.sk
     urls:
       - https://www.pgs.sk/booster-4c14601
-      - https://www.pgs.sk/pokemon-tcg-4c14578
+      - https://www.pgs.sk/elite-trainer-box-4c14603
+      - https://www.pgs.sk/tin-4c14605
+      - https://www.pgs.sk/special-collection-4c14604
+      - https://www.pgs.sk/exkluzivne-sety-4c14608
 
   - id: smarty-cz
     name: Smarty.cz
@@ -120,7 +140,10 @@ shops:
     proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
     urls:
       - https://www.smarty.cz/booster-4c14601
-      - https://www.smarty.cz/pokemon-tcg-4c14578
+      - https://www.smarty.cz/elite-trainer-box-4c14603
+      - https://www.smarty.cz/tin-4c14605
+      - https://www.smarty.cz/special-collection-4c14604
+      - https://www.smarty.cz/exkluzivni-sety-4c14608
 
   - id: vesely-drak-cz
     name: Veselý drak CZ
@@ -128,10 +151,15 @@ shops:
     currency: CZK
     adapter: veselydrak
     base: https://www.vesely-drak.cz
-    optional: true      # opakované ConnectTimeout z GitHub Actions
+    proxy: true         # priamo z Actions padá do ConnectTimeout, skúšame cez Worker
+    optional: true
     urls:
       - https://www.vesely-drak.cz/produkty/booster-boxy/
       - https://www.vesely-drak.cz/produkty/boostery/
+      - https://www.vesely-drak.cz/produkty/specialni-sety/
+      - https://www.vesely-drak.cz/produkty/pokemon-elite-trainer-box/
+      - https://www.vesely-drak.cz/produkty/pokemon-plechovky/
+      - https://www.vesely-drak.cz/produkty/pokemon-premium-kolekce/
 
   - id: vesely-drak-sk
     name: Veselý drak SK
@@ -139,10 +167,15 @@ shops:
     currency: EUR
     adapter: veselydrak
     base: https://www.vesely-drak.sk
-    optional: true      # opakované ConnectTimeout z GitHub Actions
+    proxy: true         # priamo z Actions padá do ConnectTimeout, skúšame cez Worker
+    optional: true
     urls:
       - https://www.vesely-drak.sk/produkty/booster-boxy/
       - https://www.vesely-drak.sk/produkty/boostery/
+      - https://www.vesely-drak.sk/produkty/specialni-sety/
+      - https://www.vesely-drak.sk/produkty/pokemon-elite-trainer-box/
+      - https://www.vesely-drak.sk/produkty/pokemon-plechovky/
+      - https://www.vesely-drak.sk/produkty/pokemon-premium-kolekce/
 
   - id: cardyx-sk
     name: Cardyx.sk
@@ -188,8 +221,11 @@ shops:
     optional: true
     proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
     urls:
-      - https://www.smarty.sk/pokemon-tcg-4c14578
       - https://www.smarty.sk/booster-4c14601
+      - https://www.smarty.sk/elite-trainer-box-4c14603
+      - https://www.smarty.sk/tin-4c14605
+      - https://www.smarty.sk/special-collection-4c14604
+      - https://www.smarty.sk/exkluzivne-sety-4c14608
 
   - id: tcg4you-cz
     name: TCG4You.cz
@@ -201,7 +237,7 @@ shops:
       - https://www.tcg4you.cz/boostery/
       - https://www.tcg4you.cz/booster-bundly/
       - https://www.tcg4you.cz/elite-trainer-boxy/
-      - https://www.tcg4you.cz/pokemon/
+      - https://www.tcg4you.cz/ostatni/
 
   - id: cardempire-sk
     name: Card Empire SK
@@ -210,10 +246,13 @@ shops:
     adapter: shoptet
     base: https://www.cardempire.sk
     urls:
-      - https://www.cardempire.sk/en/booster-boxes/
-      - https://www.cardempire.sk/en/booster-bundle/
-      - https://www.cardempire.sk/en/elite-trainer-boxes/
-      - https://www.cardempire.sk/en/pokemon-tcg-booster-packs/
+      - https://www.cardempire.sk/booster-boxy/
+      - https://www.cardempire.sk/booster-bundle/
+      - https://www.cardempire.sk/elite-trainer-boxy/
+      - https://www.cardempire.sk/premiove-boxy/
+      - https://www.cardempire.sk/tinky/
+      - https://www.cardempire.sk/mini-tinky/
+      - https://www.cardempire.sk/blistre/
 
   - id: ccplanet-sk
     name: CC Planet
@@ -225,6 +264,8 @@ shops:
       - https://www.ccplanet.sk/booster/
       - https://www.ccplanet.sk/booster-box/
       - https://www.ccplanet.sk/elite-trainer-boxy--etb/
+      - https://www.ccplanet.sk/boxy-a-kolekcie/
+      - https://www.ccplanet.sk/blistre/
 
   - id: 64ka-sk
     name: 64ka.sk
@@ -274,7 +315,7 @@ shops:
     adapter: xzone
     base: https://www.xzone.cz
     urls:
-      - https://www.xzone.cz/sberatelske-hry-pokemon-tcg
+      - https://www.xzone.cz/sberatelske-hry-pokemon-tcg?c=725&s=60
 
   - id: xzone-sk
     name: Xzone.sk
@@ -283,7 +324,7 @@ shops:
     adapter: xzone
     base: https://www.xzone.sk
     urls:
-      - https://www.xzone.sk/sberatelske-hry-pokemon-tcg
+      - https://www.xzone.sk/sberatelske-hry-pokemon-tcg?c=725&s=60
 
   # --- pridané 29. 8. 2026, po overení firmy a recenzií -------------------
 
@@ -294,9 +335,11 @@ shops:
     adapter: opencart
     base: https://www.dazzle.sk
     urls:
-      - https://www.dazzle.sk/pokemon/pokemon-boostre/anglicke-boostre
+      - https://www.dazzle.sk/pokemon/pokemon-boostre
       - https://www.dazzle.sk/pokemon/pokemon-booster-boxy
       - https://www.dazzle.sk/pokemon/pokemon-boxy/pokemon-elite-trainer-box
+      - https://www.dazzle.sk/pokemon/pokemon-boxy/collection-boxy
+      - https://www.dazzle.sk/pokemon/pokemon-boxy/pokemon-tin
 
   - id: kuzelnehry-sk
     name: KúzelnéHry.sk
@@ -308,7 +351,8 @@ shops:
       - https://www.kuzelnehry.sk/pokemon-booster-balicky/
       - https://www.kuzelnehry.sk/pokemon-booster-boxy/
       - https://www.kuzelnehry.sk/pokemon-elite-trainer-boxy/
-      - https://www.kuzelnehry.sk/pokemon-herne-baliky/
+      - https://www.kuzelnehry.sk/pokemon-specialne-produkty/
+      - https://www.kuzelnehry.sk/pokemon-darcekove-v-boxy/
 
   - id: kartovo-net
     name: Kartovo.net

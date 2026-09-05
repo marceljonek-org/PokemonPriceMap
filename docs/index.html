@@ -285,10 +285,12 @@ function visibleProducts(){
 }
 
 /* Najnižšia cena skladom je zároveň historickým minimom? Tolerancia 1 %,
-   aby drobné pohyby kurzu nezhasínali značku každý druhý deň. */
+   aby drobné pohyby kurzu nezhasínali značku každý druhý deň.
+   Pod 14 dní histórie je to pravda skoro vždy, tak sa značka nezobrazuje. */
+const MIN_HISTORY_DAYS = 14;
 function atHistoricLow(p){
   return p.min_eur != null && p.low_eur != null &&
-         p.history.length > 3 && p.min_eur <= p.low_eur * 1.01;
+         p.history.length >= MIN_HISTORY_DAYS && p.min_eur <= p.low_eur * 1.01;
 }
 
 function renderCards(){
@@ -342,8 +344,12 @@ function openDetail(p){
   const sub = [p.edition.code || '—'];
   if(p.edition.tier) sub.push(`úroveň ${p.edition.tier}`);
   if(p.packs) sub.push(`${p.packs} balíčkov`);
-  sub.push(`medián skladom ${eur(p.median_eur)}`);
-  if(p.low_eur!=null && p.history.length>3) sub.push(`historicky ${eur(p.low_eur)} – ${eur(p.high_eur)}`);
+  sub.push(p.median_trusted
+    ? `medián skladom ${eur(p.median_eur)} (${p.sellers_in_stock} predajcov)`
+    : (p.sellers_in_stock
+        ? `${p.sellers_in_stock === 1 ? 'jediná ponuka' : '2 ponuky'} — na medián málo`
+        : 'nikde skladom'));
+  if(p.low_eur!=null && p.history.length>=MIN_HISTORY_DAYS) sub.push(`historicky ${eur(p.low_eur)} – ${eur(p.high_eur)}`);
   if(p.launch_eur) sub.push(`uvádzacia ${eur(p.launch_eur)}${p.vs_launch_pct!=null?` (${p.vs_launch_pct>0?'+':''}${p.vs_launch_pct} %)`:''}`);
   if(p.released){
     const d = p.days_since_release;
@@ -357,7 +363,8 @@ function openDetail(p){
       <td class="n">${o.price.toLocaleString('sk-SK')} ${o.currency}</td>
       <td class="n">${eur(o.price_eur)}</td>
       <td class="n">${o.per_pack_eur!=null?eur(o.per_pack_eur):'—'}</td>
-      <td>${o.in_stock?'<span class="pill ok">skladom</span>':'<span class="pill no">nie je</span>'}</td>
+      <td>${o.in_stock?'<span class="pill ok">skladom</span>':'<span class="pill no">nie je</span>'}
+        ${o.stock_text?`<div class="csub" style="margin-top:3px">${o.stock_text}</div>`:''}</td>
       <td class="n">${o.delta_pct!=null&&o.delta_pct!==0?`<span class="delta ${o.delta_pct<0?'dn':'up'}">${o.delta_pct>0?'+':''}${o.delta_pct} %</span>`:'—'}</td>
       <td>${o.flag?`<span class="pill flag">${o.flag}</span>`:''}${o.outlier?' <span class="pill no">skok ceny</span>':''}</td>
       <td><a href="${o.url}" target="_blank" rel="noopener">otvoriť</a></td>
@@ -824,7 +831,12 @@ function renderFooter(){
       kurz ${d.fx.czk_per_eur} Kč/€${d.fx.stale?' (starý kurz)':''} ·
       ${d.counts.offers} ponúk, ${d.counts.products} produktov</div>
     <div class="shops">${shops}</div>
-    <div>Značka <b>pod trhom</b> = 5–30 % pod mediánom ponúk skladom. <b>overiť</b> = viac než 30 %, skoro vždy chyba eshopu.
+    <div><b>„Najlacnejšie" znamená najlacnejšie z ${d.shops.length} sledovaných eshopov, nie z celého trhu.</b>
+      Na CZ/SK predáva zapečatené Pokémon produkty aj ďalších zhruba desať obchodov, ktoré appka nepozná — pred väčším
+      nákupom sa oplatí pozrieť aj mimo nej.</div>
+    <div style="margin-top:6px">Značka <b>pod trhom</b> = 5–30 % pod mediánom ponúk skladom; počíta sa až od
+      ${d.counts.min_sellers_for_median || 3} rôznych predajcov, pri menšom počte je to cena predajcu, nie trhu.
+      <b>overiť</b> = viac než 30 % pod mediánom, skoro vždy chyba eshopu.
       Ceny zberateľských kariet sú špekulatívne — toto nie je investičné poradenstvo.</div>`;
 }
 

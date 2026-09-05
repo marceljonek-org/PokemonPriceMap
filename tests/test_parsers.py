@@ -705,16 +705,19 @@ def test_every_era_is_represented():
 # ------------------------------------------------------- odporúčania na nákup
 
 def _rank_product(key="pitch-black|etb", tier="A", median=100.0, low=90.0,
-             launch=None, in_print=None, history_len=5, offers=None):
+             launch=None, in_print=None, history_len=14, offers=None,
+             median_trusted=True):
     return {
         "key": key, "title": key, "image": "",
         "edition": {"id": key.split("|")[0], "name": key, "code": "X",
                     "tier": tier, "series": "ME"},
         "format": {"id": key.split("|")[1], "name": "ETB", "short": "ETB"},
         "median_eur": median, "low_eur": low, "launch_eur": launch,
+        "median_trusted": median_trusted,
+        "sellers_in_stock": 3 if median_trusted else 1,
         "in_print": in_print, "min_eur": min((o["price_eur"] for o in (offers or [])
                                               if o["in_stock"]), default=None),
-        "history": [{"d": f"2026-0{i+1}-01", "v": median} for i in range(history_len)],
+        "history": [{"d": f"2026-01-{i+1:02d}", "v": median} for i in range(history_len)],
         "offers": offers or [],
     }
 
@@ -1032,3 +1035,40 @@ def test_damaged_boxes_are_excluded():
                  "Pokémon TCG - Sword and Shield - Elite Trainer Box - Zacian ( little imperfect )"):
         assert classify.classify(name) is None, name
     assert classify.classify("Pokémon TCG: Stellar Crown Elite Trainer Box") is not None
+
+
+def test_short_history_does_not_grant_the_historic_low_bonus():
+    """Po piatich dňoch behu je „najnižšie doteraz" pravda pri každom produkte —
+    v ostrých dátach to platilo pre 19 z 19. Bonus preto začína až po 14 dňoch."""
+    import scrape
+    cheap = _rank_offer(price=70.0)
+    mlady = _rank_product(low=70.0, history_len=5, offers=[cheap])
+    stary = _rank_product(low=70.0, history_len=14, offers=[cheap])
+    assert "na historickom minime" not in scrape.score_offer(mlady, cheap)[1]
+    assert "na historickom minime" in scrape.score_offer(stary, cheap)[1]
+    assert scrape.score_offer(stary, cheap)[0] > scrape.score_offer(mlady, cheap)[0]
+
+
+def test_thin_market_does_not_count_as_below_market():
+    """Medián z jednej ponuky je cena toho predajcu, nie trhu — nesmie z nej
+    vzniknúť bonus za to, že je pod „trhom"."""
+    import scrape
+    offer = _rank_offer(price=70.0)
+    tenky = _rank_product(median=100.0, median_trusted=False, offers=[offer])
+    siroky = _rank_product(median=100.0, median_trusted=True, offers=[offer])
+    assert not any("pod mediánom" in r for r in scrape.score_offer(tenky, offer)[1])
+    assert any("pod mediánom" in r for r in scrape.score_offer(siroky, offer)[1])
+
+
+def test_twin_shops_vote_once_into_the_median():
+    """Pompo.cz a Pompo.sk sú jedna firma s jedným skladom. Kým hlasovali dvakrát,
+    pri produkte s tromi ponukami určovala medián sama."""
+    import scrape
+    from datetime import date
+    today = date.today().isoformat()
+    rows = [_offer_row("pompo-cz", 100.0, today), _offer_row("pompo-sk", 102.0, today),
+            _offer_row("alza-sk", 60.0, today)]
+    product = scrape.build_products(rows, [], {}, today)[0][0]
+    assert product["sellers_in_stock"] == 2, "dve firmy, nie tri ponuky"
+    assert product["median_eur"] == 80.0, "medián z 60 a 100, nie z 60/100/102"
+    assert product["median_trusted"] is False, "dvaja predajcovia na medián nestačia"

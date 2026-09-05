@@ -66,6 +66,19 @@ def via_proxy(url: str, shop: dict) -> str:
     return (f"{PROXY_URL.rstrip('/')}?t={quote(PROXY_TOKEN, safe='')}"
             f"&url={quote(url, safe='')}")
 
+# České a slovenské mutácie toho istého predajcu majú jeden sklad a jednu
+# cenotvorbu. Do mediánu preto smú hlasovať raz — inak jedna firma pri produkte
+# s tromi ponukami medián priamo určuje.
+SELLER_OF = {
+    "pompo-cz": "pompo", "pompo-sk": "pompo",
+    "xzone-cz": "xzone", "xzone-sk": "xzone",
+    "alza-cz": "alza", "alza-sk": "alza",
+    "smarty-cz": "smarty", "smarty-sk": "smarty",
+    "vesely-drak-cz": "vesely-drak", "vesely-drak-sk": "vesely-drak",
+}
+MIN_FOR_MEDIAN = 3        # menej ponúk = to nie je trhová cena, len cena predajcu
+MIN_HISTORY_DAYS = 14     # kým nie je história dlhšia, "najnižšie doteraz" nič nehovorí
+
 DROP_RATIO = 0.5          # menej než polovica dát oproti minule = zlyhanie
 MIN_REQUIRED_OK = 0.8     # aspoň 80 % povinných eshopov musí vrátiť dáta
 OUTLIER_LOW = 0.3         # cena pod 30 % predchádzajúcej = podozrivá
@@ -315,6 +328,10 @@ def build_rows(results: list[dict], fx: dict, today: str) -> tuple[list[dict], l
                 "price_eur": price_eur,
                 "per_pack_eur": round(price_eur / hit.packs, 2) if hit.packs else "",
                 "in_stock": "1" if offer.in_stock else "0",
+                # Text o dostupnosti sa nezapisuje do histórie, ale v detaile
+                # ponuky je podstatný: "skladom" a "skladom u dodávateľa do 7 dní"
+                # nie je to isté a appka to dovtedy zlievala do jedného áno.
+                "stock_text": (offer.stock_text or "")[:60],
                 "image": offer.image,
             })
     return dedupe_rows(rows), unknown
@@ -432,7 +449,14 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
         if edition is None or fmt is None:
             continue
         in_stock = [o for o in offers if o["in_stock"] == "1"]
-        prices_in_stock = sorted(float(o["price_eur"]) for o in in_stock)
+        # Jedna firma = jeden hlas. Z dvojičiek pompo.cz/pompo.sk berieme lacnejšiu.
+        per_seller: dict[str, float] = {}
+        for offer in in_stock:
+            seller = SELLER_OF.get(offer["shop_id"], offer["shop_id"])
+            price = float(offer["price_eur"])
+            if seller not in per_seller or price < per_seller[seller]:
+                per_seller[seller] = price
+        prices_in_stock = sorted(per_seller.values())
         median_eur = statistics.median(prices_in_stock) if prices_in_stock else None
 
         # Druhý prechod: ponuka hlboko pod mediánom skoro nikdy nie je ten
@@ -444,6 +468,11 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
         if trusted and len(trusted) < len(prices_in_stock):
             median_eur = statistics.median(trusted)
         min_eur = trusted[0] if trusted else None
+        # Medián z jednej či dvoch ponúk nie je trhová cena — je to cena toho
+        # predajcu. Príznak nesie ďalej frontend aj rebríček, aby sa z toho
+        # nepočítalo "pod trhom" ani body za zľavu.
+        sellers_in_stock = len(trusted)
+        median_trusted = sellers_in_stock >= MIN_FOR_MEDIAN
 
         key = f"{edition_id}|{format_id}|{variant}" if variant else f"{edition_id}|{format_id}"
         packs = offers[0]["packs"] or None
@@ -493,7 +522,9 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
                 "url": offer["url"],
                 "name": offer["name"],
                 "delta_pct": delta,
-                "flag": flag_offer(price_eur, median_eur) if offer["in_stock"] == "1" else "",
+                "flag": (flag_offer(price_eur, median_eur)
+                         if offer["in_stock"] == "1" and median_trusted else ""),
+                "stock_text": offer.get("stock_text", ""),
                 "outlier": bool(offer.get("outlier")),
             })
 
@@ -542,6 +573,8 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
             "min_any_eur": round(min_any, 2),
             "min_delta_pct": min_delta,
             "median_eur": round(median_eur, 2) if median_eur else None,
+            "median_trusted": median_trusted,
+            "sellers_in_stock": sellers_in_stock,
             "min_per_pack_eur": round(min_eur / packs, 2) if (min_eur and packs) else None,
             "offer_count": len(offers),
             "in_stock_count": len(in_stock),
@@ -646,7 +679,7 @@ def score_offer(product: dict, offer: dict) -> tuple[float, list[str]]:
     price = offer["price_eur"]
 
     median = product.get("median_eur")
-    if median and price < median:
+    if median and price < median and product.get("median_trusted"):
         below = (median - price) / median
         score += min(below, UNDER_MARKET_MAX) / UNDER_MARKET_MAX * 40
         reasons.append(f"{round(below * 100)} % pod mediánom ponúk")
@@ -657,8 +690,12 @@ def score_offer(product: dict, offer: dict) -> tuple[float, list[str]]:
         score += min(below, 0.25) / 0.25 * 25
         reasons.append(f"{round(below * 100)} % pod uvádzacou cenou")
 
+    # Kým je história krátka, je "najnižšie doteraz" pravda skoro pri každom
+    # produkte a tých 20 bodov nerozlišuje nič. Bonus preto začne platiť až
+    # po dvoch týždňoch dát a dovtedy sa ani nezobrazuje.
     low = product.get("low_eur")
-    if low and len(product.get("history") or []) > 3 and price <= low * 1.03:
+    history = product.get("history") or []
+    if low and len(history) >= MIN_HISTORY_DAYS and price <= low * 1.03:
         score += 20
         reasons.append("na historickom minime")
 
@@ -1043,7 +1080,8 @@ async def run(args) -> int:
         "recommendations": recommendations,
         "portfolio_endpoint": PROXY_URL,
         "counts": {"offers": kept, "products": len(products),
-                   "unknown": len(unknown)},
+                   "unknown": len(unknown),
+                   "min_sellers_for_median": MIN_FOR_MEDIAN},
     }
     (DATA / "latest.json").write_text(
         json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

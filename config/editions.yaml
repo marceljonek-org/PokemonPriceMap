@@ -27,13 +27,20 @@ editions:
     name: Phantasmal Flames
     code: ME02
     series: ME
+    tier: A
+    released: 2025-11-14
+    note: Mega Charizard X ex je najsilnejšia chase karta celej série Mega Evolution
     patterns: ["phantasmal\\s+flames", "\\bme\\s*0?2\\b"]
 
   - id: mega-evolution
     name: Mega Evolution
     code: ME01
     series: ME
-    note: Základný set série Mega Evolution
+    tier: B
+    # Celosvetovo 26. 9. 2025, v Európe až 10. 10. kvôli problémom s dodávkou.
+    # Držíme európsky dátum — appka počíta vek setu pre CZ/SK trh.
+    released: 2025-10-10
+    note: Základný set série Mega Evolution, veľký náklad
     patterns: ["\\bme\\s*0?1\\b", "mega\\s+evolutions?\\s+(booster|elite|box)"]
 
   - id: perfect-order

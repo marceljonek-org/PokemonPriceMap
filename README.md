@@ -119,6 +119,11 @@ na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 | `jsonld` | Mobilonline.sk | schema.org `ItemList` v `<script type="application/ld+json">` — názov, cena, mena aj dostupnosť v strojovom tvare |
 | `sparkys` | Sparkys.sk | `.rf-ProductCard`; názov z atribútu `title`, cena z `.rf-ProductCard-price` (nie z prečiarknutej pôvodnej) |
 
+Každý eshop má v `urls` vymenované kategórie, ktoré sa sťahujú — spolu 116. Pozor na to,
+čo tam **nie je**: Ultra Premium a Premium Collection bývajú v kategóriách typu „špeciálne
+sety" alebo „zberateľské kolekcie", nie medzi boostermi. Kým tieto kategórie chýbali,
+appka nevidela UPC pri 20 z 28 funkčných eshopov, hoci ich predávali.
+
 Zvažované a zatiaľ nezaradené:
 
 - **Charizard.sk** (PrestaShop) a **Cheapgame.cz** — ich HTML sa nepodarilo spoľahlivo
@@ -263,6 +268,31 @@ sken, obnoví sa sama. Po desiatich minútach čakanie vzdá a odkáže ťa na A
 Dátumy vydania a uvádzacie ceny sú v `config/editions.yaml` vrátane zdrojov.
 Uvádzacia cena **nie je oficiálne MSRP** — to sa pre CZ/SK nezverejňuje; sú to ceny,
 za ktoré sa čerstvo vydaný set v týchto obchodoch bežne predáva.
+
+---
+
+## Čo appka zámerne nepovie
+
+Tri miesta, kde by číslo vyzeralo presnejšie, než v skutočnosti je. Radšej sa nezobrazí,
+než by malo klamať.
+
+**Medián z jednej ponuky nie je trhová cena.** Počíta sa až od **troch rôznych predajcov**
+(`MIN_FOR_MEDIAN`). Pod tým detail napíše „jediná ponuka" alebo „2 ponuky — na medián málo",
+značka *pod trhom* sa nezobrazí a v rebríčku sa za takú zľavu nedávajú body. V ostrých dátach
+malo dôveryhodný medián len 20 % produktov — zvyšok bol jeden alebo dvaja predajcovia.
+
+**Jedna firma = jeden hlas.** Pompo.cz a Pompo.sk, Alza CZ/SK, Xzone CZ/SK, Smarty CZ/SK
+a Veselý drak CZ/SK sú vždy jeden sklad a jedna cenotvorba. Do mediánu vstupuje lacnejšia
+z dvojice (`SELLER_OF`). Predtým jedna firma pri produkte s tromi ponukami medián priamo
+určovala — týkalo sa to 31 produktov.
+
+**„Najnižšie doteraz" má zmysel až po dvoch týždňoch.** Pri piatich dňoch histórie bola
+tá veta pravdivá pri **19 z 19** produktov, ktoré na ňu mali nárok — teda o ničom nevypovedala,
+len rozdala 20 bodov všetkým. Platí od `MIN_HISTORY_DAYS` = 14 dní.
+
+A štvrté, čo appka hovorí nahlas v pätičke: **„najlacnejšie" je najlacnejšie z 32 sledovaných
+eshopov, nie z trhu.** Na CZ/SK predáva zapečatené Pokémon produkty aj ďalšia zhruba desiatka
+obchodov. Pri nákupe za stovky eur sa oplatí pozrieť aj mimo appky.
 
 ---
 
@@ -470,7 +500,7 @@ docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        203 testov nad gzip snapshotmi
+tests/                        206 testov nad gzip snapshotmi
 data/portfolio-history.csv    denná hodnota portfólia (graf)
 data/alerts-sent.csv          čo už išlo na Telegram (proti opakovaniu)
 tools/demo_from_fixtures.py   náhľad bez siete
