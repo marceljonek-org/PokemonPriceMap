@@ -34,6 +34,7 @@ SHOPS = {
     "sparkys": {"id": "sparkys-sk", "base": "https://www.sparkys.sk", "currency": "EUR"},
     "mobilonline": {"id": "mobilonline-sk", "base": "https://www.mobilonline.sk",
                     "currency": "EUR"},
+    "pokeworld": {"id": "pokeworld-eu", "base": "https://poke-world.eu", "currency": "EUR"},
 }
 
 ADAPTER_OF = {
@@ -41,7 +42,7 @@ ADAPTER_OF = {
     "pgs": "pgs", "veselydrak": "veselydrak", "alza": "alza", "cardyx": "shopify",
     "pokectcg": "woocommerce", "xzone": "xzone", "geekhall": "woocommerce",
     "dazzle": "opencart", "kartovo": "shoptet", "konzoliste": "shoptet",
-    "sparkys": "sparkys", "mobilonline": "jsonld",
+    "sparkys": "sparkys", "mobilonline": "jsonld", "pokeworld": "shoptet",
 }
 
 MIN_OFFERS = {
@@ -49,6 +50,7 @@ MIN_OFFERS = {
     "pgs": 20, "veselydrak": 18, "alza": 20, "cardyx": 25,
     "pokectcg": 40, "xzone": 20, "geekhall": 10, "dazzle": 18,
     "kartovo": 8, "konzoliste": 10, "sparkys": 15, "mobilonline": 20,
+    "pokeworld": 25,
 }
 
 
@@ -1072,3 +1074,37 @@ def test_twin_shops_vote_once_into_the_median():
     assert product["sellers_in_stock"] == 2, "dve firmy, nie tri ponuky"
     assert product["median_eur"] == 80.0, "medián z 60 a 100, nie z 60/100/102"
     assert product["median_trusted"] is False, "dvaja predajcovia na medián nestačia"
+
+
+def test_pokemon_only_shops_do_not_need_the_brand_in_the_name():
+    """Eshop, ktorý predáva výhradne Pokémon, značku v názvoch neopakuje —
+    „Ascended Heroes - Booster Bundle" je platný názov. Kým sa slovo „Pokémon"
+    vyžadovalo vždy, appka na poke-world.eu zahodila 29 z 34 položiek."""
+    offers = offers_for("pokeworld")
+    with_brand = [o for o in offers if classify.classify(o.name) is not None]
+    without = [o for o in offers if classify.classify(o.name, require_brand=False) is not None]
+    assert len(without) > len(with_brand) * 3, "uvoľnenie značky musí byť výrazné"
+    assert classify.classify("Pitch Black - Booster Bundle") is None
+    assert classify.classify("Pitch Black - Booster Bundle",
+                             require_brand=False).format.id == "bundle"
+
+
+def test_brand_is_still_required_by_default():
+    """Na eshope s viacerými hrami by sa bez značky dostal do monitoru
+    One Piece booster box."""
+    assert classify.classify("One Piece Card Game OP-17 Booster Box") is None
+    assert classify.classify("Lorcana Azurite Sea Elite Trainer Box") is None
+
+
+def test_pack_blister_counts_the_right_number_of_boosters():
+    """„3 Blister Booster" a „3-Pack Blister" je ten istý produkt. Kým druhý tvar
+    padal na jednobalíčkový blister, ten istý tovar bežal v dvoch formátoch
+    a cena za balíček bola trojnásobne mimo."""
+    trojka = classify.classify("Pokémon TCG: Chaos Rising Charmeleon 3-Pack Blister")
+    assert trojka.format.id == "blister-3" and trojka.packs == 3
+    assert classify.classify("Pokémon TCG: ME04 Chaos Rising - 3 Blister Booster").format.id \
+        == "blister-3"
+    dvojka = classify.classify("Pokémon TCG: 30th Celebration 2-Pack Blister")
+    assert dvojka.format.id == "blister-2" and dvojka.packs == 2
+    jedna = classify.classify("Pokémon TCG: SV04 Paradox Rift - Premium Checklane Blister")
+    assert jedna.format.id == "blister-1" and jedna.packs == 1

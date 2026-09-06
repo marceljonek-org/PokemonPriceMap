@@ -1,6 +1,6 @@
 # Cenová mapa Pokémon TCG
 
-Denné sledovanie cien a dostupnosti **zapečatených** Pokémon TCG produktov v 32 českých
+Denné sledovanie cien a dostupnosti **zapečatených** Pokémon TCG produktov v 35 českých
 a slovenských eshopoch. Pokrýva **79 setov od klasiky z roku 1999 po Mega Evolution** — série
 Base Set/Neo, XY, Sun & Moon, Sword & Shield, Scarlet & Violet a Mega Evolution —
 naprieč 22 formátmi — od jedného boostera cez bundle, box a ETB až po Ultra Premium
@@ -65,7 +65,7 @@ a dá sa kedykoľvek spustiť ručne. Sedem krokov:
 
 1. **Testy parserov** nad snapshotmi v `tests/fixtures/` — keď je rozbitá parsovacia
    logika, beh spadne ešte pred dotykom so živými webmi.
-2. **Sken 32 eshopov** vrátane stránkovania, max 4 eshopy naraz. Kurz CZK/EUR z ECB.
+2. **Sken 35 eshopov** vrátane stránkovania, max 4 eshopy naraz. Kurz CZK/EUR z ECB.
 3. **Klasifikácia** názvov na edíciu + formát; čo nie je sledovaný formát v edícii
    úrovne A/B/C, sa zahodí.
 4. **Porovnanie s posledným behom** — zmeny cien, preklopenia dostupnosti, nové položky,
@@ -77,7 +77,7 @@ a dá sa kedykoľvek spustiť ručne. Sedem krokov:
 
 ### Poistky proti tichému zlyhaniu
 
-Pri 32 eshopoch je výpadok jedného normálna prevádzka, nie dôvod zahodiť celý beh.
+Pri 35 eshopoch je výpadok jedného normálna prevádzka, nie dôvod zahodiť celý beh.
 Fatálne je až to, keď vypadne väčšia časť eshopov alebo keď objem dát spadne na zlomok.
 
 | Situácia | Čo sa stane |
@@ -100,14 +100,14 @@ so zaškrtnutým **force**.
 
 ## Sledované eshopy
 
-32 eshopov na 13 platformách. Adaptér je parser pre danú platformu — ďalší eshop
+35 eshopov na 13 platformách. Adaptér je parser pre danú platformu — ďalší eshop
 na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 
 | Adaptér | Eshopy | Ako sa čítajú dáta |
 |---|---|---|
-| `shoptet` | Cardstore.cz, Fyft.cz, Nekonecno.sk, Pokemon4U.cz, TCG4You.cz, Card Empire SK, CC Planet, KúzelnéHry.sk, Kartovo.net, Konzoliste.cz | mikrodáta `data-micro-*` (schema.org) |
+| `shoptet` | Cardstore.cz, Fyft.cz, Nekonecno.sk, Pokemon4U.cz, TCG4You.cz, Card Empire SK, CC Planet, KúzelnéHry.sk, Kartovo.net, Konzoliste.cz, Poke-World.eu, RarePocket.sk | mikrodáta `data-micro-*` (schema.org) |
 | `pgs` | PGS.sk, Smarty.cz, Smarty.sk | `data-gaItem` JSON + `.productList-item-price` |
-| `woocommerce` | PokecTCG.cz, Pokélio.cz, GeekHall.cz | `li.product`, alebo `article.product_card` v šablónach z Oxygen Builderu |
+| `woocommerce` | PokecTCG.cz, Pokélio.cz, GeekHall.cz, ScoutShop.sk | `li.product`, alebo `article.product_card` v šablónach z Oxygen Builderu |
 | `upgates` | Zardo Cards, Gengar.cz | `article.card-item` |
 | `pompo` | Pompo.cz, Pompo.sk | JSON v `data-tracking-view` |
 | `veselydrak` | Veselý drak CZ, Veselý drak SK | `div.catalogue-item` |
@@ -119,7 +119,7 @@ na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 | `jsonld` | Mobilonline.sk | schema.org `ItemList` v `<script type="application/ld+json">` — názov, cena, mena aj dostupnosť v strojovom tvare |
 | `sparkys` | Sparkys.sk | `.rf-ProductCard`; názov z atribútu `title`, cena z `.rf-ProductCard-price` (nie z prečiarknutej pôvodnej) |
 
-Každý eshop má v `urls` vymenované kategórie, ktoré sa sťahujú — spolu 116. Pozor na to,
+Každý eshop má v `urls` vymenované kategórie, ktoré sa sťahujú — spolu 129. Pozor na to,
 čo tam **nie je**: Ultra Premium a Premium Collection bývajú v kategóriách typu „špeciálne
 sety" alebo „zberateľské kolekcie", nie medzi boostermi. Kým tieto kategórie chýbali,
 appka nevidela UPC pri 20 z 28 funkčných eshopov, hoci ich predávali.
@@ -316,6 +316,8 @@ je v zozname dvakrát.
 | `Mini Tin Display` | debna desiatich plechoviek (280 €) v koši s jednou (8 €) |
 | `Booster Bundle - Sealed Display` | display za 2 610 € medzi bundle po 45 € |
 | `Minor Imperfections` | ETB s odretou krabicou ako plnohodnotná ponuka |
+| `3-Pack Blister` vs `3 Blister Booster` | ten istý blister v dvoch formátoch, cena za balíček trojnásobne mimo |
+| názov bez slova „Pokémon" | na pokémoních eshopoch sa zahodila väčšina katalógu — rieši `pokemon_only` |
 
 Dve pravidlá, ktoré z toho plynú pri pridávaní formátu do `config/editions.yaml`:
 **špecifickejší formát musí byť v súbore vyššie** (vyhráva prvá zhoda — preto je
@@ -500,7 +502,7 @@ docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        206 testov nad gzip snapshotmi
+tests/                        214 testov nad gzip snapshotmi
 data/portfolio-history.csv    denná hodnota portfólia (graf)
 data/alerts-sent.csv          čo už išlo na Telegram (proti opakovaniu)
 tools/demo_from_fixtures.py   náhľad bez siete

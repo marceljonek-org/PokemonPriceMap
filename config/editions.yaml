@@ -4,7 +4,8 @@
 # či je set ešte v tlači. Zdroje: cardrake.com/guides/upcoming-sets (séria ME
 # a 30th Celebration), cardcodex.com/pokemon/scarlet-violet (séria SV).
 # Neisté: ME06 Delta Reign (ohlásené, nepotvrdené) a dvojica Black Bolt / White Flare
-# (zdroje sa rozchádzajú o niekoľko týždňov). ME01 a ME02 nemajú dohľadaný dátum.
+# (zdroje sa rozchádzajú o niekoľko týždňov). ME01 má európsky dátum (10. 10. 2025),
+# globálne vyšiel o dva týždne skôr.
 #
 # POZOR NA PORADIE: rozhoduje prvá zhoda, preto musia byť polovičné sety
 # (SV8.5, ME02.5) NAD základnými (SV08, ME02) — inak by "SV8.5" spadlo pod "SV08".
@@ -774,17 +775,30 @@ formats:
     packs: null
     patterns: ["(accessory\\s+)?pouch"]
 
+  # Poradie je dôležité: 3-pack, potom 2-pack, až potom všeobecný blister.
+  # Eshopy píšu to isté ako "3 Blister Booster" aj "3-Pack Blister" — kým druhý
+  # tvar chýbal, spadol na blister-1 s jedným balíčkom. Ten istý produkt tak
+  # bežal v dvoch formátoch a cena za balíček bola trojnásobne mimo.
   - id: blister-3
     name: 3-Blister
     short: 3× Blister
     packs: 3
-    patterns: ["3\\s*blister", "triple\\s+blister"]
+    patterns: ["3[\\s-]*blister", "triple\\s+blister",
+               "3[\\s-]*pack[\\s-]*blister", "blister[\\s-]*3[\\s-]*pack"]
+
+  - id: blister-2
+    name: 2-Blister
+    short: 2× Blister
+    packs: 2
+    patterns: ["2[\\s-]*blister", "2[\\s-]*pack[\\s-]*blister",
+               "blister[\\s-]*2[\\s-]*pack", "double\\s+blister"]
 
   - id: blister-1
     name: Blister
     short: Blister
     packs: 1
-    patterns: ["1\\s*blister", "\\bblister\\b", "checklane"]
+    patterns: ["1[\\s-]*blister", "1[\\s-]*pack[\\s-]*blister",
+               "\\bblister\\b", "checklane"]
 
   - id: booster
     name: Booster

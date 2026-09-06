@@ -304,8 +304,9 @@ def build_rows(results: list[dict], fx: dict, today: str) -> tuple[list[dict], l
     rows, unknown = [], []
     for result in results:
         shop = result["shop"]
+        require_brand = not shop.get("pokemon_only")
         for offer in result["offers"]:
-            hit = classify.classify(offer.name)
+            hit = classify.classify(offer.name, require_brand=require_brand)
             if hit is None:
                 # Zaujíma nás len to, čo vyzerá ako sledovaný formát v neznámej
                 # edícii — tam sa prejaví novo vydaný set. Zvyšok je šum.

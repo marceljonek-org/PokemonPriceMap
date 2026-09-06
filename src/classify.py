@@ -124,12 +124,19 @@ def is_excluded(name: str) -> bool:
     return any(p.search(n) for p in _config()["excludes"])
 
 
-def classify(name: str) -> Classification | None:
-    """Vráti zaradenie alebo None, ak produkt do monitoru nepatrí."""
+def classify(name: str, require_brand: bool = True) -> Classification | None:
+    """Vráti zaradenie alebo None, ak produkt do monitoru nepatrí.
+
+    `require_brand` chráni eshopy, ktoré predávajú viac kartových hier: bez
+    slova „Pokémon" v názve by sa do monitoru dostal One Piece booster box.
+    Na eshopoch, kde sú všetky sledované kategórie čisto pokémonie
+    (`pokemon_only` v shops.yaml), sa naopak musí vypnúť — tam totiž značku
+    v názvoch neopakujú a appka by zahodila skoro celý katalóg.
+    """
     if not name or is_excluded(name):
         return None
     n = normalize(name)
-    if "pokemon" not in n and "pokémon" not in n:
+    if require_brand and "pokemon" not in n and "pokémon" not in n:
         return None
 
     edition = next(

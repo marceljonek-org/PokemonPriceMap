@@ -1,5 +1,9 @@
 # Sledované eshopy. `adapter` určuje parser v src/adapters.py.
 # `optional: true` = zlyhanie tohto eshopu nezhodí celý beh (len sa vypíše v pätičke).
+# `pokemon_only: true` = všetky kategórie nižšie sú čisto pokémonie, takže sa
+#   nevyžaduje slovo „Pokémon" v názve produktu. Bez toho by sa na takom eshope
+#   zahodilo skoro všetko (poke-world.eu: 26 z 34 položiek). NEDÁVAJ to eshopu,
+#   ktorý v tých istých kategóriách predáva aj One Piece či Lorcanu.
 # `urls` sú vstupné kategórie; stránkovanie sa dohľadá automaticky.
 
 defaults:
@@ -406,3 +410,48 @@ shops:
       # 88 položiek na 4 stranách; väčšina sú JP/KR/CN importy, tie klasifikácia
       # zahodí sama. Katalóg je v schema.org ItemList, takže dáta sú strojové.
       - https://www.mobilonline.sk/kategoria/gaming-a-hry/znacka/pokemon
+
+  - id: pokeworld-eu
+    name: Poke-World.eu
+    country: SK
+    currency: EUR
+    adapter: shoptet
+    base: https://poke-world.eu
+    pokemon_only: true   # celý eshop je pokémoní, značku v názvoch neopakujú
+    optional: true       # nový eshop; po prvom úspešnom behu riadok zmaž
+    urls:
+      - https://poke-world.eu/pokemon/
+      - https://poke-world.eu/boxy-a-specialne-kolekcie/
+
+  - id: rarepocket-sk
+    name: RarePocket.sk
+    country: SK
+    currency: EUR
+    adapter: shoptet
+    base: https://rarepocket.sk
+    # Predáva aj One Piece a Lorcanu, ale tieto kategórie sú podľa ér pokémoních
+    # setov, takže je v nich len Pokémon. /pokemon/ zámerne nie je v zozname —
+    # sú v nej plyšáky, nie zapečatené balenia.
+    pokemon_only: true
+    optional: true       # nový eshop; po prvom úspešnom behu riadok zmaž
+    urls:
+      - https://rarepocket.sk/mega-evolution/
+      - https://rarepocket.sk/mega-evolution-2/
+      - https://rarepocket.sk/mega-evolution-3/
+      - https://rarepocket.sk/mega-evolution-4/
+      - https://rarepocket.sk/scarlet-violet/
+      - https://rarepocket.sk/scarlet-violet-2/
+      - https://rarepocket.sk/scarlet-violet-3/
+      - https://rarepocket.sk/sword-shield/
+      - https://rarepocket.sk/sword-shield-2/
+      - https://rarepocket.sk/sword-shield-3/
+
+  - id: scoutshop-sk
+    name: ScoutShop.sk
+    country: SK
+    currency: EUR
+    adapter: woocommerce
+    base: https://scoutshop.sk
+    optional: true       # skautský eshop, Pokémon má okrajovo (Trick or Trade)
+    urls:
+      - https://scoutshop.sk/kategoria/spolocenske-hry/kartove-hry/
