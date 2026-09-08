@@ -1108,3 +1108,18 @@ def test_pack_blister_counts_the_right_number_of_boosters():
     assert dvojka.format.id == "blister-2" and dvojka.packs == 2
     jedna = classify.classify("Pokémon TCG: SV04 Paradox Rift - Premium Checklane Blister")
     assert jedna.format.id == "blister-1" and jedna.packs == 1
+
+
+def test_error_messages_never_leak_the_proxy_token(monkeypatch):
+    """Text chyby ide do docs/latest.json, ktorý je verejný. Hláška z httpx
+    obsahuje celú adresu vrátane `?t=<PROXY_TOKEN>` — bez začiernenia by bol
+    token na internete a Worker by cez neho vedel použiť ktokoľvek."""
+    import scrape
+    monkeypatch.setattr(scrape, "PROXY_TOKEN", "tajnyToken123")
+    monkeypatch.setattr(scrape, "PORTFOLIO_TOKEN", "portfolioTajne")
+    message = ("Client error '403 Forbidden' for url 'https://w.workers.dev"
+               "?t=tajnyToken123&url=https%3A%2F%2Fx.sk'")
+    clean = scrape.redact(message)
+    assert "tajnyToken123" not in clean
+    assert "***" in clean
+    assert scrape.redact("heslo portfolioTajne tu") == "heslo *** tu"

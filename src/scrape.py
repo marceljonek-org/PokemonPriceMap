@@ -59,6 +59,21 @@ PROXY_TOKEN = os.environ.get("SCRAPE_PROXY_TOKEN", "").strip()
 PORTFOLIO_TOKEN = os.environ.get("SCRAPE_PORTFOLIO_TOKEN", "").strip()
 
 
+def redact(text: str) -> str:
+    """Vyhodí tajomstvá z textu chyby.
+
+    Chybová hláška z httpx obsahuje celú adresu, na ktorú sa šlo — a pri proxy
+    je v nej `?t=<PROXY_TOKEN>`. Tento text sa zapisuje do latest.json, ktorý je
+    verejný, takže bez tohto by bol token na internete a Worker by cez neho
+    vedel použiť ktokoľvek.
+    """
+    out = str(text)
+    for secret in (PROXY_TOKEN, PORTFOLIO_TOKEN, TELEGRAM_BOT_TOKEN):
+        if secret:
+            out = out.replace(secret, "***")
+    return out
+
+
 def via_proxy(url: str, shop: dict) -> str:
     """Prepošle URL cez Cloudflare Worker, ak je preň eshop označený."""
     if not PROXY_URL or not shop.get("proxy"):
@@ -159,7 +174,15 @@ async def fetch_shop(client: httpx.AsyncClient, shop: dict, defaults: dict,
                 base_url = url if shop.get("proxy") and PROXY_URL else str(resp.url)
                 url = adapters.next_page(shop["adapter"], body, base_url)
             except Exception as exc:                      # noqa: BLE001
-                errors.append(f"{url} -> {type(exc).__name__}: {exc}")
+                detail = redact(exc)
+                # Pri proxy je 403 dvojznačné: buď doména nie je v ALLOWED_HOSTS
+                # (odpovedá Worker), alebo ju blokuje sám eshop (Worker len
+                # prepošle jeho stav). Telo odpovede to rozlíši.
+                if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
+                    body = exc.response.text[:120].strip().replace("\n", " ")
+                    if body:
+                        detail = f"{detail} | odpoveď: {redact(body)}"
+                errors.append(f"{url} -> {type(exc).__name__}: {detail}")
                 break
             page += 1
 
@@ -182,7 +205,15 @@ async def fetch_shopify(client: httpx.AsyncClient, shop: dict, defaults: dict,
                 save_snapshot(snapshots, shop["id"], page, resp.text)
                 batch = adapters.parse("shopify", resp.text, shop)
             except Exception as exc:                      # noqa: BLE001
-                errors.append(f"{url} -> {type(exc).__name__}: {exc}")
+                detail = redact(exc)
+                # Pri proxy je 403 dvojznačné: buď doména nie je v ALLOWED_HOSTS
+                # (odpovedá Worker), alebo ju blokuje sám eshop (Worker len
+                # prepošle jeho stav). Telo odpovede to rozlíši.
+                if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
+                    body = exc.response.text[:120].strip().replace("\n", " ")
+                    if body:
+                        detail = f"{detail} | odpoveď: {redact(body)}"
+                errors.append(f"{url} -> {type(exc).__name__}: {detail}")
                 break
             if not batch:
                 break

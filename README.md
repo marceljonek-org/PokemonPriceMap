@@ -444,6 +444,15 @@ len tých šesť eshopov zostane v pätičke ako „nedostupný“.
 5. Spusti workflow ručne. V logu sa objaví riadok
    `Označené na proxy (6): cez proxy`.
 
+### Tokeny sa nesmú dostať do latest.json
+
+Chybová hláška z httpx obsahuje celú adresu, na ktorú sa šlo — a pri proxy je
+v nej `?t=<PROXY_TOKEN>`. Tento text sa zapisuje do `docs/latest.json`, ktorý je
+verejný. Preto ide každá chyba cez `redact()`, ktoré z nej vyhodí `PROXY_TOKEN`,
+`PORTFOLIO_TOKEN` aj `TELEGRAM_BOT_TOKEN`. Keby sa to raz obišlo, token je na
+internete a Worker vie cez neho použiť ktokoľvek — vtedy ho treba **vymeniť**,
+nie len opraviť kód.
+
 ### Poistky vo Workeri
 
 Bez nich by to bola otvorená proxy pre kohokoľvek na internete:
@@ -502,7 +511,7 @@ docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        214 testov nad gzip snapshotmi
+tests/                        215 testov nad gzip snapshotmi
 data/portfolio-history.csv    denná hodnota portfólia (graf)
 data/alerts-sent.csv          čo už išlo na Telegram (proti opakovaniu)
 tools/demo_from_fixtures.py   náhľad bez siete
