@@ -95,9 +95,14 @@ h1{font-size:27px;font-weight:700;margin:0;letter-spacing:-.02em}
 .thumb img{width:100%;height:100%;object-fit:contain;padding:8px;position:absolute;inset:0;background:var(--surface-2)}
 .thumb .ph{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
 .tier{position:absolute;top:8px;left:8px;font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;
-  padding:2px 7px;border-radius:6px}
+  padding:2px 7px;border-radius:6px;z-index:2}
 .tier.A{background:var(--gold-soft);color:var(--gold)} .tier.B{background:var(--accent-soft);color:var(--accent)}
 .tier.C{background:var(--surface-2);color:var(--muted)}
+.rating{position:absolute;top:8px;right:8px;z-index:2;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  font-weight:600;padding:2px 7px;border-radius:6px;background:var(--surface);color:var(--muted);
+  border:1px solid var(--line)}
+.rating.hi{background:var(--gold-soft);color:var(--gold);border-color:var(--gold)}
+.rating.mid{background:var(--accent-soft);color:var(--accent);border-color:transparent}
 .cbody{padding:12px 13px 14px;display:flex;flex-direction:column;gap:7px;flex:1}
 .ctitle{font-size:14px;font-weight:700;line-height:1.25}
 .csub{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
@@ -207,9 +212,12 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit)}
       <button class="f" data-fmt="booster-box" aria-pressed="false">Box</button>
       <button class="f" data-fmt="etb" aria-pressed="false">ETB</button>
       <button class="f" data-fmt="ultra-premium" aria-pressed="false">UPC</button>
+      <button class="f" data-fmt="super-premium" aria-pressed="false">SPC</button>
+      <button class="f" data-fmt="premium-collection" aria-pressed="false">Premium</button>
       <span class="sep"></span>
       <button class="f" id="only-stock" aria-pressed="false">len skladom</button>
       <button class="f" id="only-tier" aria-pressed="false">len úroveň A/B</button>
+      <button class="f" id="by-rating" aria-pressed="false" title="Zoradí podľa investičného hodnotenia">podľa hodnotenia</button>
       <span class="spacer"></span>
       <span class="count" id="count"></span>
     </div>
@@ -244,7 +252,7 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit)}
 
 <script>
 const state = {data:null, formats:new Set(), series:new Set(), q:"",
-               onlyStock:false, onlyTier:false, view:'today', histKey:null};
+               onlyStock:false, onlyTier:false, byRating:false, view:'today', histKey:null};
 
 const eur = v => v==null ? '—'
   : v.toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
@@ -284,6 +292,14 @@ function visibleProducts(){
   });
 }
 
+/* Investičné hodnotenie počíta sken, nie prehliadač — je to vlastnosť produktu
+   (úroveň edície, typ balenia, či sa ešte tlačí), nie dnešnej ponuky. Preto sa
+   nehýbe podľa toho, kto má práve výpredaj. */
+function sortedProducts(){
+  const items = visibleProducts();
+  return state.byRating ? items.slice().sort((a,b)=>(b.rating||0)-(a.rating||0)) : items;
+}
+
 /* Najnižšia cena skladom je zároveň historickým minimom? Tolerancia 1 %,
    aby drobné pohyby kurzu nezhasínali značku každý druhý deň.
    Pod 14 dní histórie je to pravda skoro vždy, tak sa značka nezobrazuje. */
@@ -296,7 +312,7 @@ function atHistoricLow(p){
 function renderCards(){
   const box = document.getElementById('cards');
   box.innerHTML = '';
-  const items = visibleProducts();
+  const items = sortedProducts();
   document.getElementById('count').textContent =
     `${items.length} z ${state.data.products.length} produktov · ${items.reduce((a,p)=>a+p.offer_count,0)} ponúk`;
   for(const p of items){
@@ -310,6 +326,7 @@ function renderCards(){
     card.innerHTML = `
       <div class="thumb">
         ${p.edition.tier ? `<span class="tier ${p.edition.tier}">${p.edition.tier}</span>` : ''}
+        ${p.rating!=null ? `<span class="rating ${p.rating>=7?'hi':(p.rating>=4?'mid':'')}" title="Investičné hodnotenie: ${(p.rating_why||[]).join(' · ')}">${p.rating.toFixed(1)}</span>` : ''}
         <span class="ph">bez obrázka</span>
         ${p.image ? `<img src="${p.image}" alt="" loading="lazy" onerror="this.remove()">` : ''}
       </div>
@@ -342,6 +359,7 @@ function renderCards(){
 function openDetail(p){
   document.getElementById('d-title').textContent = p.title;
   const sub = [p.edition.code || '—'];
+  if(p.rating!=null) sub.push(`investičné hodnotenie ${p.rating.toFixed(1)}/10 (${(p.rating_why||[]).join(', ')})`);
   if(p.edition.tier) sub.push(`úroveň ${p.edition.tier}`);
   if(p.packs) sub.push(`${p.packs} balíčkov`);
   sub.push(p.median_trusted
@@ -885,7 +903,7 @@ document.querySelectorAll('.f[data-series]').forEach(btn=>{
     renderCards();
   });
 });
-for(const [id,key] of [['only-stock','onlyStock'],['only-tier','onlyTier']]){
+for(const [id,key] of [['only-stock','onlyStock'],['only-tier','onlyTier'],['by-rating','byRating']]){
   document.getElementById(id).addEventListener('click', e=>{
     state[key] = !state[key];
     e.currentTarget.setAttribute('aria-pressed', String(state[key]));

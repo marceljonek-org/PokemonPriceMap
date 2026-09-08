@@ -31,6 +31,7 @@ shops:
     currency: CZK
     adapter: shoptet
     base: https://www.fyft.cz
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.fyft.cz/pokemon-boostery-packy-boxy/
       - https://www.fyft.cz/pokemon-elite-trainer-box/
@@ -41,6 +42,7 @@ shops:
     currency: EUR
     adapter: shoptet
     base: https://www.nekonecno.sk
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.nekonecno.sk/pokemon-tcg/
       - https://www.nekonecno.sk/pokemon-prismatic-evolutions/
@@ -55,6 +57,7 @@ shops:
     currency: CZK
     adapter: shoptet
     base: https://www.pokemon4u.cz
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.pokemon4u.cz/pokemon-booster/
       - https://www.pokemon4u.cz/pokemon-booster-box/
@@ -99,6 +102,7 @@ shops:
     currency: CZK
     adapter: pompo
     base: https://pompo.cz
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://pompo.cz/pokemon-tcg/
 
@@ -108,6 +112,7 @@ shops:
     currency: EUR
     adapter: pompo
     base: https://pompo.sk
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://pompo.sk/pokemon-tcg/
 
@@ -117,6 +122,7 @@ shops:
     currency: EUR
     adapter: digihry
     base: https://www.digihry.sk
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.digihry.sk/c-1749/booster-box-pokemon-merch
       - https://www.digihry.sk/c-1746/pokemon-merch/234
@@ -198,6 +204,7 @@ shops:
     base: https://www.alza.cz
     optional: true          # môže blokovať IP GitHub Actions
     proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.alza.cz/hracky/pokemon-boostery/18903044.htm
       - https://www.alza.cz/hracky/pokemon-booster-boxy-a-specialne-boxy/18903046.htm
@@ -210,6 +217,7 @@ shops:
     base: https://www.alza.sk
     optional: true
     proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.alza.sk/hracky/pokemon-boostery/18903044.htm
       - https://www.alza.sk/hracky/pokemon-booster-boxy-a-specialne-boxy/18903046.htm
@@ -277,6 +285,7 @@ shops:
     currency: EUR
     adapter: shopify
     base: https://www.64ka.sk
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.64ka.sk/collections/pokemon-tcg
 
@@ -288,6 +297,7 @@ shops:
     base: https://pokectcg.cz
     optional: true      # 403 z IP adries GitHub Actions (beh 29. 8.)
     proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://pokectcg.cz/pokemon-karty/
 
@@ -297,6 +307,7 @@ shops:
     currency: CZK
     adapter: woocommerce
     base: https://pokelio.cz
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://pokelio.cz/product-category/pokemon-tcg-boostery/
       - https://pokelio.cz/product-category/pokemon-tcg-booster-boxy/
@@ -309,6 +320,7 @@ shops:
     currency: CZK
     adapter: woocommerce
     base: https://geekhall.cz
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://geekhall.cz/kategorie/sberatelske-hry-2/pokemoni/
 
@@ -318,6 +330,7 @@ shops:
     currency: CZK
     adapter: xzone
     base: https://www.xzone.cz
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.xzone.cz/sberatelske-hry-pokemon-tcg?c=725&s=60
 
@@ -327,6 +340,7 @@ shops:
     currency: EUR
     adapter: xzone
     base: https://www.xzone.sk
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.xzone.sk/sberatelske-hry-pokemon-tcg?c=725&s=60
 
@@ -338,6 +352,7 @@ shops:
     currency: EUR
     adapter: opencart
     base: https://www.dazzle.sk
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.dazzle.sk/pokemon/pokemon-boostre
       - https://www.dazzle.sk/pokemon/pokemon-booster-boxy
@@ -351,6 +366,7 @@ shops:
     currency: EUR
     adapter: shoptet
     base: https://www.kuzelnehry.sk
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.kuzelnehry.sk/pokemon-booster-balicky/
       - https://www.kuzelnehry.sk/pokemon-booster-boxy/
@@ -379,6 +395,7 @@ shops:
     adapter: shoptet
     base: https://www.konzoliste.cz
     optional: true      # nový eshop; po prvom úspešnom behu riadok zmaž
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.konzoliste.cz/pokemon-karty-tcg/
       - https://www.konzoliste.cz/pokemon-boostery/
@@ -395,6 +412,7 @@ shops:
     adapter: sparkys
     base: https://www.sparkys.sk
     optional: true      # nový eshop; po prvom úspešnom behu riadok zmaž
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       # Široká kategória /pokemon-5443/ je z troch štvrtín plyšáky a figúrky.
       - https://www.sparkys.sk/zberatelske-karty-pokemon/
@@ -406,6 +424,7 @@ shops:
     adapter: jsonld
     base: https://www.mobilonline.sk
     optional: true      # nový eshop; po prvom úspešnom behu riadok zmaž
+    pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       # 88 položiek na 4 stranách; väčšina sú JP/KR/CN importy, tie klasifikácia
       # zahodí sama. Katalóg je v schema.org ItemList, takže dáta sú strojové.

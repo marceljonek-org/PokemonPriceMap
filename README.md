@@ -119,6 +119,14 @@ na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 | `jsonld` | Mobilonline.sk | schema.org `ItemList` v `<script type="application/ld+json">` — názov, cena, mena aj dostupnosť v strojovom tvare |
 | `sparkys` | Sparkys.sk | `.rf-ProductCard`; názov z atribútu `title`, cena z `.rf-ProductCard-price` (nie z prečiarknutej pôvodnej) |
 
+**`pokemon_only: true`** má 21 z 35 eshopov. Vypína požiadavku na slovo „Pokémon"
+v názve produktu, lebo eshopy, ktoré predávajú výhradne Pokémon, značku v názvoch
+neopakujú — píšu „Prismatic Evolutions Super-Premium Collection" a hotovo. Bez toho
+appka takú položku ticho zahodí. Príznak smie dostať len eshop, ktorého **všetky**
+sledované kategórie sú pokémonie; stráži to test. Cardstore, Kartovo, Card Empire,
+CC Planet a TCG4You ho nemajú — v ich kategóriách typu `/booster-boxy/` leží vedľa
+Pokémonu aj Lorcana a One Piece.
+
 Každý eshop má v `urls` vymenované kategórie, ktoré sa sťahujú — spolu 129. Pozor na to,
 čo tam **nie je**: Ultra Premium a Premium Collection bývajú v kategóriách typu „špeciálne
 sety" alebo „zberateľské kolekcie", nie medzi boostermi. Kým tieto kategórie chýbali,
@@ -318,6 +326,7 @@ je v zozname dvakrát.
 | `Minor Imperfections` | ETB s odretou krabicou ako plnohodnotná ponuka |
 | `3-Pack Blister` vs `3 Blister Booster` | ten istý blister v dvoch formátoch, cena za balíček trojnásobne mimo |
 | názov bez slova „Pokémon" | na pokémoních eshopoch sa zahodila väčšina katalógu — rieši `pokemon_only` |
+| `SPC` a `Superpremium` | skratku mal v regexe len UPC, takže Super Premium Collection prepadal na generický Premium |
 
 Dve pravidlá, ktoré z toho plynú pri pridávaní formátu do `config/editions.yaml`:
 **špecifickejší formát musí byť v súbore vyššie** (vyhráva prvá zhoda — preto je
@@ -327,6 +336,36 @@ spojovníkom** (`[\s-]+`, nie `\s+`).
 Zlepenia sa hľadajú ľahko: v `docs/latest.json` porovnaj varianty v rovnakom
 formáte, ktoré sa líšia o pár znakov, a v každom kľúči skontroluj, či sa názvy
 ponúk nelíšia v podstatnom slove.
+
+---
+
+## Investičné hodnotenie 1–10
+
+Číslo na karte produktu vpravo hore. Odpovedá na otázku **„oplatí sa to vôbec
+držať"** — nie „je to dnes lacné". Dnešnú cenu ani dostupnosť do neho zámerne
+nepúšťame, tie už rieši rebríček *Kúpiť dnes*; stráži to test. Vďaka tomu sa
+číslo nehýbe zo dňa na deň podľa toho, kto má práve výpredaj.
+
+Počíta sa ako **úroveň edície × typ balenia × bonus za vek**:
+
+| Zložka | Hodnoty |
+|---|---|
+| úroveň edície | A = 10, B = 6,5, C = 3, bez rozboru = 4 |
+| typ balenia (násobič) | booster box 1,00 · bundle display 0,98 · UPC 0,92 · SPC 0,88 · ETB 0,85 · bundle 0,68 · booster 0,28 · plagát/nálepky 0,12 |
+| po ukončení tlače | × 1,25 |
+| na trhu vyše roka | × 1,10 |
+
+Formát je **násobič, nie prísada** — odznaky z výbornej edície sú stále odznaky.
+Keď sa iba pripočítaval, Pin Collection z edície úrovne A sa dostala do prvej
+desiatky. Celé sa to delí najvyšším možným bonusom, takže desiatku dostane len
+booster box edície úrovne A, ktorá sa už netlačí — v ostrých dátach jediný
+produkt z 289.
+
+Chip **podľa hodnotenia** v lište zoradí karty od najvyššieho. V detaile produktu
+je rozpis, prečo číslo vyšlo tak, ako vyšlo.
+
+Nie je to predpoveď ceny. Sú to tri veci, ktoré sa dajú dnes odmerať, poskladané
+podľa toho, čo pri zapečatených produktoch dlhodobo drží hodnotu.
 
 ---
 
@@ -453,6 +492,19 @@ verejný. Preto ide každá chyba cez `redact()`, ktoré z nej vyhodí `PROXY_TO
 internete a Worker vie cez neho použiť ktokoľvek — vtedy ho treba **vymeniť**,
 nie len opraviť kód.
 
+### Keď eshop cez proxy vráti 403
+
+Znamená to dve rôzne veci a v pätičke stránky je odteraz vidno, ktorú:
+
+| Odpoveď v hlásení | Príčina | Riešenie |
+|---|---|---|
+| `[host not allowed]` | doména nie je v `ALLOWED_HOSTS` | dopísať ju do premennej vo Workeri |
+| HTML eshopu alebo Cloudflare stránka | eshop blokuje samotný Cloudflare | proxy nepomôže, nechať `optional: true` |
+
+`ALLOWED_HOSTS` je jeden textový reťazec oddelený čiarkami. Keď sa doňho dopisuje
+ďalšia doména, ľahko sa pri tom rozbijú existujúce — po každej zmene sa oplatí
+skontrolovať, že sú v ňom **všetky** proxované domény zo `shops.yaml`.
+
 ### Poistky vo Workeri
 
 Bez nich by to bola otvorená proxy pre kohokoľvek na internete:
@@ -511,7 +563,7 @@ docs/index.html               celá stránka, jeden súbor bez závislostí
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        215 testov nad gzip snapshotmi
+tests/                        223 testov nad gzip snapshotmi
 data/portfolio-history.csv    denná hodnota portfólia (graf)
 data/alerts-sent.csv          čo už išlo na Telegram (proti opakovaniu)
 tools/demo_from_fixtures.py   náhľad bez siete

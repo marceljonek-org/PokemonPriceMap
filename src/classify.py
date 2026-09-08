@@ -237,6 +237,14 @@ def subject_of(normalized_name: str, fmt: Format) -> str:
             tail = f"series-{found.group(1)}"
 
     subject = slug(prefix)
+    if not subject and len(matched) <= 4:
+        # Skratka môže stáť aj pred názvom ("SPC Charizard ex"). Vtedy je
+        # predmetom to, čo nasleduje za ňou — inak by sa všetky takto písané
+        # produkty zliali do jedného kľúča pomenovaného podľa skratky.
+        # Len pri skratke: pri promo baleniach ("Pokémon Day 2026 Collection")
+        # je identitou ročník a text za formátom je náhodný popis balenia.
+        after = normalized_name[normalized_name.find(matched) + len(matched):]
+        subject = slug(after)
     if subject:
         parts = subject.split("-")[:5]
         if tail:

@@ -176,12 +176,14 @@ async def fetch_shop(client: httpx.AsyncClient, shop: dict, defaults: dict,
             except Exception as exc:                      # noqa: BLE001
                 detail = redact(exc)
                 # Pri proxy je 403 dvojznačné: buď doména nie je v ALLOWED_HOSTS
-                # (odpovedá Worker), alebo ju blokuje sám eshop (Worker len
-                # prepošle jeho stav). Telo odpovede to rozlíši.
+                # (odpovedá Worker vetou "host not allowed"), alebo ju blokuje
+                # sám eshop a Worker len prepošle jeho stav. Rozlíši to telo
+                # odpovede — a musí byť NA ZAČIATKU hlásenia, lebo do latest.json
+                # sa zapisuje len prvých pár stoviek znakov.
                 if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
-                    body = exc.response.text[:120].strip().replace("\n", " ")
+                    body = " ".join(exc.response.text[:160].split())
                     if body:
-                        detail = f"{detail} | odpoveď: {redact(body)}"
+                        detail = f"[{redact(body)}] {detail}"
                 errors.append(f"{url} -> {type(exc).__name__}: {detail}")
                 break
             page += 1
@@ -207,12 +209,14 @@ async def fetch_shopify(client: httpx.AsyncClient, shop: dict, defaults: dict,
             except Exception as exc:                      # noqa: BLE001
                 detail = redact(exc)
                 # Pri proxy je 403 dvojznačné: buď doména nie je v ALLOWED_HOSTS
-                # (odpovedá Worker), alebo ju blokuje sám eshop (Worker len
-                # prepošle jeho stav). Telo odpovede to rozlíši.
+                # (odpovedá Worker vetou "host not allowed"), alebo ju blokuje
+                # sám eshop a Worker len prepošle jeho stav. Rozlíši to telo
+                # odpovede — a musí byť NA ZAČIATKU hlásenia, lebo do latest.json
+                # sa zapisuje len prvých pár stoviek znakov.
                 if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
-                    body = exc.response.text[:120].strip().replace("\n", " ")
+                    body = " ".join(exc.response.text[:160].split())
                     if body:
-                        detail = f"{detail} | odpoveď: {redact(body)}"
+                        detail = f"[{redact(body)}] {detail}"
                 errors.append(f"{url} -> {type(exc).__name__}: {detail}")
                 break
             if not batch:
@@ -585,6 +589,7 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
                 in_print = days_since < IN_PRINT_DAYS
             except ValueError:
                 days_since = None
+        rating, rating_why = investment_rating(edition, fmt, in_print, days_since)
         products.append({
             "key": key,
             "title": title,
@@ -601,6 +606,8 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
             "days_since_release": days_since,
             "in_print": in_print,
             "image": image,
+            "rating": rating,
+            "rating_why": rating_why,
             "min_eur": min_eur,
             "min_any_eur": round(min_any, 2),
             "min_delta_pct": min_delta,
@@ -688,6 +695,51 @@ def build_portfolio(products: list[dict], config: dict, fx: dict) -> dict:
             "unmatched": sum(1 for i in items if not i["found"]),
         },
     }
+
+
+# ------------------------------------------------------------------ hodnotenie
+
+# Investičné hodnotenie 1–10. Zámerne NEobsahuje dnešnú cenu ani dostupnosť —
+# tie už rieši rebríček "Kúpiť dnes". Toto je vlastnosť produktu, nie ponuky:
+# odpovedá na otázku "oplatí sa to vôbec držať", nie "je to dnes lacné".
+# Vďaka tomu sa číslo nehýbe zo dňa na deň podľa toho, kto má práve výpredaj.
+INVESTMENT_TIER = {"A": 10.0, "B": 6.5, "C": 3.0, "": 4.0}
+
+# Formát je NÁSOBIČ, nie prísada. Odznaky z výbornej edície sú stále odznaky —
+# keď sa formát iba pripočítaval, Pin Collection z edície úrovne A sa dostala
+# do prvej desiatky.
+INVESTMENT_FORMAT = {
+    "booster-box": 1.00, "bundle-display": 0.98, "ultra-premium": 0.92,
+    "super-premium": 0.88, "etb": 0.85, "half-box": 0.72, "bundle": 0.68,
+    "illustration-collection": 0.58, "premium-collection": 0.55,
+    "mini-tin-display": 0.55, "ex-box": 0.45, "binder-collection": 0.40,
+    "event-collection": 0.38, "ex-tin": 0.30, "blister-3": 0.30, "booster": 0.28,
+    "mini-tin": 0.28, "blister-2": 0.26, "blister-1": 0.22,
+    "poster-collection": 0.12, "sticker-collection": 0.12, "pin-collection": 0.12,
+    "pouch-collection": 0.12, "surprise-box": 0.10,
+}
+OUT_OF_PRINT_BONUS = 1.25
+AGED_BONUS = 1.10
+
+
+def investment_rating(edition, fmt, in_print, days_since) -> tuple[float, list[str]]:
+    """Vráti hodnotenie 1–10 a dôvody, prečo vyšlo tak, ako vyšlo."""
+    tier = INVESTMENT_TIER.get(edition.tier, 4.0)
+    factor = INVESTMENT_FORMAT.get(fmt.id, 0.30)
+    score = tier * factor
+    why = [f"úroveň {edition.tier}" if edition.tier else "bez investičného rozboru",
+           fmt.name.lower()]
+    if in_print is False:
+        score *= OUT_OF_PRINT_BONUS
+        why.append("po ukončení tlače")
+    elif days_since and days_since > 365:
+        score *= AGED_BONUS
+        why.append("na trhu vyše roka")
+    # Delíme najvyšším možným bonusom, aby desiatku dosiahol len ten najlepší
+    # možný prípad — booster box edície úrovne A, ktorá sa už netlačí. Bez toho
+    # narazilo na strop šesť produktov naraz a navrchu sa stratilo poradie.
+    score /= OUT_OF_PRINT_BONUS
+    return round(min(10.0, max(0.0, score)), 1), why
 
 
 # ------------------------------------------------------------------ odporúčania
@@ -1102,7 +1154,7 @@ async def run(args) -> int:
             "country": r["shop"]["country"],
             "ok": bool(r["offers"]), "optional": bool(r["shop"].get("optional")),
             "count": len(r["offers"]),
-            "error": (r["errors"][0][:200] if r["errors"] else ""),
+            "error": (r["errors"][0][:400] if r["errors"] else ""),
         } for r in results],
         "products": products,
         "movements": movements,

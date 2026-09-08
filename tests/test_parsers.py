@@ -1123,3 +1123,125 @@ def test_error_messages_never_leak_the_proxy_token(monkeypatch):
     assert "tajnyToken123" not in clean
     assert "***" in clean
     assert scrape.redact("heslo portfolioTajne tu") == "heslo *** tu"
+
+
+def test_proxy_error_puts_the_response_body_first(monkeypatch):
+    """403 cez proxy je dvojznačné — buď doména chýba v ALLOWED_HOSTS, alebo
+    blokuje eshop. Rozlíši to telo odpovede, ale do latest.json ide len začiatok
+    hlásenia, takže telo musí stáť pred textom výnimky."""
+    import asyncio, httpx, scrape
+    shop = {"id": "x", "base": "https://x.sk", "urls": ["https://x.sk/a/"],
+            "adapter": "shoptet", "currency": "EUR", "proxy": True}
+
+    def handler(request):
+        return httpx.Response(403, text="host not allowed")
+
+    async def run():
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            monkeypatch.setattr(scrape, "RETRIES", 1)
+            return await scrape.fetch_shop(client, shop, {"max_pages": 2})
+
+    result = asyncio.run(run())
+    assert result["offers"] == []
+    message = result["errors"][0]
+    assert "host not allowed" in message
+    assert message.index("host not allowed") < 120, "telo musí byť na začiatku"
+
+
+def test_spc_is_recognised_the_same_way_as_upc():
+    """UPC malo skratku v regexe od začiatku, SPC nie — takže „SPC Charizard ex"
+    prepadlo na generický Premium Collection a formát Super Premium sa
+    v zozname vôbec neobjavil. Časť eshopov navyše píše „Superpremium" spolu."""
+    varianty = ["Pokémon TCG: Charizard ex Super Premium Collection",
+                "Pokémon TCG: Charizard ex Super-Premium Collection",
+                "Pokémon TCG: Charizard ex Superpremium Collection",
+                "Pokémon TCG: Charizard ex SPC",
+                "Pokémon TCG: SPC Charizard ex"]
+    hits = [classify.classify(n) for n in varianty]
+    assert all(h and h.format.id == "super-premium" for h in hits)
+    assert len({h.variant for h in hits}) == 1, "ten istý produkt má mať jeden kľúč"
+    assert hits[0].variant == "charizard-ex"
+
+
+def test_abbreviation_before_the_name_does_not_become_the_key():
+    """Keď formát stojí pred názvom, predmetom je to, čo nasleduje za ním —
+    inak by všetky „UPC …" produkty splynuli do jedného kľúča `upc`."""
+    a = classify.classify("Pokémon TCG: UPC Mega Charizard X ex")
+    b = classify.classify("Pokémon TCG: UPC Terapagos ex")
+    assert a.variant != b.variant
+    assert a.variant == "mega-charizard-ex"
+
+
+def test_pokemon_only_shops_have_only_pokemon_categories():
+    """Príznak vypína požiadavku na slovo „Pokémon" v názve, takže z takej
+    kategórie by prešlo čokoľvek. Smie ho mať len eshop, ktorého všetky
+    sledované kategórie sú pokémonie — inak by sa do monitoru dostal
+    One Piece booster box."""
+    import yaml
+    from pathlib import Path
+    config = yaml.safe_load((Path(__file__).parent.parent / "config" / "shops.yaml")
+                            .read_text(encoding="utf-8"))
+    # Eshopy, kde je pokémonia celá doména, nemusia mať slovo v ceste kategórie.
+    POKEMON_DOMAINS = ("poke-world.eu", "rarepocket.sk", "pokemon4u.cz",
+                       "pokectcg.cz", "pokelio.cz")
+    for shop in config["shops"]:
+        if not shop.get("pokemon_only"):
+            continue
+        if any(d in shop["base"] for d in POKEMON_DOMAINS):
+            continue
+        for url in shop["urls"]:
+            assert "pokemon" in url.lower(), \
+                f"{shop['id']}: {url} nie je pokémonia kategória, príznak je nebezpečný"
+
+
+# ------------------------------------------------- investičné hodnotenie 1–10
+
+class _FakeEdition:
+    """Hodnotenie potrebuje z edície len úroveň."""
+    def __init__(self, tier):
+        self.tier = tier
+
+
+def _rating(tier, fmt_id, in_print=None, days=None):
+    import scrape
+    return scrape.investment_rating(_FakeEdition(tier), classify.format_by_id(fmt_id),
+                                    in_print, days)
+
+
+def test_rating_ranks_sealed_boxes_above_accessories():
+    """Hodnotenie je o tom, či sa produkt oplatí držať — nie o dnešnej cene.
+    Plagát z výbornej edície je stále plagát."""
+    box = _rating("A", "booster-box")[0]
+    etb = _rating("A", "etb")[0]
+    booster = _rating("A", "booster")[0]
+    poster = _rating("A", "poster-collection")[0]
+    assert box > etb > booster > poster
+    assert poster < 2, "plagát z edície úrovne A nesmie vyzerať ako investícia"
+
+
+def test_rating_gives_the_ten_only_to_the_best_case():
+    """Desiatku má dostať len booster box edície úrovne A, ktorá sa už netlačí.
+    Bez normalizácie na strop narazilo šesť produktov naraz a navrchu sa
+    stratilo poradie."""
+    import scrape
+    best = _rating("A", "booster-box", in_print=False)[0]
+    assert best == 10.0
+    assert _rating("A", "booster-box", in_print=True)[0] < 10.0
+    assert _rating("B", "booster-box", in_print=False)[0] < 10.0
+
+
+def test_rating_rewards_sets_that_stopped_printing():
+    a = _rating("B", "etb", in_print=False)[0]
+    b = _rating("B", "etb", in_print=True)[0]
+    assert a > b
+    assert "po ukončení tlače" in _rating("B", "etb", in_print=False)[1]
+
+
+def test_rating_ignores_price_and_availability():
+    """Do hodnotenia nesmie vstúpiť dnešná cena ani počet ponúk — to už rieši
+    rebríček „Kúpiť dnes". Inak by číslo skákalo podľa toho, kto má výpredaj."""
+    import inspect, scrape
+    source = inspect.getsource(scrape.investment_rating)
+    for zakazane in ("price", "median", "min_eur", "in_stock", "offer"):
+        assert zakazane not in source, f"hodnotenie sa dotýka {zakazane}"

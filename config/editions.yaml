@@ -681,14 +681,17 @@ formats:
     # Časť eshopov píše "Ultra-Premium" so spojovníkom. Bez neho v regexe
     # spadne názov až na generický "premium collection" a ten istý produkt
     # sa rozdelí na dve položky s vlastnými cenami.
-    patterns: ["ultra[\\s-]+premium[\\s-]+collection", "\\bupc\\b"]
+    patterns: ["ultra[\\s-]*premium[\\s-]*collection", "\\bupc\\b"]
 
   - id: super-premium
     name: Super Premium Collection
     short: SPC
     packs: null
     edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
-    patterns: ["super[\\s-]+premium[\\s-]+collection"]
+    # Skratku SPC používajú eshopy rovnako často ako celý názov, a časť ich
+    # píše "Superpremium" jedným slovom — bez toho spadne na generický
+    # premium-collection a SPC sa v zozname formátov vôbec neobjaví.
+    patterns: ["super[\\s-]*premium[\\s-]*collection", "\\bspc\\b"]
 
   - id: premium-collection
     name: Premium Collection
