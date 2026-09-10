@@ -339,6 +339,22 @@ ponúk nelíšia v podstatnom slove.
 
 ---
 
+## Zmena vzhľadu
+
+Farby, zaoblenie, hustota kariet a písma sú v `index.html` ako premenné v bloku
+`:root` — každá s komentárom, čo ovplyvňuje. **Nemeň ich tam**, prepíšu sa pri
+najbližšej verzii.
+
+Na úpravy je `docs/theme.css`. Načíta sa až za štýlmi stránky, takže čokoľvek
+v ňom prebije predvolené hodnoty, a keby chýbal alebo mal chybu, stránka vyzerá
+ako predtým — nič sa nerozbije. Obsahuje pripravené bloky (teplejšia paleta,
+väčšie písmo, hranatejšie karty, iné písmo), ktoré stačí odkomentovať.
+
+Ikony v záložkách sú inline SVG priamo v HTML — žiadna knižnica, nič sa
+nesťahuje zvonku. Na úzkych obrazovkách zostanú v záložkách len ikony.
+
+---
+
 ## Investičné hodnotenie 1–10
 
 Číslo na karte produktu vpravo hore. Odpovedá na otázku **„oplatí sa to vôbec
@@ -560,6 +576,7 @@ src/adapters.py               13 parserov podľa platformy eshopu
 src/classify.py               názov -> edícia + formát + počet balíčkov
 src/images.py                 sťahovanie a konverzia obrázkov
 docs/index.html               celá stránka, jeden súbor bez závislostí
+docs/theme.css                voliteľné úpravy vzhľadu (prebijú predvolené)
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu

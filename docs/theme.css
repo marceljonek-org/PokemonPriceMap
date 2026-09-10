@@ -1,0 +1,88 @@
+/* =====================================================================
+   VZHĽAD CENOVEJ MAPY — tento súbor je tvoje ihrisko.
+
+   Načíta sa až za štýlmi v index.html, takže čokoľvek tu prebije
+   predvolené hodnoty. Nič v ňom nie je povinné: keby si ho zmazal,
+   stránka vyzerá presne ako predtým.
+
+   Ako na to:
+     1. odkomentuj blok (zmaž riadok  /*  pred ním a  * /  za ním)
+     2. ulož, pushni, obnov stránku
+     3. keď sa ti to nepáči, zakomentuj to späť
+
+   Farby môžeš písať ako #rrggbb. Ak si nie si istý, skús ich najprv
+   v prehliadači cez F12 → Elements → :root a až potom sem prepíš.
+   ===================================================================== */
+
+
+/* ---------------------------------------------------------------
+   1. TVAR A HUSTOTA — najviditeľnejšia zmena za najmenej práce
+   --------------------------------------------------------------- */
+/*
+:root{
+  --radius: 6px;          predvolené 13px. 0 = ostré hrany, 20px = mäkké
+  --card-min: 190px;      predvolené 230px. menšie číslo = viac kariet v rade
+}
+*/
+
+
+/* ---------------------------------------------------------------
+   2. TEPLEJŠIA PALETA — namiesto fialovej do hneda a okrova
+   --------------------------------------------------------------- */
+/*
+:root{
+  --ground:#f6f3ee; --surface:#fffdfa; --surface-2:#efe9e0;
+  --ink:#241d16; --muted:#6d6154; --line:#e0d7c9;
+  --accent:#8a5a2b; --accent-soft:#f2e6d6;
+}
+@media (prefers-color-scheme:dark){:root{
+  --ground:#17130f; --surface:#211b16; --surface-2:#2c241d;
+  --ink:#f0e7dc; --muted:#b3a493; --line:#3b3128;
+  --accent:#d9a05b; --accent-soft:#2f2318;
+}}
+*/
+
+
+/* ---------------------------------------------------------------
+   3. VÄČŠIE PÍSMO — keď to čítaš na veľkom monitore alebo na telefóne
+   --------------------------------------------------------------- */
+/*
+body{ font-size:16.5px; }
+.ctitle{ font-size:15.5px; }
+.price{ font-size:21px; }
+*/
+
+
+/* ---------------------------------------------------------------
+   4. INÉ PÍSMO — nezabudni si ho načítať v index.html cez Google Fonts,
+      inak sa použije záložné systémové
+   --------------------------------------------------------------- */
+/*
+:root{
+  --font-ui:"Inter","Helvetica Neue",Arial,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*/
+
+
+/* ---------------------------------------------------------------
+   5. POKOJNEJŠIE KARTY — bez rámikov, s jemným tieňom
+   --------------------------------------------------------------- */
+/*
+.card{ border-color:transparent; box-shadow:0 1px 3px rgba(0,0,0,.10); }
+.card:hover{ box-shadow:0 4px 14px rgba(0,0,0,.16); }
+*/
+
+
+/* ---------------------------------------------------------------
+   6. VÝRAZNEJŠIE ODZNAKY HODNOTENIA na kartách
+   --------------------------------------------------------------- */
+/*
+.rating{ font-size:12.5px; padding:3px 9px; }
+.rating.hi{ box-shadow:0 0 0 2px var(--gold-soft); }
+*/
+
+
+/* ---------------------------------------------------------------
+   7. VLASTNÉ ÚPRAVY — sem si píš, čo si vymyslíš
+   --------------------------------------------------------------- */
