@@ -1,6 +1,6 @@
 # Cenová mapa Pokémon TCG
 
-Denné sledovanie cien a dostupnosti **zapečatených** Pokémon TCG produktov v 35 českých
+Denné sledovanie cien a dostupnosti **zapečatených** Pokémon TCG produktov v 34 českých
 a slovenských eshopoch. Pokrýva **79 setov od klasiky z roku 1999 po Mega Evolution** — série
 Base Set/Neo, XY, Sun & Moon, Sword & Shield, Scarlet & Violet a Mega Evolution —
 naprieč 22 formátmi — od jedného boostera cez bundle, box a ETB až po Ultra Premium
@@ -65,7 +65,7 @@ a dá sa kedykoľvek spustiť ručne. Sedem krokov:
 
 1. **Testy parserov** nad snapshotmi v `tests/fixtures/` — keď je rozbitá parsovacia
    logika, beh spadne ešte pred dotykom so živými webmi.
-2. **Sken 35 eshopov** vrátane stránkovania, max 4 eshopy naraz. Kurz CZK/EUR z ECB.
+2. **Sken 34 eshopov** vrátane stránkovania, max 4 eshopy naraz. Kurz CZK/EUR z ECB.
 3. **Klasifikácia** názvov na edíciu + formát; čo nie je sledovaný formát v edícii
    úrovne A/B/C, sa zahodí.
 4. **Porovnanie s posledným behom** — zmeny cien, preklopenia dostupnosti, nové položky,
@@ -77,7 +77,7 @@ a dá sa kedykoľvek spustiť ručne. Sedem krokov:
 
 ### Poistky proti tichému zlyhaniu
 
-Pri 35 eshopoch je výpadok jedného normálna prevádzka, nie dôvod zahodiť celý beh.
+Pri 34 eshopoch je výpadok jedného normálna prevádzka, nie dôvod zahodiť celý beh.
 Fatálne je až to, keď vypadne väčšia časť eshopov alebo keď objem dát spadne na zlomok.
 
 | Situácia | Čo sa stane |
@@ -100,18 +100,18 @@ so zaškrtnutým **force**.
 
 ## Sledované eshopy
 
-35 eshopov na 13 platformách. Adaptér je parser pre danú platformu — ďalší eshop
+34 eshopov na 13 platformách. Adaptér je parser pre danú platformu — ďalší eshop
 na tej istej platforme je otázka troch riadkov v `config/shops.yaml`.
 
 | Adaptér | Eshopy | Ako sa čítajú dáta |
 |---|---|---|
 | `shoptet` | Cardstore.cz, Fyft.cz, Nekonecno.sk, Pokemon4U.cz, TCG4You.cz, Card Empire SK, CC Planet, KúzelnéHry.sk, Kartovo.net, Konzoliste.cz, Poke-World.eu, RarePocket.sk | mikrodáta `data-micro-*` (schema.org) |
-| `pgs` | PGS.sk, Smarty.cz, Smarty.sk | `data-gaItem` JSON + `.productList-item-price` |
+| `pgs` | PGS.sk | `data-gaItem` JSON + `.productList-item-price` |
 | `woocommerce` | PokecTCG.cz, Pokélio.cz, GeekHall.cz, ScoutShop.sk | `li.product`, alebo `article.product_card` v šablónach z Oxygen Builderu |
 | `upgates` | Zardo Cards, Gengar.cz | `article.card-item` |
 | `pompo` | Pompo.cz, Pompo.sk | JSON v `data-tracking-view` |
 | `veselydrak` | Veselý drak CZ, Veselý drak SK | `div.catalogue-item` |
-| `shopify` | Cardyx.sk, 64ka.sk | verejné `/products.json`, pole `available` |
+| `shopify` | Cardyx.sk, 64ka.sk, VortexStore.eu | verejné `/products.json`, pole `available` |
 | `xzone` | Xzone.cz, Xzone.sk | `div.product-item`, stránkovanie naslepo cez `?page=N` |
 | `alza` | Alza.cz, Alza.sk | `div.box.browsingitem` |
 | `digihry` | Digihry.sk | mikrodáta `itemprop` |
@@ -515,7 +515,9 @@ Znamená to dve rôzne veci a v pätičke stránky je odteraz vidno, ktorú:
 | Odpoveď v hlásení | Príčina | Riešenie |
 |---|---|---|
 | `[host not allowed]` | doména nie je v `ALLOWED_HOSTS` | dopísať ju do premennej vo Workeri |
-| HTML eshopu alebo Cloudflare stránka | eshop blokuje samotný Cloudflare | proxy nepomôže, nechať `optional: true` |
+| `[<!DOCTYPE html>… Just a moment…]` | eshop sedí za ochranou Cloudflare proti robotom | proxy nepomôže, cez ňu neprejde ani Worker |
+
+Dôvod je odteraz aj v pätičke stránky — podrž myš nad červeným menom eshopu.
 
 `ALLOWED_HOSTS` je jeden textový reťazec oddelený čiarkami. Keď sa doňho dopisuje
 ďalšia doména, ľahko sa pri tom rozbijú existujúce — po každej zmene sa oplatí
@@ -580,7 +582,7 @@ docs/theme.css                voliteľné úpravy vzhľadu (prebijú predvolené
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        223 testov nad gzip snapshotmi
+tests/                        231 testov nad gzip snapshotmi
 data/portfolio-history.csv    denná hodnota portfólia (graf)
 data/alerts-sent.csv          čo už išlo na Telegram (proti opakovaniu)
 tools/demo_from_fixtures.py   náhľad bez siete

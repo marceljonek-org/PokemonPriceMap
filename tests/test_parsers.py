@@ -35,6 +35,8 @@ SHOPS = {
     "mobilonline": {"id": "mobilonline-sk", "base": "https://www.mobilonline.sk",
                     "currency": "EUR"},
     "pokeworld": {"id": "pokeworld-eu", "base": "https://poke-world.eu", "currency": "EUR"},
+    "vortex": {"id": "vortexstore-eu", "base": "https://www.vortexstore.eu",
+               "currency": "CZK"},
 }
 
 ADAPTER_OF = {
@@ -43,6 +45,7 @@ ADAPTER_OF = {
     "pokectcg": "woocommerce", "xzone": "xzone", "geekhall": "woocommerce",
     "dazzle": "opencart", "kartovo": "shoptet", "konzoliste": "shoptet",
     "sparkys": "sparkys", "mobilonline": "jsonld", "pokeworld": "shoptet",
+    "vortex": "shopify",
 }
 
 MIN_OFFERS = {
@@ -50,7 +53,7 @@ MIN_OFFERS = {
     "pgs": 20, "veselydrak": 18, "alza": 20, "cardyx": 25,
     "pokectcg": 40, "xzone": 20, "geekhall": 10, "dazzle": 18,
     "kartovo": 8, "konzoliste": 10, "sparkys": 15, "mobilonline": 20,
-    "pokeworld": 25,
+    "pokeworld": 25, "vortex": 200,
 }
 
 
@@ -1245,3 +1248,30 @@ def test_rating_ignores_price_and_availability():
     source = inspect.getsource(scrape.investment_rating)
     for zakazane in ("price", "median", "min_eur", "in_stock", "offer"):
         assert zakazane not in source, f"hodnotenie sa dotýka {zakazane}"
+
+
+def test_pgs_and_smarty_count_as_one_seller():
+    """PGS.sk a Smarty prevádzkuje tá istá firma (Smarty SK s.r.o., IČO 46818995)
+    — rovnaký sklad aj cenotvorba. Do mediánu smú hlasovať raz."""
+    import scrape
+    assert scrape.SELLER_OF["pgs-sk"] == scrape.SELLER_OF["smarty-sk"]
+    assert scrape.SELLER_OF["pgs-sk"] == scrape.SELLER_OF["smarty-cz"]
+
+
+def test_vortexstore_prices_are_read_as_czech_crowns():
+    """Doména je .eu, ale eshop účtuje v korunách — Evolving Skies Pokémon Center
+    ETB stojí 38 990 Kč. Keby sa to čítalo ako eurá, cena by bola 25× mimo
+    a produkt by zahltil medián celej edície."""
+    offers = {o.name: o for o in offers_for("vortex")}
+    etb = offers["Evolving Skies Pokémon Center Elite Trainer Box [FJUL]"]
+    assert etb.price == 38990.0
+    assert etb.currency == "CZK"
+
+
+def test_vortexstore_drops_what_is_not_sealed_pokemon():
+    """Predávajú aj Funko Pop, albumy a akrylové boxy — do monitoru nesmú."""
+    zaradene = [o.name for o in offers_for("vortex") if classify.classify(o.name)]
+    assert not any("Funko" in n for n in zaradene)
+    assert not any("Akrylový" in n for n in zaradene)
+    assert not any("Album" in n for n in zaradene)
+    assert 20 <= len(zaradene) <= 120, f"zaradených {len(zaradene)}"

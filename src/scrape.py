@@ -88,7 +88,9 @@ SELLER_OF = {
     "pompo-cz": "pompo", "pompo-sk": "pompo",
     "xzone-cz": "xzone", "xzone-sk": "xzone",
     "alza-cz": "alza", "alza-sk": "alza",
-    "smarty-cz": "smarty", "smarty-sk": "smarty",
+    # PGS.sk a Smarty prevádzkuje tá istá firma — Smarty SK s.r.o., IČO 46818995.
+    # PGS je len ich druhá značka, sklad aj cenotvorba sú spoločné.
+    "smarty-cz": "smarty", "smarty-sk": "smarty", "pgs-sk": "smarty",
     "vesely-drak-cz": "vesely-drak", "vesely-drak-sk": "vesely-drak",
 }
 MIN_FOR_MEDIAN = 3        # menej ponúk = to nie je trhová cena, len cena predajcu

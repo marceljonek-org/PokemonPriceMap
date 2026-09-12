@@ -10,6 +10,12 @@ defaults:
   max_pages: 20
   concurrency: 4
 
+# Smarty.cz a Smarty.sk sú nižšie zakomentované. Sedia za ochranou Cloudflare
+# proti robotom ("Just a moment...") a neprejde cez ňu ani náš Worker — od
+# začiatku projektu nevrátili ani jeden beh. Nič tým nestrácame: prevádzkuje ich
+# tá istá firma ako PGS.sk (Smarty SK s.r.o., IČO 46818995), ten istý sklad aj
+# cenotvorbu, a PGS.sk funguje. Keby ochranu raz vypli, stačí ich odkomentovať.
+
 shops:
   - id: cardstore-cz
     name: Cardstore.cz
@@ -140,20 +146,20 @@ shops:
       - https://www.pgs.sk/special-collection-4c14604
       - https://www.pgs.sk/exkluzivne-sety-4c14608
 
-  - id: smarty-cz
-    name: Smarty.cz
-    country: CZ
-    currency: CZK
-    adapter: pgs
-    base: https://www.smarty.cz
-    optional: true          # vo v1 vracal 403 z cudzích IP
-    proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
-    urls:
-      - https://www.smarty.cz/booster-4c14601
-      - https://www.smarty.cz/elite-trainer-box-4c14603
-      - https://www.smarty.cz/tin-4c14605
-      - https://www.smarty.cz/special-collection-4c14604
-      - https://www.smarty.cz/exkluzivni-sety-4c14608
+  #   - id: smarty-cz
+  #     name: Smarty.cz
+  #     country: CZ
+  #     currency: CZK
+  #     adapter: pgs
+  #     base: https://www.smarty.cz
+  #     optional: true          # vo v1 vracal 403 z cudzích IP
+  #     proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
+  #     urls:
+  #       - https://www.smarty.cz/booster-4c14601
+  #       - https://www.smarty.cz/elite-trainer-box-4c14603
+  #       - https://www.smarty.cz/tin-4c14605
+  #       - https://www.smarty.cz/special-collection-4c14604
+  #       - https://www.smarty.cz/exkluzivni-sety-4c14608
 
   - id: vesely-drak-cz
     name: Veselý drak CZ
@@ -224,20 +230,20 @@ shops:
 
   # --- pridané 29. 8. 2026 -------------------------------------------------
 
-  - id: smarty-sk
-    name: Smarty.sk
-    country: SK
-    currency: EUR
-    adapter: pgs            # rovnaká platforma ako PGS.sk a Smarty.cz
-    base: https://www.smarty.sk
-    optional: true
-    proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
-    urls:
-      - https://www.smarty.sk/booster-4c14601
-      - https://www.smarty.sk/elite-trainer-box-4c14603
-      - https://www.smarty.sk/tin-4c14605
-      - https://www.smarty.sk/special-collection-4c14604
-      - https://www.smarty.sk/exkluzivne-sety-4c14608
+  #   - id: smarty-sk
+  #     name: Smarty.sk
+  #     country: SK
+  #     currency: EUR
+  #     adapter: pgs            # rovnaká platforma ako PGS.sk a Smarty.cz
+  #     base: https://www.smarty.sk
+  #     optional: true
+  #     proxy: true         # blokuje IP adries GitHub Actions, ide cez Cloudflare Worker
+  #     urls:
+  #       - https://www.smarty.sk/booster-4c14601
+  #       - https://www.smarty.sk/elite-trainer-box-4c14603
+  #       - https://www.smarty.sk/tin-4c14605
+  #       - https://www.smarty.sk/special-collection-4c14604
+  #       - https://www.smarty.sk/exkluzivne-sety-4c14608
 
   - id: tcg4you-cz
     name: TCG4You.cz
@@ -474,3 +480,14 @@ shops:
     optional: true       # skautský eshop, Pokémon má okrajovo (Trick or Trade)
     urls:
       - https://scoutshop.sk/kategoria/spolocenske-hry/kartove-hry/
+
+  - id: vortexstore-eu
+    name: VortexStore.eu
+    country: CZ
+    currency: CZK          # napriek doméne .eu má eshop ceny v korunách
+    adapter: shopify
+    base: https://www.vortexstore.eu
+    # Žiadne pokemon_only — predávajú aj Funko Pop, albumy a ohodnotené karty.
+    optional: true         # nový eshop; po prvom úspešnom behu riadok zmaž
+    urls:
+      - https://www.vortexstore.eu/collections/all
