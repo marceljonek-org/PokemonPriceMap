@@ -87,11 +87,13 @@ def _config() -> dict:
         (o["edition"], o["format"]): o["packs"] for o in raw.get("pack_overrides", [])
     }
     excludes = tuple(re.compile(normalize(p), re.I) for p in raw.get("exclude_patterns", []))
+    markers = tuple(re.compile(normalize(p), re.I) for p in raw.get("variant_markers", []))
     launch = {k: float(v) for k, v in (raw.get("launch_price_eur") or {}).items()}
     return {
         "editions": editions,
         "formats": formats,
         "overrides": overrides,
+        "markers": markers,
         "excludes": excludes,
         "launch": launch,
     }
@@ -159,7 +161,13 @@ def classify(name: str, require_brand: bool = True) -> Classification | None:
         return Classification(edition=edition, format=fmt, packs=packs, variant=variant)
 
     packs = _config()["overrides"].get((edition.id, fmt.id), fmt.packs)
-    return Classification(edition=edition, format=fmt, packs=packs)
+    # Jedna edícia môže mať v tom istom formáte viac rôznych produktov — 30th
+    # Celebration má Ultra-Premium Collection v prevedení Day aj Night a ETB
+    # v bežnej aj Pokémon Center verzii. Bez rozlišovača by splynuli do jedného
+    # kľúča a medián by sa počítal z cien dvoch rôznych vecí.
+    found = [m.group(0) for m in (p.search(n) for p in _config()["markers"]) if m]
+    variant = "-".join(re.sub(r"[^a-z0-9]+", "-", w).strip("-") for w in found)
+    return Classification(edition=edition, format=fmt, packs=packs, variant=variant)
 
 def looks_like_new_edition(name: str) -> bool:
     """Vyzerá to ako sledovaný formát, ale edíciu nepoznáme?

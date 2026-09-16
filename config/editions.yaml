@@ -700,6 +700,26 @@ formats:
     edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
     patterns: ["premium[\\s-]+(figure[\\s-]+)?collection", "premium[\\s-]+deck[\\s-]+set"]
 
+  # MUSÍ byť AŽ ZA premium-collection. "Premium Figure Collection" je
+  # špecifickejší reťazec a patrí k premiovým kolekciám; keď bol tento formát
+  # vyššie, rozdelil Prismatic Evolutions Premium Figure Collection na dve
+  # položky. Sem patria len figúrkové kolekcie bez slova premium
+  # (Mewtwo / Mew Figure Collection z 30th Celebration).
+  - id: figure-collection
+    name: Figure Collection
+    short: Figúrka
+    packs: null
+    edition_optional: true
+    patterns: ["figure[\\s-]*collection", "figurine[\\s-]*collection"]
+
+  - id: knock-out-collection
+    name: Knock Out Collection
+    short: Knock Out
+    packs: null
+    edition_optional: true
+    patterns: ["knock[\\s-]*out[\\s-]*collection"]
+
+
   - id: event-collection
     name: Promo balenie
     short: Promo
@@ -832,6 +852,24 @@ pack_overrides:
 # Čo zahodiť ešte pred klasifikáciou.
 # Poznámka: produkt musí sedieť na edíciu AJ formát, takže príslušenstvo
 # a jednotlivé karty vypadnú samy — tu sú len prípady, ktoré by inak prešli.
+# Rozlišovače podproduktov. Používajú sa LEN vtedy, keď je edícia rozpoznaná —
+# vtedy sa inak žiadny variant nepočíta a dva rôzne produkty toho istého formátu
+# splynú do jedného kľúča. 30th Celebration má napríklad Ultra-Premium Collection
+# v prevedení Day aj Night, obe po 180 $; bez rozlišovača by bežali ako jedna
+# položka so spoločným mediánom. To isté platí pre Pokémon Center verzie ETB.
+#
+# Pozor: čo tu pridáš, to produkt rozdelí. Marker preto musí byť niečo, čo
+# uvádzajú všetky eshopy, nie ozdoba v názve u jedného z nich.
+variant_markers:
+  - "pok[eé]mon\\s+cent(er|rum)"
+  - "\\bday\\b"
+  - "\\bnight\\b"
+  - "\\bditto\\b"
+  - "\\bmewtwo\\b"
+  - "\\bmew\\b"
+  - "\\bespeon\\b"
+  - "\\bumbreon\\b"
+
 exclude_patterns:
   - "japon|japan|jap\\.|\\bjp\\b|\\(jap"
   - "glory\\s+of\\s+(the\\s+)?team\\s+rocket"   # japonský názov SV10, nie klasika z r. 2000

@@ -326,7 +326,15 @@ je v zozname dvakrát.
 | `Minor Imperfections` | ETB s odretou krabicou ako plnohodnotná ponuka |
 | `3-Pack Blister` vs `3 Blister Booster` | ten istý blister v dvoch formátoch, cena za balíček trojnásobne mimo |
 | názov bez slova „Pokémon" | na pokémoních eshopoch sa zahodila väčšina katalógu — rieši `pokemon_only` |
+| `Ultra-Premium Collection – Day` a `– Night` | dva produkty po 180 $ v jednom koši — rieši `variant_markers` |
+| `Pokémon Center Elite Trainer Box` | drahšia exkluzívna verzia zlepená s bežným ETB |
 | `SPC` a `Superpremium` | skratku mal v regexe len UPC, takže Super Premium Collection prepadal na generický Premium |
+
+Keď má jedna edícia v tom istom formáte viac rôznych produktov, rieši to zoznam
+`variant_markers` v `config/editions.yaml`. Uplatní sa **len pri rozpoznanej
+edícii** — tam sa inak žiadny variant nepočíta. Čo doňho pridáš, to produkt
+rozdelí, takže marker musí byť niečo, čo uvádzajú všetky eshopy, nie ozdoba
+v názve u jedného z nich.
 
 Dve pravidlá, ktoré z toho plynú pri pridávaní formátu do `config/editions.yaml`:
 **špecifickejší formát musí byť v súbore vyššie** (vyhráva prvá zhoda — preto je
@@ -582,7 +590,7 @@ docs/theme.css                voliteľné úpravy vzhľadu (prebijú predvolené
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        231 testov nad gzip snapshotmi
+tests/                        234 testov nad gzip snapshotmi
 data/portfolio-history.csv    denná hodnota portfólia (graf)
 data/alerts-sent.csv          čo už išlo na Telegram (proti opakovaniu)
 tools/demo_from_fixtures.py   náhľad bez siete

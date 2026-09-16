@@ -1275,3 +1275,56 @@ def test_vortexstore_drops_what_is_not_sealed_pokemon():
     assert not any("Akrylový" in n for n in zaradene)
     assert not any("Album" in n for n in zaradene)
     assert 20 <= len(zaradene) <= 120, f"zaradených {len(zaradene)}"
+
+
+# ----------------------------------------------- 30th Celebration a podprodukty
+
+def test_30th_celebration_lineup_lands_on_distinct_keys():
+    """Výročný set má v jednom formáte viac rôznych produktov — Ultra-Premium
+    Collection v prevedení Day aj Night (obe po 180 $) a ETB v bežnej aj
+    Pokémon Center verzii. Kým sa pri rozpoznanej edícii nepočítal variant,
+    splynuli do jedného kľúča a medián sa rátal z cien dvoch rôznych vecí."""
+    def kluc(n):
+        h = classify.classify(n)
+        if h is None:
+            return None
+        return f"{h.edition.id}|{h.format.id}" + (f"|{h.variant}" if h.variant else "")
+
+    lineup = [
+        "Pokémon TCG: 30th Celebration Elite Trainer Box",
+        "Pokémon TCG: 30th Celebration Pokémon Center Elite Trainer Box",
+        "Pokémon TCG: 30th Celebration Ultra-Premium Collection - Day",
+        "Pokémon TCG: 30th Celebration Ultra-Premium Collection - Night",
+        "Pokémon TCG: 30th Celebration Ditto Premium Collection",
+        "Pokémon TCG: 30th Celebration Mewtwo Figure Collection",
+        "Pokémon TCG: 30th Celebration Mew Figure Collection",
+        "Pokémon TCG: 30th Celebration Knock Out Collection",
+        "Pokémon TCG: 30th Celebration Booster Bundle",
+        "Pokémon TCG: 30th Celebration Pokémon ex Box",
+        "Pokémon TCG: 30th Celebration Binder Collection",
+        "Pokémon TCG: 30th Celebration Poster Collection",
+    ]
+    kluce = [kluc(n) for n in lineup]
+    assert all(kluce), "celý sortiment musí byť zaradený"
+    assert len(set(kluce)) == len(lineup), "každý produkt má mať vlastný kľúč"
+
+
+def test_pokemon_center_edition_is_a_separate_product():
+    """Pokémon Center verzia ETB je iný a drahší produkt než bežná — vo
+    VortexStore stojí Evolving Skies PC ETB 38 990 Kč."""
+    bezna = classify.classify("Pokémon TCG: Evolving Skies Elite Trainer Box")
+    pc = classify.classify("Evolving Skies Pokémon Center Elite Trainer Box",
+                           require_brand=False)
+    assert bezna.format.id == pc.format.id == "etb"
+    assert bezna.variant == "" and pc.variant == "pokemon-center"
+
+
+def test_premium_figure_collection_stays_premium():
+    """„Premium Figure Collection" je špecifickejší reťazec než „Figure
+    Collection" — keď bol figure-collection v súbore vyššie, rozdelil
+    Prismatic Evolutions Premium Figure Collection na dve položky."""
+    a = classify.classify("Pokémon TCG: SV8.5 Prismatic Evolutions - Premium Figure Collection")
+    b = classify.classify("Pokémon TCG: Prismatic Evolutions Lucario EX & Tyranitar EX Premium Collection")
+    assert a.format.id == b.format.id == "premium-collection"
+    assert classify.classify("Pokémon TCG: 30th Celebration Mew Figure Collection").format.id \
+        == "figure-collection"
