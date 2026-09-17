@@ -84,5 +84,32 @@ body{ font-size:16.5px; }
 
 
 /* ---------------------------------------------------------------
-   7. VLASTNÉ ÚPRAVY — sem si píš, čo si vymyslíš
+   7. BOČNÝ PANEL SO ZÁLOŽKAMI — šírka, len ikony, alebo späť hore
+   --------------------------------------------------------------- */
+/* Užší alebo širší panel: */
+/*
+:root{ --rail-w: 150px; }
+*/
+
+/* Len ikony, bez textu (panel sa zúži na 62 px): */
+/*
+:root{ --rail-w: 62px; }
+.rail .mark{ display:none; }
+.tab{ justify-content:center; padding:11px 0; }
+.tab span{ display:none; }
+*/
+
+/* Späť do vodorovného radu nad obsahom, ako to bolo do verzie 1.20: */
+/*
+.shell{ display:block; }
+.rail{ position:static; padding-top:22px; }
+.rail .mark{ display:none; }
+.tabs{ flex-direction:row; gap:4px; background:var(--surface-2);
+       padding:4px; border-radius:11px; width:max-content; }
+.tab{ width:auto; }
+*/
+
+
+/* ---------------------------------------------------------------
+   8. VLASTNÉ ÚPRAVY — sem si píš, čo si vymyslíš
    --------------------------------------------------------------- */

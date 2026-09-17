@@ -371,7 +371,32 @@ najbližšej verzii.
 Na úpravy je `docs/theme.css`. Načíta sa až za štýlmi stránky, takže čokoľvek
 v ňom prebije predvolené hodnoty, a keby chýbal alebo mal chybu, stránka vyzerá
 ako predtým — nič sa nerozbije. Obsahuje pripravené bloky (teplejšia paleta,
-väčšie písmo, hranatejšie karty, iné písmo), ktoré stačí odkomentovať.
+väčšie písmo, hranatejšie karty, iné písmo, šírka bočného panela, len ikony
+v paneli, návrat záložiek nad obsah), ktoré stačí odkomentovať.
+
+### Rozloženie
+
+Záložky sú v **bočnom paneli vľavo** (`.rail`), šírku určuje premenná
+`--rail-w`. Pod 860 px sa panel presunie dolu ako spodná lišta mobilnej
+aplikácie — je to to isté CSS, len iné `@media`, takže sa netreba starať
+o druhú sadu tlačidiel.
+
+Filtre sú v **zásuvke za tlačidlom „Filtre"** (`#filters`). Odznak pri tlačidle
+ukazuje, koľko ich je zapnutých; bez neho sa dá zásuvku zavrieť a potom sa
+čudovať, prečo je v zozname dvanásť položiek. Hodnoty sa pamätajú v prehliadači
+(`localStorage`, kľúč `cenmapa-filtre-v1`) a keď je pri načítaní aspoň jeden
+filter aktívny, zásuvka sa otvorí sama.
+
+| Filter | Z čoho počíta |
+|---|---|
+| Cena od–do | `min_eur` (najlacnejšia skladom), pri nikde-skladom `min_any_eur` |
+| Minimálne hodnotenie | `rating` zo skenu |
+| Pod mediánom | `(min_eur − median_eur) / median_eur`, **len keď `median_trusted`** |
+| Eshop | produkt má od daného eshopu ponuku skladom a neoznačenú ako výkyv |
+
+Dve veci, na ktoré si dať pozor pri pridávaní ďalšieho filtra: zapíš ho do
+`filterCount()`, inak odznak klame, a do `saveFilters()`/`loadFilters()`, inak
+sa po obnovení stránky ticho stratí.
 
 Ikony v záložkách sú inline SVG priamo v HTML — žiadna knižnica, nič sa
 nesťahuje zvonku. Na úzkych obrazovkách zostanú v záložkách len ikony.

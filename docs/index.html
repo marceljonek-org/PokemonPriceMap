@@ -36,6 +36,8 @@
   --card-min:230px;      /* najužšia karta; menšie číslo = viac kariet v rade */
   --font-ui:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
   --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  /* šírka bočného panela so záložkami */
+  --rail-w: 186px;
 }
 @media (prefers-color-scheme:dark){:root{
   --ground:#111120; --surface:#1a1a2c; --surface-2:#22223a; --ink:#eae8f6; --muted:#9b98b8;
@@ -59,13 +61,34 @@ a{color:var(--accent)}
 header{padding:30px 0 18px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between}
 h1{font-size:27px;font-weight:700;margin:0;letter-spacing:-.02em}
 .sub{font-size:13px;color:var(--muted);margin-top:3px}
-.tabs{display:flex;gap:4px;background:var(--surface-2);padding:4px;border-radius:11px}
+/* Záložky sú v bočnom paneli vľavo. Na úzkej obrazovke sa panel presunie
+   dole ako v mobilnej aplikácii — palcom dosiahnuteľné. */
+.shell{display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);gap:28px;align-items:start;
+  max-width:1320px}
+.rail{position:sticky;top:16px;padding-top:26px}
+.rail .mark{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);padding:0 12px 12px}
+.tabs{display:flex;flex-direction:column;gap:2px}
 .tab{border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;font-weight:500;
-  padding:7px 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+  padding:9px 12px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:10px;
+  width:100%;text-align:left}
+.tab:hover{color:var(--ink);background:var(--surface-2)}
 .ico{width:16px;height:16px;flex:none}
 .btn.scan{display:inline-flex;align-items:center;gap:7px}
-@media (max-width:760px){.tab span{display:none}.tab{padding:8px 12px}}
 .tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+@media (max-width:860px){
+  /* Spodná lišta prekrýva obsah, tak mu treba dolu miesto navyše. */
+  .shell{grid-template-columns:minmax(0,1fr);gap:0;padding-bottom:96px}
+  .rail{position:fixed;inset:auto 0 0 0;top:auto;z-index:40;padding:5px 4px;
+    padding-bottom:calc(5px + env(safe-area-inset-bottom,0px));
+    background:var(--surface);border-top:1px solid var(--line)}
+  .rail .mark{display:none}
+  .tabs{flex-direction:row;justify-content:space-around;gap:0}
+  .tab{flex-direction:column;gap:3px;width:auto;flex:1;justify-content:center;
+    padding:6px 2px;font-size:10px;text-align:center;border-radius:7px}
+  .tab span{display:block}
+  .ico{width:19px;height:19px}
+}
 .tab:focus-visible,.f:focus-visible,.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:14px 0 20px;border-bottom:1px solid var(--line);margin-bottom:22px}
@@ -74,6 +97,27 @@ h1{font-size:27px;font-weight:700;margin:0;letter-spacing:-.02em}
 .f[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
 @media (prefers-color-scheme:dark){.f[aria-pressed="true"]{color:#14132a}}
 .spacer{flex:1}
+/* Zásuvka s filtrami. Lišta mala 15 tlačidiel v jednom rade a na mobile
+   sa lámala do štyroch riadkov; teraz je za jedným tlačidlom s počtom. */
+.drawer{border:1px solid var(--line);border-radius:12px;background:var(--surface);
+  padding:15px 17px;margin:0 0 22px;display:grid;gap:11px}
+.drawer .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.drawer .lbl{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);width:104px;flex:none}
+@media (max-width:600px){.drawer .lbl{width:100%}}
+.drawer .num-in{font:inherit;font-family:var(--font-mono);font-size:12.5px;width:86px;
+  padding:5px 9px;border-radius:8px;border:1px solid var(--line);
+  background:var(--surface-2);color:var(--ink)}
+.drawer select{font:inherit;font-size:12.5px;padding:5px 9px;border-radius:8px;
+  border:1px solid var(--line);background:var(--surface-2);color:var(--ink);max-width:220px}
+.drawer input[type=range]{flex:1;min-width:130px;max-width:260px;accent-color:var(--accent)}
+.drawer .val{font-family:var(--font-mono);font-size:12.5px;color:var(--ink);min-width:74px}
+.drawer .hint{font-size:11.5px;color:var(--muted)}
+.drawer .foot{display:flex;justify-content:flex-end;border-top:1px solid var(--line);padding-top:11px}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;
+  padding:0 5px;margin-left:6px;border-radius:9px;background:var(--accent);color:#fff;
+  font-family:var(--font-mono);font-size:10.5px;line-height:1}
+@media (prefers-color-scheme:dark){.badge{color:#14132a}}
 .sep{width:1px;height:20px;background:var(--line);margin:0 4px}
 #q{font:inherit;font-size:13px;padding:6px 11px;border-radius:8px;border:1px solid var(--line);
   background:var(--surface);color:var(--ink);min-width:220px}
@@ -213,14 +257,26 @@ footer .shops{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 footer .s{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:3px 8px;border-radius:6px;background:var(--surface-2)}
 footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
 .hidden{display:none!important}
-@media (max-width:600px){h1{font-size:22px}.wrap{padding:0 14px 60px}}
+@media (max-width:600px){h1{font-size:22px}.wrap{padding:0 14px 60px}.shell{padding-bottom:96px}}
 </style>
 <!-- Vlastné úpravy vzhľadu. Načíta sa posledný, takže prebije hodnoty vyššie. -->
 <link rel="stylesheet" href="theme.css">
 </head>
 <body>
 <div id="stale" class="stale hidden"></div>
-<div class="wrap">
+<div class="wrap shell">
+  <aside class="rail">
+    <div class="mark">cenová mapa</div>
+    <nav class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tab-today" aria-selected="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg><span>Dnes</span></button>
+        <button class="tab" role="tab" id="tab-buy" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h2l2.5 10h10L20 8H6.5"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></svg><span>Kúpiť dnes</span></button>
+        <button class="tab" role="tab" id="tab-shops" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></svg><span>Eshopy</span></button>
+        <button class="tab" role="tab" id="tab-moves" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Pohyby</span></button>
+        <button class="tab" role="tab" id="tab-hist" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>História</span></button>
+        <button class="tab" role="tab" id="tab-port" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Portfólio</span></button>
+    </nav>
+  </aside>
+  <div class="main">
   <header>
     <div>
       <h1>Cenová mapa Pokémon TCG</h1>
@@ -228,14 +284,6 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
     </div>
     <div class="head-right">
     <button class="btn scan" id="scan-now" title="Spustí rovnaký sken ako každý večer o 19:00"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span>Spustiť sken</span></button>
-    <div class="tabs" role="tablist">
-      <button class="tab" role="tab" id="tab-today" aria-selected="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg><span>Dnes</span></button>
-      <button class="tab" role="tab" id="tab-buy" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h2l2.5 10h10L20 8H6.5"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></svg><span>Kúpiť dnes</span></button>
-      <button class="tab" role="tab" id="tab-shops" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></svg><span>Eshopy</span></button>
-      <button class="tab" role="tab" id="tab-moves" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Pohyby</span></button>
-      <button class="tab" role="tab" id="tab-hist" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>História</span></button>
-      <button class="tab" role="tab" id="tab-port" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Portfólio</span></button>
-    </div>
     </div>
     <div class="scan-msg" id="scan-msg"></div>
   </header>
@@ -243,25 +291,63 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
   <div id="view-today">
     <div class="bar">
       <input id="q" type="search" placeholder="hľadať edíciu alebo produkt…" aria-label="Hľadať">
-      <span class="sep"></span>
-      <button class="f" data-series="ME" aria-pressed="false">Mega Evolution</button>
-      <button class="f" data-series="SV" aria-pressed="false">Scarlet &amp; Violet</button>
-      <button class="f" data-series="SWSH" aria-pressed="false">Sword &amp; Shield</button>
-      <button class="f" data-series="OLD" aria-pressed="false" title="Sun &amp; Moon, XY a klasika">Staršie</button>
-      <span class="sep"></span>
-      <button class="f" data-fmt="booster" aria-pressed="false">Booster</button>
-      <button class="f" data-fmt="bundle" aria-pressed="false">Bundle</button>
-      <button class="f" data-fmt="booster-box" aria-pressed="false">Box</button>
-      <button class="f" data-fmt="etb" aria-pressed="false">ETB</button>
-      <button class="f" data-fmt="ultra-premium" aria-pressed="false">UPC</button>
-      <button class="f" data-fmt="super-premium" aria-pressed="false">SPC</button>
-      <button class="f" data-fmt="premium-collection" aria-pressed="false">Premium</button>
-      <span class="sep"></span>
-      <button class="f" id="only-stock" aria-pressed="false">len skladom</button>
-      <button class="f" id="only-tier" aria-pressed="false">len úroveň A/B</button>
+      <button class="f" id="open-filters" aria-expanded="false" aria-controls="filters"
+              title="Séria, formát, cena, hodnotenie, eshop">⚙ Filtre<span class="badge hidden" id="filter-count"></span></button>
       <button class="f" id="by-rating" aria-pressed="false" title="Zoradí podľa investičného hodnotenia">podľa hodnotenia</button>
       <span class="spacer"></span>
       <span class="count" id="count"></span>
+    </div>
+
+    <!-- Zásuvka s filtrami. Hodnoty sa pamätajú v prehliadači, aby sa po
+         obnovení stránky nemuseli klikať znova. -->
+    <div class="drawer hidden" id="filters">
+      <div class="row">
+        <span class="lbl">Séria</span>
+        <button class="f" data-series="ME" aria-pressed="false">Mega Evolution</button>
+        <button class="f" data-series="SV" aria-pressed="false">Scarlet &amp; Violet</button>
+        <button class="f" data-series="SWSH" aria-pressed="false">Sword &amp; Shield</button>
+        <button class="f" data-series="OLD" aria-pressed="false" title="Sun &amp; Moon, XY a klasika">Staršie</button>
+      </div>
+      <div class="row">
+        <span class="lbl">Formát</span>
+        <button class="f" data-fmt="booster" aria-pressed="false">Booster</button>
+        <button class="f" data-fmt="bundle" aria-pressed="false">Bundle</button>
+        <button class="f" data-fmt="booster-box" aria-pressed="false">Box</button>
+        <button class="f" data-fmt="etb" aria-pressed="false">ETB</button>
+        <button class="f" data-fmt="ultra-premium" aria-pressed="false">UPC</button>
+        <button class="f" data-fmt="super-premium" aria-pressed="false">SPC</button>
+        <button class="f" data-fmt="premium-collection" aria-pressed="false">Premium</button>
+      </div>
+      <div class="row">
+        <span class="lbl">Cena</span>
+        <input class="num-in" id="f-min-eur" type="number" min="0" step="1" placeholder="od" aria-label="Cena od (€)">
+        <span class="hint">–</span>
+        <input class="num-in" id="f-max-eur" type="number" min="0" step="1" placeholder="do" aria-label="Cena do (€)">
+        <span class="hint">€ &nbsp;·&nbsp; z najlacnejšej ponuky skladom</span>
+      </div>
+      <div class="row">
+        <span class="lbl">Hodnotenie</span>
+        <input id="f-rating" type="range" min="0" max="10" step="0.5" value="0" aria-label="Minimálne investičné hodnotenie">
+        <span class="val" id="f-rating-val">bez limitu</span>
+      </div>
+      <div class="row">
+        <span class="lbl">Pod mediánom</span>
+        <input id="f-disc" type="range" min="0" max="40" step="5" value="0" aria-label="Minimálna zľava oproti mediánu">
+        <span class="val" id="f-disc-val">bez limitu</span>
+      </div>
+      <div class="row">
+        <span class="lbl">Eshop</span>
+        <select id="f-shop-pick" aria-label="Zobraziť len produkty jedného eshopu">
+          <option value="">ktorýkoľvek</option>
+        </select>
+        <span class="hint">len to, čo má daný eshop skladom</span>
+      </div>
+      <div class="row">
+        <span class="lbl">Ostatné</span>
+        <button class="f" id="only-stock" aria-pressed="false">len skladom</button>
+        <button class="f" id="only-tier" aria-pressed="false">len úroveň A/B</button>
+      </div>
+      <div class="foot"><button class="f" id="reset-filters">Zrušiť všetky filtre</button></div>
     </div>
     <div class="cards" id="cards"></div>
   </div>
@@ -280,6 +366,7 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
   <div id="view-port" class="hidden"></div>
 
   <footer id="footer"></footer>
+  </div>
 </div>
 
 <dialog id="detail">
@@ -297,7 +384,38 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
 <script>
 const state = {data:null, formats:new Set(), series:new Set(), q:"",
                onlyStock:false, onlyTier:false, byRating:false, view:'today', histKey:null,
-               shopId:null};
+               shopId:null,
+               minEur:null, maxEur:null, minRating:0, minDiscount:0, shopOnly:""};
+
+/* Filtre prežijú obnovenie stránky. Úložisko môže byť zakázané (súkromné okno),
+   preto je každý prístup v try — keď zlyhá, appka beží ďalej s prázdnym stavom. */
+const FKEY = 'cenmapa-filtre-v1';
+function saveFilters(){
+  try{
+    localStorage.setItem(FKEY, JSON.stringify({
+      formats:[...state.formats], series:[...state.series],
+      onlyStock:state.onlyStock, onlyTier:state.onlyTier,
+      minEur:state.minEur, maxEur:state.maxEur,
+      minRating:state.minRating, minDiscount:state.minDiscount, shopOnly:state.shopOnly,
+    }));
+  }catch{}
+}
+function loadFilters(){
+  let raw = null;
+  try{ raw = localStorage.getItem(FKEY); }catch{}
+  if(!raw) return;
+  let v; try{ v = JSON.parse(raw); }catch{ return; }
+  if(!v || typeof v !== 'object') return;
+  state.formats = new Set(Array.isArray(v.formats) ? v.formats : []);
+  state.series  = new Set(Array.isArray(v.series)  ? v.series  : []);
+  state.onlyStock = !!v.onlyStock;
+  state.onlyTier  = !!v.onlyTier;
+  state.minEur = Number.isFinite(v.minEur) ? v.minEur : null;
+  state.maxEur = Number.isFinite(v.maxEur) ? v.maxEur : null;
+  state.minRating   = Number(v.minRating)   || 0;
+  state.minDiscount = Number(v.minDiscount) || 0;
+  state.shopOnly = typeof v.shopOnly === 'string' ? v.shopOnly : "";
+}
 
 const eur = v => v==null ? '—'
   : v.toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
@@ -322,6 +440,23 @@ function matchesSeries(series){
   return state.series.has('OLD') && OLD_SERIES.includes(series);
 }
 
+/* Cena, podľa ktorej sa filtruje: najlacnejšia ponuka SKLADOM. Keď produkt
+   skladom nikde nie je, berie sa najlacnejšia vôbec — inak by cenový filter
+   ticho zhltol všetko vypredané a nedalo by sa sledovať, kam sa cena posunula. */
+const cenaProduktu = p => p.min_eur != null ? p.min_eur : p.min_any_eur;
+
+/* O koľko percent je najlacnejšia ponuka pod mediánom. Záporné číslo = lacnejšie.
+   Počíta sa len z mediánu, ktorému sken verí (dosť ponúk od dosť predajcov),
+   inak by "zľava" vychádzala z jedinej ceny porovnanej sama so sebou. */
+function podMedianom(p){
+  if(!p.median_trusted || !p.median_eur || p.min_eur == null) return null;
+  return (p.min_eur - p.median_eur) / p.median_eur * 100;
+}
+
+function maSkladomEshop(p, shopId){
+  return p.offers.some(o => o.shop_id === shopId && o.in_stock && !o.outlier);
+}
+
 function visibleProducts(){
   const q = state.q.trim().toLowerCase();
   return state.data.products.filter(p=>{
@@ -329,6 +464,18 @@ function visibleProducts(){
     if(state.series.size && !matchesSeries(p.edition.series)) return false;
     if(state.formats.size && !state.formats.has(p.format.id)) return false;
     if(state.onlyStock && p.in_stock_count === 0) return false;
+    if(state.minEur != null || state.maxEur != null){
+      const c = cenaProduktu(p);
+      if(c == null) return false;
+      if(state.minEur != null && c < state.minEur) return false;
+      if(state.maxEur != null && c > state.maxEur) return false;
+    }
+    if(state.minRating > 0 && (p.rating || 0) < state.minRating) return false;
+    if(state.minDiscount > 0){
+      const d = podMedianom(p);
+      if(d == null || d > -state.minDiscount) return false;
+    }
+    if(state.shopOnly && !maSkladomEshop(p, state.shopOnly)) return false;
     if(q){
       const hay = `${p.title} ${p.edition.name} ${p.edition.code} ${p.format.name}`.toLowerCase();
       if(!hay.includes(q)) return false;
@@ -1044,32 +1191,129 @@ function boot(data){
     bar.textContent = `Pozor: dáta sú z ${data.date}, dnes je ${today}. Denný sken zrejme neprebehol.`;
     bar.classList.remove('hidden');
   }
+  loadFilters();
+  fillShopPicker();
+  syncFilterUI();
+  /* Keď si filtre pamätáme z minule, zásuvka sa otvorí sama — inak by bol
+     zoznam nevysvetliteľne krátky hneď po načítaní. */
+  if(filterCount() > 0){
+    document.getElementById('filters').classList.remove('hidden');
+    document.getElementById('open-filters').setAttribute('aria-expanded','true');
+  }
   renderCards(); renderFooter();
 }
 
+/* Koľko filtrov je zapnutých. Ide na odznak pri tlačidle Filtre — bez neho
+   sa dá zavrieť zásuvku a potom sa čudovať, prečo je v zozname 12 položiek.
+   Zoradenie „podľa hodnotenia" sa nepočíta, to nič neskrýva. */
+function filterCount(){
+  return (state.series.size ? 1 : 0) + (state.formats.size ? 1 : 0)
+    + ((state.minEur != null || state.maxEur != null) ? 1 : 0)
+    + (state.minRating > 0 ? 1 : 0) + (state.minDiscount > 0 ? 1 : 0)
+    + (state.shopOnly ? 1 : 0) + (state.onlyStock ? 1 : 0) + (state.onlyTier ? 1 : 0);
+}
+
+function syncFilterUI(){
+  const n = filterCount();
+  const badge = document.getElementById('filter-count');
+  badge.textContent = n;
+  badge.classList.toggle('hidden', n === 0);
+  document.querySelectorAll('.f[data-fmt]').forEach(b=>
+    b.setAttribute('aria-pressed', String(state.formats.has(b.dataset.fmt))));
+  document.querySelectorAll('.f[data-series]').forEach(b=>
+    b.setAttribute('aria-pressed', String(state.series.has(b.dataset.series))));
+  document.getElementById('only-stock').setAttribute('aria-pressed', String(state.onlyStock));
+  document.getElementById('only-tier').setAttribute('aria-pressed', String(state.onlyTier));
+  document.getElementById('f-min-eur').value = state.minEur ?? '';
+  document.getElementById('f-max-eur').value = state.maxEur ?? '';
+  document.getElementById('f-rating').value = state.minRating;
+  document.getElementById('f-rating-val').textContent =
+    state.minRating > 0 ? `aspoň ${state.minRating.toFixed(1).replace('.', ',')}` : 'bez limitu';
+  document.getElementById('f-disc').value = state.minDiscount;
+  document.getElementById('f-disc-val').textContent =
+    state.minDiscount > 0 ? `aspoň −${state.minDiscount} %` : 'bez limitu';
+  document.getElementById('f-shop-pick').value = state.shopOnly;
+}
+
+function filtersChanged(){ syncFilterUI(); saveFilters(); renderCards(); }
+
+/* Do výberu ide len eshop, ktorý má naozaj niečo skladom — mŕtvy alebo
+   spadnutý obchod v zozname by dal prázdny výsledok bez vysvetlenia. */
+function fillShopPicker(){
+  const sel = document.getElementById('f-shop-pick');
+  const zivy = new Set();
+  for(const p of state.data.products)
+    for(const o of p.offers) if(o.in_stock && !o.outlier) zivy.add(o.shop_id);
+  const zoznam = [...zivy].map(id=>({id, name:shopName(id)}))
+                          .sort((a,b)=>a.name.localeCompare(b.name,'sk'));
+  sel.length = 1;
+  for(const sh of zoznam) sel.add(new Option(sh.name, sh.id));
+  if(state.shopOnly && !zivy.has(state.shopOnly)) state.shopOnly = "";
+  sel.value = state.shopOnly;
+}
+
+document.getElementById('open-filters').addEventListener('click', e=>{
+  const box = document.getElementById('filters');
+  const open = box.classList.toggle('hidden') === false;
+  e.currentTarget.setAttribute('aria-expanded', String(open));
+});
 document.querySelectorAll('.f[data-fmt]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     const id = btn.dataset.fmt;
     state.formats.has(id) ? state.formats.delete(id) : state.formats.add(id);
-    btn.setAttribute('aria-pressed', String(state.formats.has(id)));
-    renderCards();
+    filtersChanged();
   });
 });
 document.querySelectorAll('.f[data-series]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     const id = btn.dataset.series;
     state.series.has(id) ? state.series.delete(id) : state.series.add(id);
-    btn.setAttribute('aria-pressed', String(state.series.has(id)));
-    renderCards();
+    filtersChanged();
   });
 });
-for(const [id,key] of [['only-stock','onlyStock'],['only-tier','onlyTier'],['by-rating','byRating']]){
-  document.getElementById(id).addEventListener('click', e=>{
+for(const [id,key] of [['only-stock','onlyStock'],['only-tier','onlyTier']]){
+  document.getElementById(id).addEventListener('click', ()=>{
     state[key] = !state[key];
-    e.currentTarget.setAttribute('aria-pressed', String(state[key]));
-    renderCards();
+    filtersChanged();
   });
 }
+document.getElementById('by-rating').addEventListener('click', e=>{
+  state.byRating = !state.byRating;
+  e.currentTarget.setAttribute('aria-pressed', String(state.byRating));
+  renderCards();
+});
+/* Prázdne pole znamená „bez hranice", nie nula. Záporné číslo nedáva zmysel. */
+const cislo = v => { const n = parseFloat(v); return Number.isFinite(n) && n >= 0 ? n : null; };
+document.getElementById('f-min-eur').addEventListener('input', e=>{
+  state.minEur = cislo(e.target.value); saveFilters(); syncBadgeOnly(); renderCards();
+});
+document.getElementById('f-max-eur').addEventListener('input', e=>{
+  state.maxEur = cislo(e.target.value); saveFilters(); syncBadgeOnly(); renderCards();
+});
+/* Pri písaní do políčka sa nesmie prepísať jeho vlastná hodnota (kurzor by
+   skákal na koniec), tak sa obnoví len odznak. */
+function syncBadgeOnly(){
+  const n = filterCount();
+  const badge = document.getElementById('filter-count');
+  badge.textContent = n;
+  badge.classList.toggle('hidden', n === 0);
+}
+document.getElementById('f-rating').addEventListener('input', e=>{
+  state.minRating = parseFloat(e.target.value) || 0; filtersChanged();
+});
+document.getElementById('f-disc').addEventListener('input', e=>{
+  state.minDiscount = parseFloat(e.target.value) || 0; filtersChanged();
+});
+document.getElementById('f-shop-pick').addEventListener('change', e=>{
+  state.shopOnly = e.target.value; filtersChanged();
+});
+document.getElementById('reset-filters').addEventListener('click', ()=>{
+  state.formats.clear(); state.series.clear();
+  state.onlyStock = false; state.onlyTier = false;
+  state.minEur = null; state.maxEur = null;
+  state.minRating = 0; state.minDiscount = 0; state.shopOnly = "";
+  filtersChanged();
+});
 document.getElementById('q').addEventListener('input', e=>{
   state.q = e.target.value; renderCards();
 });
