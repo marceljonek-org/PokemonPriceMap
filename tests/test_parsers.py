@@ -1328,3 +1328,25 @@ def test_premium_figure_collection_stays_premium():
     assert a.format.id == b.format.id == "premium-collection"
     assert classify.classify("Pokémon TCG: 30th Celebration Mew Figure Collection").format.id \
         == "figure-collection"
+
+
+def test_ex_box_and_tin_variants_are_separate():
+    """30th Celebration má ex Box aj ex Tin v prevedení Sylveon a Greninja —
+    sú to štyri rôzne produkty, nie dva."""
+    a = classify.classify("Pokémon TCG: 30th Celebration Greninja ex Box")
+    b = classify.classify("Pokémon TCG: 30th Celebration Sylveon ex Box")
+    assert a.format.id == b.format.id == "ex-box"
+    assert a.variant == "greninja" and b.variant == "sylveon"
+
+
+def test_day_marker_does_not_break_pokemon_day_promo():
+    """Marker „day" rozlišuje Ultra-Premium Collection Day od Night. Nesmie ale
+    chytiť „Pokémon Day 2026" — to je promo balenie, ktoré sa zoskupuje podľa
+    ročníka, a jeden eshop ho uvádza ako „Pokémon Day 2026 Collection
+    (30th Anniversary)"."""
+    a = classify.classify("Pokémon TCG: Pokémon Day 2026 Collection")
+    b = classify.classify("Pokémon TCG: Pokémon Day 2026 Collection (30th Anniversary)")
+    assert a.variant == "day-2026"
+    assert "day" not in b.variant.replace("day-2026", ""), b.variant
+    upc = classify.classify("Pokémon TCG: 30th Celebration Ultra-Premium Collection - Day")
+    assert upc.variant == "day"

@@ -190,6 +190,18 @@ td.n{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
   border:1px solid var(--line);background:var(--ground);color:var(--ink)}
 .tgt label{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
 @media (max-width:600px){.buy{grid-template-columns:34px 1fr}.buy .right{grid-column:2;align-items:flex-start;text-align:left}}
+.shoprow{display:grid;grid-template-columns:1.6fr repeat(4,minmax(78px,1fr));gap:10px;align-items:center;
+  padding:11px 14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);
+  cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%;margin-bottom:8px}
+.shoprow:hover{border-color:var(--accent)}
+.shoprow[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.shoprow .nm{font-weight:700;font-size:14.5px}
+.shoprow .kv{font-family:var(--font-mono);font-size:12px;color:var(--muted);text-align:right}
+.shoprow .kv b{display:block;font-size:14px;color:var(--ink)}
+.cheap{color:var(--ok);font-weight:600} .dear{color:var(--crit);font-weight:600}
+.shophead{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;margin:26px 0 12px}
+.shophead h3{margin:0;font-size:17px}
+@media (max-width:760px){.shoprow{grid-template-columns:1fr 1fr 1fr}.shoprow .nm{grid-column:1/-1}}
 .hist-pick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
 .chart{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:18px}
 .chart svg{width:100%;height:300px;display:block}
@@ -219,6 +231,7 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="tab-today" aria-selected="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg><span>Dnes</span></button>
       <button class="tab" role="tab" id="tab-buy" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h2l2.5 10h10L20 8H6.5"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></svg><span>Kúpiť dnes</span></button>
+      <button class="tab" role="tab" id="tab-shops" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></svg><span>Eshopy</span></button>
       <button class="tab" role="tab" id="tab-moves" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Pohyby</span></button>
       <button class="tab" role="tab" id="tab-hist" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>História</span></button>
       <button class="tab" role="tab" id="tab-port" aria-selected="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Portfólio</span></button>
@@ -255,6 +268,8 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
 
   <div id="view-buy" class="hidden"></div>
 
+  <div id="view-shops" class="hidden"></div>
+
   <div id="view-moves" class="hidden"></div>
 
   <div id="view-hist" class="hidden">
@@ -281,7 +296,8 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
 
 <script>
 const state = {data:null, formats:new Set(), series:new Set(), q:"",
-               onlyStock:false, onlyTier:false, byRating:false, view:'today', histKey:null};
+               onlyStock:false, onlyTier:false, byRating:false, view:'today', histKey:null,
+               shopId:null};
 
 const eur = v => v==null ? '—'
   : v.toLocaleString('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
@@ -478,6 +494,114 @@ function renderBuy(){
     ak sa už netlačí). Žiadny odhad budúcnosti — len to, čo sa dá dnes odmerať.
     Ponuky označené <em>overiť</em> sú z rebríčka vynechané. Nie je to investičné poradenstvo.</p>`
     + list + waiting;
+}
+
+/* ---------------------------------------------------------- porovnanie eshopov
+   Celé sa to počíta tu z latest.json — nič sa nedosťahúva. Pri každej ponuke
+   hľadáme najlacnejšiu cenu toho istého produktu u INÉHO predajcu. Mutácie tej
+   istej firmy (Pompo.cz/Pompo.sk, Alza CZ/SK) sa berú ako jeden predajca, inak
+   by eshop súperil sám so sebou. */
+function sellerOf(shopId){
+  const map = state.data.sellers || {};
+  return map[shopId] || shopId;
+}
+
+function shopIndex(){
+  const rows = {};
+  for(const p of state.data.products){
+    /* Ponuku označenú `overiť` alebo `skok ceny` vynechávame rovnako ako
+       v rebríčku — býva to iný tovar alebo chybný odčet a v porovnaní eshopov
+       by sa tvárila ako stopercentná zľava. */
+    const skladom = p.offers.filter(o=>o.in_stock && !o.outlier && !o.flag.startsWith('overiť'));
+    if(!skladom.length) continue;
+    const najlacnejsie = {};                 // predajca -> jeho najnižšia cena
+    for(const o of skladom){
+      const s = sellerOf(o.shop_id);
+      if(!(s in najlacnejsie) || o.price_eur < najlacnejsie[s]) najlacnejsie[s] = o.price_eur;
+    }
+    for(const o of skladom){
+      const ini = Object.entries(najlacnejsie)
+        .filter(([s])=>s !== sellerOf(o.shop_id)).map(([,v])=>v);
+      const best = ini.length ? Math.min(...ini) : null;
+      (rows[o.shop_id] = rows[o.shop_id] || []).push({
+        key:p.key, title:p.title, price:o.price_eur, url:o.url, rating:p.rating,
+        best, delta: best ? (o.price_eur - best) / best * 100 : null,
+      });
+    }
+  }
+  return rows;
+}
+
+function shopSummary(rows){
+  const porov = rows.filter(r=>r.delta!=null);
+  const odchylky = porov.map(r=>r.delta).sort((a,b)=>a-b);
+  return {
+    skladom: rows.length,
+    porovnatelnych: porov.length,
+    najlacnejsi: porov.filter(r=>r.delta<=0).length,
+    median: odchylky.length ? odchylky[Math.floor(odchylky.length/2)] : null,
+  };
+}
+
+function renderShops(){
+  const box = document.getElementById('view-shops');
+  const index = shopIndex();
+  const zoznam = state.data.shops
+    .map(s=>({shop:s, rows:index[s.id]||[], sum:shopSummary(index[s.id]||[])}))
+    .filter(x=>x.rows.length)
+    .sort((a,b)=>b.rows.length-a.rows.length);
+
+  const hlavicka = `<p class="buy-note">Porovnáva sa najlacnejšia ponuka toho istého
+    produktu u iného predajcu — teda „dal by som to inde lacnejšie?". Do porovnania
+    vstupujú len produkty, ktoré má skladom aspoň jeden ďalší predajca; české
+    a slovenské mutácie tej istej firmy sa berú ako jeden.</p>
+    <div class="shoprow" style="cursor:default;background:transparent;border:0;margin-bottom:2px">
+      <span class="kv" style="text-align:left">eshop</span>
+      <span class="kv">skladom</span><span class="kv">porovnateľných</span>
+      <span class="kv">najlacnejší</span><span class="kv">medián odchýlky</span>
+    </div>`;
+
+  const riadky = zoznam.map(({shop,rows,sum})=>`
+    <button class="shoprow" data-shop="${shop.id}" aria-pressed="${state.shopId===shop.id}">
+      <span class="nm">${shop.name}</span>
+      <span class="kv"><b>${sum.skladom}</b>položiek</span>
+      <span class="kv"><b>${sum.porovnatelnych}</b>porovnateľných</span>
+      <span class="kv"><b>${sum.najlacnejsi}</b>najlacnejší</span>
+      <span class="kv"><b class="${sum.median==null?'':(sum.median<=0?'cheap':'dear')}">${
+        sum.median==null ? '—' : (sum.median>0?'+':'')+sum.median.toFixed(1)+' %'}</b>oproti najlepšej</span>
+    </button>`).join('');
+
+  let detail = '';
+  const zvoleny = zoznam.find(x=>x.shop.id===state.shopId);
+  if(zvoleny){
+    const rows = zvoleny.rows.slice().sort((a,b)=>
+      (a.delta==null)-(b.delta==null) || (a.delta??0)-(b.delta??0));
+    detail = `
+      <div class="shophead">
+        <h3>${zvoleny.shop.name} — ${rows.length} položiek skladom</h3>
+        <span class="count">zoradené od najvýhodnejších</span>
+      </div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>Produkt</th><th>Cena tu</th><th>Najlacnejšie inde</th>
+          <th>Rozdiel</th><th>Hodnotenie</th><th></th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td>${r.title}</td>
+          <td class="n">${eur(r.price)}</td>
+          <td class="n">${r.best!=null?eur(r.best):'<span class="sub">nikto iný nemá</span>'}</td>
+          <td class="n">${r.delta==null ? '—'
+            : `<b class="${r.delta<=0?'cheap':'dear'}">${r.delta>0?'+':''}${r.delta.toFixed(1)} %</b>`}</td>
+          <td class="n">${r.rating!=null?r.rating.toFixed(1):'—'}</td>
+          <td><a href="${r.url}" target="_blank" rel="noopener">otvoriť</a></td>
+        </tr>`).join('')}</tbody></table></div>`;
+  } else {
+    detail = '<p class="count" style="margin-top:22px">Klikni na eshop a uvidíš jeho sortiment.</p>';
+  }
+
+  box.innerHTML = hlavicka + riadky + detail;
+  box.querySelectorAll('[data-shop]').forEach(b=>b.addEventListener('click', ()=>{
+    state.shopId = state.shopId===b.dataset.shop ? null : b.dataset.shop;
+    renderShops();
+  }));
 }
 
 function renderMoves(){
@@ -895,14 +1019,15 @@ function renderFooter(){
 
 function setView(name){
   state.view = name;
-  const map = [['tab-today','view-today'],['tab-buy','view-buy'],['tab-moves','view-moves'],
-               ['tab-hist','view-hist'],['tab-port','view-port']];
+  const map = [['tab-today','view-today'],['tab-buy','view-buy'],['tab-shops','view-shops'],
+               ['tab-moves','view-moves'],['tab-hist','view-hist'],['tab-port','view-port']];
   for(const [id,view] of map){
     const active = id === 'tab-'+name;
     document.getElementById(id).setAttribute('aria-selected', String(active));
     document.getElementById(view).classList.toggle('hidden', !active);
   }
   if(name==='buy') renderBuy();
+  if(name==='shops') renderShops();
   if(name==='moves') renderMoves();
   if(name==='hist') renderHistory();
   if(name==='port') renderPortfolio();
@@ -994,6 +1119,7 @@ async function runScan(){
 document.getElementById('scan-now').addEventListener('click', runScan);
 document.getElementById('tab-today').addEventListener('click', ()=>setView('today'));
 document.getElementById('tab-buy').addEventListener('click', ()=>setView('buy'));
+document.getElementById('tab-shops').addEventListener('click', ()=>setView('shops'));
 document.getElementById('tab-moves').addEventListener('click', ()=>setView('moves'));
 document.getElementById('tab-hist').addEventListener('click', ()=>setView('hist'));
 document.getElementById('tab-port').addEventListener('click', ()=>setView('port'));

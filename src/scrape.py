@@ -1165,6 +1165,9 @@ async def run(args) -> int:
         "watchlist": watchlist,
         "recommendations": recommendations,
         "portfolio_endpoint": PROXY_URL,
+        # Stránka potrebuje vedieť, ktoré eshopy sú tá istá firma — inak by
+        # v porovnaní eshopov Pompo.sk súperilo samo so sebou.
+        "sellers": SELLER_OF,
         "counts": {"offers": kept, "products": len(products),
                    "unknown": len(unknown),
                    "min_sellers_for_median": MIN_FOR_MEDIAN},

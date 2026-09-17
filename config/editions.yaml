@@ -862,13 +862,19 @@ pack_overrides:
 # uvádzajú všetky eshopy, nie ozdoba v názve u jedného z nich.
 variant_markers:
   - "pok[eé]mon\\s+cent(er|rum)"
-  - "\\bday\\b"
+  # "day" NESMIE chytiť "Pokémon Day 2026" — to je promo balenie, ktoré sa
+  # zoskupuje podľa ročníka. Jeden eshop ho uvádza ako "Pokémon Day 2026
+  # Collection (30th Anniversary)" a marker ho rozdelil od ostatných.
+  - "(?<!pokemon )\\bday\\b"
   - "\\bnight\\b"
   - "\\bditto\\b"
   - "\\bmewtwo\\b"
   - "\\bmew\\b"
   - "\\bespeon\\b"
   - "\\bumbreon\\b"
+  # ex Box aj ex Tin vychádzajú v dvoch prevedeniach
+  - "\\bsylveon\\b"
+  - "\\bgreninja\\b"
 
 exclude_patterns:
   - "japon|japan|jap\\.|\\bjp\\b|\\(jap"

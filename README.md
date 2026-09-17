@@ -363,6 +363,31 @@ nesťahuje zvonku. Na úzkych obrazovkách zostanú v záložkách len ikony.
 
 ---
 
+## Porovnanie eshopov
+
+Záložka *Eshopy* zoradí obchody a pri každom ukáže, koľko má položiek skladom,
+pri koľkých sa dá porovnať s konkurenciou, v koľkých je najlacnejší a aká je
+jeho **stredná odchýlka od najlepšej ceny**. Po kliknutí sa rozbalí celý jeho
+sortiment: cena u nich, najlacnejšia cena inde a rozdiel v percentách.
+
+Celé sa to počíta v prehliadači z `latest.json` — nič sa nedosťahúva.
+
+Tri veci, ktoré to robí správne a nie sú samozrejmé:
+
+- porovnáva sa proti **najlacnejšej ponuke iného predajcu**, nie proti mediánu —
+  odpovedá to na otázku „dal by som to inde lacnejšie?"
+- **mutácie tej istej firmy nesúperia samy so sebou** (Pompo.cz a Pompo.sk, Alza
+  CZ/SK, PGS a Smarty) — inak by eshop vyzeral ako vlastná konkurencia; zoznam
+  posiela sken v poli `sellers`
+- ponuky označené `overiť` alebo `skok ceny` sa do porovnania neberú, inak by sa
+  chybný odčet tváril ako stopercentná zľava
+
+Do porovnania vstupujú len produkty, ktoré má skladom aspoň jeden ďalší predajca.
+Pri starších setoch treba veľké rozdiely brať s rezervou — spravidla neznamenajú
+zľavu, ale že každý eshop predáva niečo trochu iné (iný jazyk, iný stav balenia).
+
+---
+
 ## Investičné hodnotenie 1–10
 
 Číslo na karte produktu vpravo hore. Odpovedá na otázku **„oplatí sa to vôbec
@@ -590,7 +615,7 @@ docs/theme.css                voliteľné úpravy vzhľadu (prebijú predvolené
 docs/latest.json              dáta, ktoré stránka číta
 data/history.csv              každý sken, každá ponuka
 data/unknown.csv              nerozpoznané názvy na kontrolu
-tests/                        234 testov nad gzip snapshotmi
+tests/                        236 testov nad gzip snapshotmi
 data/portfolio-history.csv    denná hodnota portfólia (graf)
 data/alerts-sent.csv          čo už išlo na Telegram (proti opakovaniu)
 tools/demo_from_fixtures.py   náhľad bez siete
