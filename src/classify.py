@@ -50,6 +50,7 @@ class Format:
     short: str
     packs: int | None       # None = počet balíčkov sa líši podľa setu
     edition_optional: bool  # smie existovať aj bez rozpoznanej edície
+    no_variant: bool        # meno pokémona na obale sa pri tomto formáte ignoruje
     patterns: tuple
 
 
@@ -79,6 +80,7 @@ def _config() -> dict:
         Format(
             id=f["id"], name=f["name"], short=f["short"], packs=f.get("packs"),
             edition_optional=bool(f.get("edition_optional")),
+            no_variant=bool(f.get("no_variant")),
             patterns=tuple(re.compile(normalize(p), re.I) for p in f["patterns"]),
         )
         for f in raw["formats"]
@@ -88,12 +90,16 @@ def _config() -> dict:
     }
     excludes = tuple(re.compile(normalize(p), re.I) for p in raw.get("exclude_patterns", []))
     markers = tuple(re.compile(normalize(p), re.I) for p in raw.get("variant_markers", []))
+    pokemons = tuple(
+        re.compile(normalize(p), re.I) for p in raw.get("pokemon_variants", [])
+    )
     launch = {k: float(v) for k, v in (raw.get("launch_price_eur") or {}).items()}
     return {
         "editions": editions,
         "formats": formats,
         "overrides": overrides,
         "markers": markers,
+        "pokemons": pokemons,
         "excludes": excludes,
         "launch": launch,
     }
@@ -161,13 +167,33 @@ def classify(name: str, require_brand: bool = True) -> Classification | None:
         return Classification(edition=edition, format=fmt, packs=packs, variant=variant)
 
     packs = _config()["overrides"].get((edition.id, fmt.id), fmt.packs)
-    # Jedna edícia môže mať v tom istom formáte viac rôznych produktov — 30th
-    # Celebration má Ultra-Premium Collection v prevedení Day aj Night a ETB
-    # v bežnej aj Pokémon Center verzii. Bez rozlišovača by splynuli do jedného
-    # kľúča a medián by sa počítal z cien dvoch rôznych vecí.
+    return Classification(
+        edition=edition, format=fmt, packs=packs, variant=variant_of(n, fmt)
+    )
+
+
+def variant_of(n: str, fmt: Format) -> str:
+    """Rozlišovač prevedenia v rámci jednej edície a jedného formátu.
+
+    Jedna edícia môže mať v tom istom formáte viac rôznych produktov — 30th
+    Celebration má Ultra-Premium Collection v prevedení Day aj Night, ex Box
+    v prevedení Sylveon aj Greninja. Bez rozlišovača by splynuli do jedného
+    kľúča a medián by sa počítal z cien dvoch rôznych vecí.
+
+    Dve výnimky, obe zistené na reálnych názvoch z eshopov:
+
+    * Formát s `no_variant` (mini plechovky) meno pokémona ignoruje — deväť
+      prevedení za rovnakú cenu je jeden produkt, nie deväť.
+    * Keď v názve sedia DVE mená naraz ("Tin - Greninja ex, Sylveon ex"),
+      nejde o tretí produkt, ale o spoločnú ponuku oboch. Meno sa zahodí a
+      položka spadne ku generickému formátu, kde sa dá cena porovnať.
+    """
     found = [m.group(0) for m in (p.search(n) for p in _config()["markers"]) if m]
-    variant = "-".join(re.sub(r"[^a-z0-9]+", "-", w).strip("-") for w in found)
-    return Classification(edition=edition, format=fmt, packs=packs, variant=variant)
+    if not fmt.no_variant:
+        pokemons = [m.group(0) for m in (p.search(n) for p in _config()["pokemons"]) if m]
+        if len(pokemons) == 1:
+            found += pokemons
+    return "-".join(re.sub(r"[^a-z0-9]+", "-", w).strip("-") for w in found)
 
 def looks_like_new_edition(name: str) -> bool:
     """Vyzerá to ako sledovaný formát, ale edíciu nepoznáme?

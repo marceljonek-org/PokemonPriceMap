@@ -30,6 +30,7 @@ shops:
       - https://www.cardstore.cz/elite-trainer-boxy-etb/
       - https://www.cardstore.cz/pokemon-specialni-sety/
       - https://www.cardstore.cz/pokemon-tins-plechovky/
+      - https://www.cardstore.cz/30-vyroci-pokemon-karet/
 
   - id: fyft-cz
     name: Fyft.cz
@@ -56,6 +57,7 @@ shops:
       - https://www.nekonecno.sk/pokemon-perfect-order/
       - https://www.nekonecno.sk/pokemon-chaos-rising/
       - https://www.nekonecno.sk/pokemon-pitch-black/
+      - https://www.nekonecno.sk/pokemon-30th-celebration/
 
   - id: pokemon4u-cz
     name: Pokemon4U.cz
@@ -132,6 +134,7 @@ shops:
     urls:
       - https://www.digihry.sk/c-1749/booster-box-pokemon-merch
       - https://www.digihry.sk/c-1746/pokemon-merch/234
+      - https://www.digihry.sk/c-2249/30th-anniversary-pokemon-pokemon-merch
 
   - id: pgs-sk
     name: PGS.sk
@@ -292,8 +295,13 @@ shops:
     adapter: shopify
     base: https://www.64ka.sk
     pokemon_only: true   # všetky kategórie nižšie sú pokémonie
+    # Obe kolekcie sú čisto pokémonie, preto sa smie vypnúť kontrola značky.
+    # Bez nej appka zahodila celú 30th Celebration — 64ka značku do názvov
+    # nepíše ("30th Celebration Binder Collection", bez slova Pokémon).
+    pokemon_only: true
     urls:
       - https://www.64ka.sk/collections/pokemon-tcg
+      - https://www.64ka.sk/collections/pokemon-30th-anniversary
 
   - id: pokectcg-cz
     name: PokecTCG.cz
@@ -329,6 +337,7 @@ shops:
     pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://geekhall.cz/kategorie/sberatelske-hry-2/pokemoni/
+      - https://geekhall.cz/kategorie/sberatelske-hry-2/pokemoni/podle-setu/30th-celebration/
 
   - id: xzone-cz
     name: Xzone.cz
@@ -410,6 +419,7 @@ shops:
       - https://www.konzoliste.cz/pokemon-balicky/
       - https://www.konzoliste.cz/pokemon-ex-boxy/
       - https://www.konzoliste.cz/pokemon-tin-plechovky/
+      - https://www.konzoliste.cz/30th-celebration/
 
   - id: sparkys-sk
     name: Sparkys.sk

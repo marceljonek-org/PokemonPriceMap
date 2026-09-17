@@ -735,6 +735,15 @@ formats:
     edition_optional: true   # predáva sa aj bez kódu setu (napr. Mega Charizard X ex UPC)
     patterns: ["illustration\\s+collection"]
 
+  # Battle Deck je hotová 60-kartová paluba, nie zapečatené boostery. Vlastný
+  # formát potrebuje preto, aby cena palubky (35–45 €) nepadla do mediánu
+  # plechoviek ani boxov. 30th Celebration ich má dve — Espeon ex a Umbreon ex.
+  - id: battle-deck
+    name: Battle Deck
+    short: Battle Deck
+    packs: 0
+    patterns: ["battle\\s*deck", "battle[\\s-]*academy"]
+
   - id: ex-box
     name: ex Box
     short: ex Box
@@ -748,12 +757,18 @@ formats:
     name: Mini Tin Display
     short: Tin Display
     packs: 20
+    no_variant: true
     patterns: ["mini\\s*tin[\\s\\-–]*(box\\s+)?display", "display[\\s\\-–]*mini\\s*tin"]
 
+  # `no_variant`: mini plechovky sa predávajú v deviatich pokémoních
+  # prevedeniach za rovnakú cenu. Rozdeliť ich podľa mena znamená deväť
+  # produktov po jednej ponuke a žiadny medián — a navyše by sa nikdy
+  # nestretli s eshopmi, ktoré predávajú len generickú "Mini Tin".
   - id: mini-tin
     name: Mini Tin
     short: Mini Tin
     packs: 2
+    no_variant: true
     patterns: ["mini\\s+tin"]
 
   - id: ex-tin
@@ -860,6 +875,16 @@ pack_overrides:
 #
 # Pozor: čo tu pridáš, to produkt rozdelí. Marker preto musí byť niečo, čo
 # uvádzajú všetky eshopy, nie ozdoba v názve u jedného z nich.
+# Rozlišovače prevedenia. Sú dva zoznamy, lebo sa správajú inak:
+#
+# `variant_markers` sú vlastnosti balenia (exkluzivita pre Pokémon Center,
+# denná/nočná verzia). Zrátajú sa všetky, ktoré v názve sedia.
+#
+# `pokemon_variants` sú mená pokémonov na obale. Tie platia len ak sedí PRÁVE
+# JEDNO. Keď eshop predáva obe prevedenia pod jednou položkou — "Tin: Greninja
+# ex, Sylveon ex" alebo "Sylveon ex Tin / Greninja ex Tin" — nie je to tretí
+# produkt, ale spoločná ponuka; vtedy sa meno zahodí a položka spadne ku
+# generickej "ex Tin", kde sa reálne dá porovnať cena.
 variant_markers:
   - "pok[eé]mon\\s+cent(er|rum)"
   # "day" NESMIE chytiť "Pokémon Day 2026" — to je promo balenie, ktoré sa
@@ -867,6 +892,8 @@ variant_markers:
   # Collection (30th Anniversary)" a marker ho rozdelil od ostatných.
   - "(?<!pokemon )\\bday\\b"
   - "\\bnight\\b"
+
+pokemon_variants:
   - "\\bditto\\b"
   - "\\bmewtwo\\b"
   - "\\bmew\\b"

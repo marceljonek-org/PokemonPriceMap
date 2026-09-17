@@ -714,9 +714,16 @@ INVESTMENT_FORMAT = {
     "booster-box": 1.00, "bundle-display": 0.98, "ultra-premium": 0.92,
     "super-premium": 0.88, "etb": 0.85, "half-box": 0.72, "bundle": 0.68,
     "illustration-collection": 0.58, "premium-collection": 0.55,
+    # Doplnené dodatočne: oba formáty pribudli neskôr a v tabuľke chýbali,
+    # takže ticho padali na náhradnú hodnotu 0.30 — Figure Collection tým
+    # dostávala menej, než jej patrí, a Knock Out Collection viac.
+    "figure-collection": 0.50, "knock-out-collection": 0.25,
     "mini-tin-display": 0.55, "ex-box": 0.45, "binder-collection": 0.40,
     "event-collection": 0.38, "ex-tin": 0.30, "blister-3": 0.30, "booster": 0.28,
     "mini-tin": 0.28, "blister-2": 0.26, "blister-1": 0.22,
+    # Battle Deck je hotová paluba z prevažne dotlačených kariet — zo
+    # zapečatených 30th produktov najslabšia investícia hneď po plagátoch.
+    "battle-deck": 0.18,
     "poster-collection": 0.12, "sticker-collection": 0.12, "pin-collection": 0.12,
     "pouch-collection": 0.12, "surprise-box": 0.10,
 }

@@ -1188,12 +1188,20 @@ def test_pokemon_only_shops_have_only_pokemon_categories():
     # Eshopy, kde je pokémonia celá doména, nemusia mať slovo v ceste kategórie.
     POKEMON_DOMAINS = ("poke-world.eu", "rarepocket.sk", "pokemon4u.cz",
                        "pokectcg.cz", "pokelio.cz")
+    # Kategórie pomenované podľa pokémonieho setu — slovo "pokemon" v ceste
+    # nemajú, ale nič iné ako Pokémon v nich byť nemôže. Sem patrí len URL,
+    # ktorú som naozaj otvoril a obsah overil.
+    EDITION_CATEGORIES = (
+        "https://www.konzoliste.cz/30th-celebration/",
+    )
     for shop in config["shops"]:
         if not shop.get("pokemon_only"):
             continue
         if any(d in shop["base"] for d in POKEMON_DOMAINS):
             continue
         for url in shop["urls"]:
+            if url in EDITION_CATEGORIES:
+                continue
             assert "pokemon" in url.lower(), \
                 f"{shop['id']}: {url} nie je pokémonia kategória, príznak je nebezpečný"
 
@@ -1350,3 +1358,121 @@ def test_day_marker_does_not_break_pokemon_day_promo():
     assert "day" not in b.variant.replace("day-2026", ""), b.variant
     upc = classify.classify("Pokémon TCG: 30th Celebration Ultra-Premium Collection - Day")
     assert upc.variant == "day"
+
+
+# --------------------------------- 30th Celebration: čo ukázalo reálne vydanie
+
+def _kluc(n, require_brand=True):
+    h = classify.classify(n, require_brand=require_brand)
+    if h is None:
+        return None
+    return f"{h.edition.id}|{h.format.id}" + (f"|{h.variant}" if h.variant else "")
+
+
+def test_mini_tiny_ostavaju_jeden_produkt():
+    """Xzone predáva deväť mini plechoviek osobitne, zvyšok trhu jednu
+    generickú „Mini Tin". Všetky stoja rovnako.
+
+    Kým markery platili aj tu, rozdelili sa štyri z deviatich (Espeon, Mewtwo,
+    Mew, Greninja) do vlastných kľúčov s jedinou ponukou a bez mediánu —
+    a s generickou plechovkou sa už nikdy nestretli. Zvyšok splynul. Taký
+    polovičný rozpad je horší než nerozdeliť nič."""
+    tiny = [
+        "Pokémon TCG: 30th Celebration Mini Tin",
+        "Kartová hra Pokémon TCG: 30th Celebration - Mini Tin Mewtwo & Psyduck",
+        "Kartová hra Pokémon TCG: 30th Celebration - Mini Tin Moltres & Articuno",
+        "Kartová hra Pokémon TCG: 30th Celebration - Mini Tin Pikachu & Vivillo",
+        "Kartová hra Pokémon TCG: 30th Celebration - Mini Tin Exeggutor & Mew",
+        "Kartová hra Pokémon TCG: 30th Celebration - Mini Tin Lapras & Drifloon",
+        "Kartová hra Pokémon TCG: 30th Celebration - Mini Tin Pikachu & Toxtricity",
+        "Kartová hra Pokémon TCG: 30th Celebration - Mini Tin Espeon & Meowth",
+        "Kartová hra Pokémon TCG: 30th Celebration - Mini Tin Zapdos & Zorua",
+        "Kartová hra Pokémon TCG: 30th Celebration - Mini Tin Greninja & Illumise",
+    ]
+    kluce = {_kluc(n) for n in tiny}
+    assert kluce == {"30th-celebration|mini-tin"}, kluce
+    # Debna desiatich plechoviek zostáva oddelená — to je iná cenová hladina.
+    assert _kluc("Pokémon TCG: 30th Celebration Mini Tin Display") \
+        == "30th-celebration|mini-tin-display"
+
+
+def test_spolocna_ponuka_oboch_preveden_nie_je_treti_produkt():
+    """Cardstore predáva obe plechovky pod jednou položkou („Tin - Greninja ex,
+    Sylveon ex"), 64ka tiež („Sylveon ex Tin / Greninja ex Tin"). Keď sa rátali
+    všetky nájdené mená, vznikol tretí kľúč `sylveon-greninja`, ktorý nemal
+    s čím porovnávať cenu. Dve mená naraz preto znamenajú generický formát."""
+    assert _kluc("Pokémon TCG: 30th Celebration Tin - Greninja ex, Sylveon ex") \
+        == "30th-celebration|ex-tin"
+    assert _kluc("30th Celebration Sylveon ex Tin / Greninja ex Tin", require_brand=False) \
+        == "30th-celebration|ex-tin"
+    # Jedno meno sa naďalej rozlišuje.
+    assert _kluc("Pokémon TCG: 30th Celebration Sylveon ex Tin") \
+        == "30th-celebration|ex-tin|sylveon"
+    assert _kluc("Pokémon TCG: 30th Celebration Greninja ex Tin") \
+        == "30th-celebration|ex-tin|greninja"
+
+
+def test_battle_deck_je_vlastny_format():
+    """Battle Deck je hotová paluba za 35–45 €, nie zapečatené boostery.
+    Kým formát neexistoval, xzone aj digihry ich appka ticho zahodila."""
+    espeon = classify.classify("Pokémon TCG: 30th Celebration Battle Deck Espeon Ex")
+    umbreon = classify.classify(
+        "Kartová hra Pokémon TCG: 30th Celebration - Battle Deck: Umbreon ex")
+    assert espeon.format.id == umbreon.format.id == "battle-deck"
+    assert espeon.edition.id == umbreon.edition.id == "30th-celebration"
+    assert espeon.variant == "espeon" and umbreon.variant == "umbreon"
+    assert espeon.packs == 0, "paluba neobsahuje boostery, nesmie kaziť cenu za balíček"
+
+
+def test_64ka_nepise_znacku_do_nazvov():
+    """64ka má obe sledované kolekcie čisto pokémonie a značku do názvov
+    nepíše. Bez `pokemon_only` jej appka zahodila celú 30th Celebration."""
+    nazvy = [
+        "30th Celebration Binder Collection",
+        "30th Celebration Poster Collection",
+        "30th Celebration: Eevee 2-Pack Blister",
+        "30th Celebration: Sylveon ex Box",
+        "30th Celebration Booster Bundle",
+    ]
+    assert all(_kluc(n) is None for n in nazvy), "s kontrolou značky sa zahodia"
+    kluce = [_kluc(n, require_brand=False) for n in nazvy]
+    assert all(kluce), kluce
+    assert len(set(kluce)) == len(nazvy)
+
+
+def test_eevee_blister_splyva_s_bezným():
+    """„2-Pack Blister Eevee" a „2-Pack Blister" je ten istý produkt — Eevee je
+    len meno promo karty na obale, nie druhé prevedenie."""
+    assert _kluc("Pokémon TCG: 30th Celebration 2-Pack Blister") \
+        == _kluc("Pokémon TCG: 30th Celebration 2-Pack Blister Eevee") \
+        == "30th-celebration|blister-2"
+
+
+def test_anniversary_a_celebration_su_ta_ista_edicia():
+    """Eshopy set volajú raz „30th Celebration", raz „30th Anniversary
+    Celebrations". Musia skončiť na jednom kľúči, inak má ETB dva mediány."""
+    assert _kluc("Pokémon TCG: 30th Celebration Elite Trainer Box") \
+        == _kluc("Pokémon TCG - 30th Anniversary Celebrations - Elite Trainer Box") \
+        == _kluc("Pokémon 30th Anniversary Elite Trainer Box") \
+        == "30th-celebration|etb"
+    assert _kluc("Pokémon 30th Anniversary Ultra Premium Collection Umbreon") \
+        == "30th-celebration|ultra-premium|umbreon"
+
+
+def test_battle_deck_nezobera_cudzie_produkty():
+    """Nový formát nesmie prebrať položky, ktoré patria inam."""
+    assert classify.classify(
+        "Pokémon TCG: Prismatic Evolutions Booster Bundle").format.id == "bundle"
+    assert classify.classify(
+        "Pokémon TCG: 30th Celebration Elite Trainer Box").format.id == "etb"
+    # Deck Build Box appka nesleduje vôbec — nový formát to nesmie zmeniť.
+    assert classify.classify("Pokémon TCG: Mega Evolution Deck Build Box") is None
+
+
+def test_kazdy_format_ma_vlastne_investicne_hodnotenie():
+    """Nový formát v editions.yaml bez riadku v INVESTMENT_FORMAT ticho spadne
+    na náhradnú hodnotu 0.30. Tak sa stalo Figure Collection aj Knock Out
+    Collection — obe mesiace bežali s cudzím číslom a nikde to nebolo vidieť."""
+    import scrape
+    chyba = [f.id for f in classify.formats() if f.id not in scrape.INVESTMENT_FORMAT]
+    assert not chyba, f"formáty bez investičného hodnotenia: {chyba}"

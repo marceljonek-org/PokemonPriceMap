@@ -329,12 +329,27 @@ je v zozname dvakrát.
 | `Ultra-Premium Collection – Day` a `– Night` | dva produkty po 180 $ v jednom koši — rieši `variant_markers` |
 | `Pokémon Center Elite Trainer Box` | drahšia exkluzívna verzia zlepená s bežným ETB |
 | `SPC` a `Superpremium` | skratku mal v regexe len UPC, takže Super Premium Collection prepadal na generický Premium |
+| deväť `Mini Tin` prevedení | štyri sa odštiepili (mená sedeli s markerom), päť splynulo — polovičný rozpad, nikde medián |
+| `Tin - Greninja ex, Sylveon ex` | jedna položka s oboma menami vytvorila tretí kľúč, ktorý nemal s čím porovnávať |
+| `Battle Deck` | formát neexistoval, takže palubky za 45 € appka ticho zahadzovala |
+| `30th Anniversary Celebrations` | to isté ako `30th Celebration`; bez oboch slov v regexe by mal ETB dva mediány |
 
-Keď má jedna edícia v tom istom formáte viac rôznych produktov, rieši to zoznam
-`variant_markers` v `config/editions.yaml`. Uplatní sa **len pri rozpoznanej
-edícii** — tam sa inak žiadny variant nepočíta. Čo doňho pridáš, to produkt
-rozdelí, takže marker musí byť niečo, čo uvádzajú všetky eshopy, nie ozdoba
-v názve u jedného z nich.
+Keď má jedna edícia v tom istom formáte viac rôznych produktov, riešia to dva
+zoznamy v `config/editions.yaml`. Uplatnia sa **len pri rozpoznanej edícii** —
+tam sa inak žiadny variant nepočíta. Čo do nich pridáš, to produkt rozdelí,
+takže marker musí byť niečo, čo uvádzajú všetky eshopy, nie ozdoba v názve
+u jedného z nich.
+
+* `variant_markers` — vlastnosti balenia (Pokémon Center, Day/Night). Zrátajú
+  sa všetky, ktoré sedia.
+* `pokemon_variants` — mená pokémonov na obale. Platia, **len keď sedí práve
+  jedno**. Dve mená naraz znamenajú, že eshop predáva obe prevedenia pod jednou
+  položkou (`Sylveon ex Tin / Greninja ex Tin`); vtedy sa meno zahodí a položka
+  spadne ku generickému formátu, kde sa cena reálne dá porovnať.
+
+Formát smie mená pokémonov ignorovať úplne — `no_variant: true`. Má ho
+`mini-tin`: deväť prevedení za rovnakú cenu je jeden produkt, nie deväť
+položiek po jednej ponuke.
 
 Dve pravidlá, ktoré z toho plynú pri pridávaní formátu do `config/editions.yaml`:
 **špecifickejší formát musí byť v súbore vyššie** (vyhráva prvá zhoda — preto je
