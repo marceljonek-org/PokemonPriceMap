@@ -146,6 +146,16 @@ def save_snapshot(directory: Path | None, shop_id: str, index: int, body: str) -
     (directory / f"{shop_id}-{index}.html").write_text(body, encoding="utf-8")
 
 
+def all_urls(shop: dict) -> list[str]:
+    """Všetky kategórie eshopu — pokémonie aj riftboundové.
+
+    Sú v konfigurácii oddelené, aby bolo na prvý pohľad vidieť, čo je čie,
+    a aby kontrolný test vedel overiť, že riftboundová kategória naozaj
+    hovorí o Riftbounde. Sťahujú sa ale rovnako, jedným prechodom.
+    """
+    return list(shop["urls"]) + list(shop.get("riftbound_urls") or [])
+
+
 async def fetch_shop(client: httpx.AsyncClient, shop: dict, defaults: dict,
                      snapshots: Path | None = None) -> dict:
     """Stiahne všetky vstupné URL eshopu vrátane stránkovania."""
@@ -154,7 +164,7 @@ async def fetch_shop(client: httpx.AsyncClient, shop: dict, defaults: dict,
     pages_seen: set[str] = set()
     max_pages = defaults.get("max_pages", 12)
 
-    for entry in shop["urls"]:
+    for entry in all_urls(shop):
         url, page = entry, 0
         while url and page < max_pages:
             if url in pages_seen:
@@ -200,7 +210,7 @@ async def fetch_shopify(client: httpx.AsyncClient, shop: dict, defaults: dict,
                         snapshots: Path | None = None) -> dict:
     """Shopify má verejné products.json — stránkuje sa parametrom page."""
     offers, errors = [], []
-    for entry in shop["urls"]:
+    for entry in all_urls(shop):
         for page in range(1, defaults.get("max_pages", 12) + 1):
             url = f"{entry.rstrip('/')}/products.json?limit=250&page={page}"
             try:
@@ -461,6 +471,28 @@ def flag_offer(price_eur: float, median_eur: float | None) -> str:
     return ""
 
 
+def product_title(edition, fmt, variant: str) -> str:
+    """Názov produktu do zoznamu.
+
+    Kým sa variant bral ako celý názov, mala 30th Celebration v zozname dva
+    rôzne produkty menom „Greninja" — ex Box za 59,99 € a ex Tin za 57,19 €.
+    Z názvu sa nedalo zistiť, ktorý je ktorý. Variant preto názov len dopĺňa.
+
+    Výnimka je zberná edícia `standalone`: tam žiadne meno edície nie je,
+    takže variant ostáva celým názvom („Mega Charizard X Ex UPC").
+    """
+    pekne = variant.replace("-", " ").title()
+    # Riftbound má edíciu aj formát rovnakého mena — „Proving Grounds — Proving
+    # Grounds" je nezmysel, stačí raz.
+    zaklad = (edition.name if fmt.name.lower() == edition.name.lower()
+              else f"{edition.name} — {fmt.name}")
+    if not variant:
+        return zaklad
+    if edition.id in ("standalone", "rb-standalone"):
+        return pekne
+    return f"{zaklad} ({pekne})"
+
+
 def build_products(rows: list[dict], history: list[dict], images: dict,
                    today: str) -> tuple[list[dict], dict]:
     last_date, previous = previous_snapshot(history)
@@ -483,7 +515,8 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
 
     for (edition_id, format_id, variant), offers in sorted(grouped.items()):
         edition = classify.edition_by_id(edition_id)
-        fmt = classify.format_by_id(format_id)
+        game = classify.game_of(edition_id)
+        fmt = classify.format_by_id(format_id, game)
         if edition is None or fmt is None:
             continue
         in_stock = [o for o in offers if o["in_stock"] == "1"]
@@ -516,8 +549,7 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
         packs = offers[0]["packs"] or None
         if isinstance(packs, str):
             packs = int(packs) if packs.isdigit() else None
-        title = (variant.replace("-", " ").title() if variant
-                 else f"{edition.name} — {fmt.name}")
+        title = product_title(edition, fmt, variant)
         image = images.get(key) or next((o["image"] for o in offers if o["image"]), "")
 
         offer_list = []
@@ -591,9 +623,10 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
                 in_print = days_since < IN_PRINT_DAYS
             except ValueError:
                 days_since = None
-        rating, rating_why = investment_rating(edition, fmt, in_print, days_since)
+        rating, rating_why = investment_rating(edition, fmt, in_print, days_since, game)
         products.append({
             "key": key,
+            "game": game,
             "title": title,
             "edition": {"id": edition.id, "name": edition.name, "code": edition.code,
                         "tier": edition.tier, "series": edition.series},
@@ -731,13 +764,32 @@ OUT_OF_PRINT_BONUS = 1.25
 AGED_BONUS = 1.10
 
 
-def investment_rating(edition, fmt, in_print, days_since) -> tuple[float, list[str]]:
+# Riftbound nemá investičný rozbor edícií, aký má Pokémon
+# (`edicie-s-vysokym-investicnym-potencialom.md`), takže úrovne A/B/C preň
+# neexistujú. Hodnotenie sa preto počíta len z typu balenia a veku edície —
+# menej hovorí, ale nič si nevymýšľa. Základ je pre všetky edície rovnaký.
+RIFTBOUND_BASE = 6.0
+INVESTMENT_FORMAT_RIFTBOUND = {
+    "booster-box": 1.00, "champion-deck-display": 0.80, "bundle": 0.75,
+    "vault": 0.62, "showdown-deck": 0.50, "proving-grounds-box": 0.48,
+    "champion-deck": 0.42, "pre-rift-kit": 0.35,
+    "sleeved-booster": 0.26, "booster": 0.24,
+}
+
+
+def investment_rating(edition, fmt, in_print, days_since,
+                      game: str = "pokemon") -> tuple[float, list[str]]:
     """Vráti hodnotenie 1–10 a dôvody, prečo vyšlo tak, ako vyšlo."""
-    tier = INVESTMENT_TIER.get(edition.tier, 4.0)
-    factor = INVESTMENT_FORMAT.get(fmt.id, 0.30)
+    if game == "riftbound":
+        tier = RIFTBOUND_BASE
+        factor = INVESTMENT_FORMAT_RIFTBOUND.get(fmt.id, 0.30)
+    else:
+        tier = INVESTMENT_TIER.get(edition.tier, 4.0)
+        factor = INVESTMENT_FORMAT.get(fmt.id, 0.30)
     score = tier * factor
-    why = [f"úroveň {edition.tier}" if edition.tier else "bez investičného rozboru",
-           fmt.name.lower()]
+    why = ([fmt.name.lower()] if game == "riftbound" else
+           [f"úroveň {edition.tier}" if edition.tier else "bez investičného rozboru",
+            fmt.name.lower()])
     if in_print is False:
         score *= OUT_OF_PRINT_BONUS
         why.append("po ukončení tlače")
@@ -1175,6 +1227,16 @@ async def run(args) -> int:
         # Stránka potrebuje vedieť, ktoré eshopy sú tá istá firma — inak by
         # v porovnaní eshopov Pompo.sk súperilo samo so sebou.
         "sellers": SELLER_OF,
+        # Úvodná obrazovka potrebuje vedieť, ktoré hry sú v dátach a koľko
+        # produktov má každá — inak by musela prerátavať celé pole pri každom
+        # otvorení a tlačidlo na prázdnu hru by vyzeralo ako pokazené.
+        "games": [
+            {"id": g, "name": name,
+             "products": sum(1 for p in products if p.get("game", "pokemon") == g),
+             "in_stock": sum(1 for p in products
+                             if p.get("game", "pokemon") == g and p["in_stock_count"])}
+            for g, name in (("pokemon", "Pokémon TCG"), ("riftbound", "Riftbound"))
+        ],
         "counts": {"offers": kept, "products": len(products),
                    "unknown": len(unknown),
                    "min_sellers_for_median": MIN_FOR_MEDIAN},

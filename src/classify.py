@@ -14,6 +14,7 @@ from pathlib import Path
 import yaml
 
 CONFIG = Path(__file__).resolve().parent.parent / "config" / "editions.yaml"
+RIFTBOUND = Path(__file__).resolve().parent.parent / "config" / "riftbound.yaml"
 
 
 def normalize(text: str) -> str:
@@ -60,6 +61,7 @@ class Classification:
     format: Format
     packs: int | None
     variant: str = ""   # rozlíšenie samostatných kolekcií (napr. "mega-charizard-x-ex")
+    game: str = "pokemon"   # "pokemon" alebo "riftbound"
 
 
 @lru_cache(maxsize=1)
@@ -105,71 +107,232 @@ def _config() -> dict:
     }
 
 
+@lru_cache(maxsize=1)
+def _riftbound() -> dict:
+    """Konfigurácia druhej hry. Tvar je rovnaký ako `_config()`, aby sa dala
+    použiť tým istým kódom — líši sa len obsahom a tým, že nemá úrovne A/B/C."""
+    with open(RIFTBOUND, encoding="utf-8") as fh:
+        raw = yaml.safe_load(fh)
+    editions = [
+        Edition(
+            id=e["id"], name=e["name"], code=e.get("code") or "",
+            tier=e.get("tier") or "", series=e.get("series") or "",
+            released=str(e.get("released") or ""),
+            note=e.get("note", ""),
+            patterns=tuple(re.compile(normalize(p), re.I) for p in e["patterns"]),
+        )
+        for e in raw["editions"]
+    ]
+    formats = [
+        Format(
+            id=f["id"], name=f["name"], short=f["short"], packs=f.get("packs"),
+            edition_optional=bool(f.get("edition_optional")),
+            no_variant=bool(f.get("no_variant")),
+            patterns=tuple(re.compile(normalize(p), re.I) for p in f["patterns"]),
+        )
+        for f in raw["formats"]
+    ]
+    return {
+        "id": raw["game"]["id"],
+        "name": raw["game"]["name"],
+        "brand": tuple(re.compile(normalize(p), re.I)
+                       for p in raw["game"]["brand_patterns"]),
+        "editions": editions,
+        "formats": formats,
+        "excludes": tuple(re.compile(normalize(p), re.I)
+                          for p in raw.get("exclude_patterns", [])),
+        "champion_editions": dict(raw.get("champion_editions") or {}),
+    }
+
+
+GAMES = ("pokemon", "riftbound")
+
+
 def launch_price(format_id: str) -> float | None:
     """Orientačná uvádzacia cena formátu v eurách, ak je známa."""
     return _config()["launch"].get(format_id)
 
 
-def editions() -> list[Edition]:
-    return _config()["editions"]
+def editions(game: str = "pokemon") -> list[Edition]:
+    return (_riftbound() if game == "riftbound" else _config())["editions"]
 
 
-def formats() -> list[Format]:
-    return _config()["formats"]
+def formats(game: str = "pokemon") -> list[Format]:
+    return (_riftbound() if game == "riftbound" else _config())["formats"]
 
 
 def edition_by_id(edition_id: str) -> Edition | None:
-    return next((e for e in editions() if e.id == edition_id), None)
+    """Edície oboch hier majú nezameniteľné id (Riftbound má predponu `rb-`),
+    tak sa dá hľadať naprieč bez toho, aby volajúci vedel hru."""
+    for game in GAMES:
+        found = next((e for e in editions(game) if e.id == edition_id), None)
+        if found:
+            return found
+    return None
 
 
-def format_by_id(format_id: str) -> Format | None:
-    return next((f for f in formats() if f.id == format_id), None)
+def format_by_id(format_id: str, game: str = "pokemon") -> Format | None:
+    return next((f for f in formats(game) if f.id == format_id), None)
+
+
+def game_of(edition_id: str) -> str:
+    return "riftbound" if edition_id.startswith("rb-") else "pokemon"
 
 
 def is_excluded(name: str) -> bool:
-    """Iné jazykové mutácie a produkty mimo štyroch sledovaných formátov."""
+    """Iné jazykové mutácie, príslušenstvo a produkty mimo sledovaných formátov.
+
+    Vylúčenia oboch hier platia spoločne. Sú to príslušenstvá a cudzie jazyky —
+    nič, čo by v druhej hre bolo legitímnym zapečateným produktom.
+    """
     n = normalize(name)
-    return any(p.search(n) for p in _config()["excludes"])
+    return any(p.search(n) for p in _config()["excludes"] + _riftbound()["excludes"])
+
+
+def detect_game(name: str) -> str | None:
+    """Ktorej hre názov patrí, alebo None, keď značku nespomína.
+
+    Riftbound sa skúša prvý: jeho názvy hovoria o „League of Legends", nikdy
+    o Pokémone, takže sa nemôžu pomýliť. Naopak pokémonie názvy slovo
+    „riftbound" neobsahujú.
+    """
+    n = normalize(name)
+    if any(p.search(n) for p in _riftbound()["brand"]):
+        return "riftbound"
+    if "pokemon" in n or "pokémon" in n:
+        return "pokemon"
+    return None
 
 
 def classify(name: str, require_brand: bool = True) -> Classification | None:
     """Vráti zaradenie alebo None, ak produkt do monitoru nepatrí.
 
+    Hru určuje názov: keď spomína Riftbound alebo League of Legends, ide do
+    riftboundovej vetvy, inak do pokémonej. Edície, formáty aj vylúčenia sa
+    potom hľadajú len v rámci tej jednej hry — vďaka tomu môže mať každá hra
+    vlastný `booster-box` s vlastným počtom balíčkov.
+
     `require_brand` chráni eshopy, ktoré predávajú viac kartových hier: bez
-    slova „Pokémon" v názve by sa do monitoru dostal One Piece booster box.
-    Na eshopoch, kde sú všetky sledované kategórie čisto pokémonie
-    (`pokemon_only` v shops.yaml), sa naopak musí vypnúť — tam totiž značku
-    v názvoch neopakujú a appka by zahodila skoro celý katalóg.
+    značky v názve by sa do monitoru dostal One Piece booster box. Na eshopoch,
+    kde sú všetky sledované kategórie čisto pokémonie (`pokemon_only`
+    v shops.yaml), sa naopak musí vypnúť — tam totiž značku v názvoch
+    neopakujú a appka by zahodila skoro celý katalóg. Pri Riftbounde sa nevypína
+    nikdy: jeho eshopy značku do názvov píšu.
     """
     if not name or is_excluded(name):
         return None
     n = normalize(name)
-    if require_brand and "pokemon" not in n and "pokémon" not in n:
+    game = detect_game(name)
+    if game == "riftbound":
+        return _classify_in("riftbound", n)
+    if game is None and require_brand:
         return None
+    return _classify_in("pokemon", n)
 
+
+def _classify_in(game: str, n: str) -> Classification | None:
+    """Zaradenie v rámci jednej hry. `n` je už normalizovaný názov."""
     edition = next(
-        (e for e in editions() if any(p.search(n) for p in e.patterns)), None
+        (e for e in editions(game) if any(p.search(n) for p in e.patterns)), None
     )
-    fmt = next((f for f in formats() if any(p.search(n) for p in f.patterns)), None)
+    fmt = next((f for f in formats(game) if any(p.search(n) for p in f.patterns)), None)
     if fmt is None:
         return None
     if edition is None:
         # Premiové kolekcie sa často predávajú bez kódu setu (Mega Charizard X ex
-        # UPC, Terapagos ex UPC). Sú to plnohodnotné zapečatené produkty, tak ich
-        # nechávame pod zbernou edíciou namiesto zahodenia.
+        # UPC, Terapagos ex UPC, riftboundový Arcane Box Set). Sú to plnohodnotné
+        # zapečatené produkty, tak ich nechávame pod zbernou edíciou namiesto
+        # zahodenia.
         if not fmt.edition_optional:
             return None
+        if game == "riftbound":
+            # Champion Deck bez názvu setu: šampión set jednoznačne určuje,
+            # tak sa edícia doplní podľa neho namiesto zbernej.
+            champion = champion_of(n)
+            podla_mena = _riftbound()["champion_editions"].get(champion)
+            if podla_mena:
+                najdena = edition_by_id(podla_mena)
+                if najdena:
+                    return Classification(edition=najdena, format=fmt, packs=fmt.packs,
+                                          variant=champion, game=game)
+            edition = edition_by_id("rb-standalone")
+            if edition is None:
+                return None
+            return Classification(edition=edition, format=fmt, packs=fmt.packs,
+                                  variant=rb_subject_of(n), game=game)
         edition = edition_by_id("standalone")
         if edition is None:
             return None
-        variant = subject_of(n, fmt)
-        packs = fmt.packs
-        return Classification(edition=edition, format=fmt, packs=packs, variant=variant)
+        return Classification(edition=edition, format=fmt, packs=fmt.packs,
+                              variant=subject_of(n, fmt), game=game)
+
+    if game == "riftbound":
+        # Riftbound nemá `pack_overrides` ani markery prevedenia. Šampión
+        # v názve („Champion Deck - Vi") rozlišuje produkt, tak ide do variantu.
+        return Classification(edition=edition, format=fmt, packs=fmt.packs,
+                              variant=champion_of(n), game=game)
 
     packs = _config()["overrides"].get((edition.id, fmt.id), fmt.packs)
-    return Classification(
-        edition=edition, format=fmt, packs=packs, variant=variant_of(n, fmt)
-    )
+    return Classification(edition=edition, format=fmt, packs=packs,
+                          variant=variant_of(n, fmt), game="pokemon")
+
+
+# Šampión v názve decku. Eshopy ho píšu na obe strany názvu formátu:
+# „Champion Deck - Vi", ale aj „Zed vs. Shen Showdown Deck". Keby sa hľadal len
+# za ním, mala by Vendetta dva rôzne Showdowny — jeden s menom, jeden bez.
+#
+# Skúša sa najprv meno ZA formátom: v „Unleashed Champion Deck - Vi" je pred
+# formátom názov setu, nie šampión, a ten by sa inak stal variantom.
+_MENO = r"[a-z'’]+(?:\s*(?:vs\.?|&)\s*[a-z'’]+|\s+[a-z'’]+)?"
+_CHAMPION_ZA = re.compile(r"(?:champion\s+deck|showdown)s?\s*(?:deck)?s?\s*[-:–]?\s*(" + _MENO + r")")
+_CHAMPION_PRED = re.compile(r"\b(" + _MENO + r")\s+(?:champion\s+deck|showdown)")
+# Slová, ktoré nie sú meno šampióna: názvy formátov, značka a mená edícií.
+_NIE_MENO = {"deck", "decks", "display", "sealed", "edition", "en", "tcg",
+             "riot", "games", "box", "pack", "bundle", "vault", "booster",
+             "riftbound", "league", "of", "legends", "lol", "set", "one",
+             "karetni", "kartova", "hra", "reprint", "starter"}
+
+
+@lru_cache(maxsize=1)
+def _nie_meno() -> frozenset:
+    """K pevnému zoznamu pridá mená riftboundových edícií — „Unleashed Champion
+    Deck - Vi" má pred formátom set, nie šampióna."""
+    slova = set(_NIE_MENO)
+    for e in editions("riftbound"):
+        slova.update(w for w in re.split(r"[^a-z]+", normalize(e.name)) if w)
+    return frozenset(slova)
+
+
+def champion_of(n: str) -> str:
+    """Meno šampióna z názvu riftboundového decku, alebo prázdny reťazec.
+
+    Spojky sa zjednocujú na „vs", lebo Xzone píše „Evelynn & Seraphine"
+    a Nekonečno „Evelynn vs. Seraphine" — je to ten istý produkt.
+    """
+    for vzor in (_CHAMPION_ZA, _CHAMPION_PRED):
+        m = vzor.search(n)
+        if not m:
+            continue
+        surove = re.sub(r"\s*(?:vs\.?|&)\s*", " vs ", m.group(1))
+        slova = [w for w in re.split(r"[^a-z’']+", surove)
+                 if w and w not in _nie_meno()]
+        if slova and slova != ["vs"]:
+            return "-".join(slova)
+    return ""
+
+
+# Zberné balenia (Arcane Box Set, Worlds Bundle 2025) nemajú kód setu. Názov
+# vznikne z toho, čo v ňom ostane po odstránení značky a slov o formáte —
+# `subject_of()` je stavané na pokémonie názvy a robilo z nich kašu.
+_RB_SUM = re.compile(r"riftbound|league\s+of\s+legends|riot\s+games|\btcg\b|"
+                     r"karetn[ií]|kartov[áa]|\bhra\b|sealed|\ben\b|\bbundle\b|"
+                     r"box\s+set|\bset\b")
+
+
+def rb_subject_of(n: str) -> str:
+    zvysok = _RB_SUM.sub(" ", n)
+    slova = [w for w in re.split(r"[^a-z0-9]+", zvysok) if w]
+    return "-".join(slova[:4])
 
 
 def variant_of(n: str, fmt: Format) -> str:

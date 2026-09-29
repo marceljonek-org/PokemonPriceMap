@@ -1476,3 +1476,190 @@ def test_kazdy_format_ma_vlastne_investicne_hodnotenie():
     import scrape
     chyba = [f.id for f in classify.formats() if f.id not in scrape.INVESTMENT_FORMAT]
     assert not chyba, f"formáty bez investičného hodnotenia: {chyba}"
+
+
+def test_akrylove_vitriny_nie_su_produkt():
+    """Prázdna akrylová vitrína „pre Prismatic Evolutions SPC Box" za 30 €
+    sedela s edíciou aj formátom, usadila sa medzi Super Premium Collection za
+    267–430 € a stala sa najlacnejšou ponukou skladom. To je chyba, ktorá
+    stojí peniaze.
+
+    Druhá polovica problému je opačná: „ETB + akrylový obal" produkt naozaj
+    obsahuje, ale cena je za dve veci, takže medián nadvihne. Ani jedno nie je
+    porovnateľná cena, preto von ide oboje."""
+    vitriny = [
+        "CardyX premium akrylový ochranný box pre Pokémon Prismatic Evolutions SPC Box",
+        "Krabička The Acrylic Box - Premium 6MM Pokémon Super Premium Collection Prismatic Evolutions",
+        "Pokémon TCG: 30th Celebration - Elite Trainer Box + Akrylový obal",
+        "Pokémon TCG: Sword and Shield - Evolving Skies Booster Box + Akrylový Ochranný Box",
+        # Cardyx má v názve preklep „akrilový" — vzor musí zvládnuť aj ten.
+        "Pokémon TCG: Fusion Strike - Elite Trainer Box + akrilový ochranný box",
+    ]
+    for n in vitriny:
+        assert classify.is_excluded(n), n
+        assert classify.classify(n) is None, n
+
+
+def test_vylucenie_vitrin_nezobralo_skutocne_produkty():
+    """Vzor na vitríny nesmie chytiť zapečatený produkt. Najbližšie k hrane sú
+    názvy so slovom „box" a „collection", ktorých je v katalógu najviac."""
+    ozaj = [
+        "Pokémon TCG: SV8.5 Prismatic Evolutions - Super-Premium Collection",
+        "Pokémon TCG: Prismatic Evolutions Elite Trainer Box",
+        "Pokémon TCG: 30th Celebration Binder Collection",
+        "Pokémon TCG: Evolving Skies Booster Box",
+        "Pokémon TCG: 30th Celebration Sylveon ex Box",
+    ]
+    for n in ozaj:
+        assert not classify.is_excluded(n), n
+        assert classify.classify(n) is not None, n
+
+
+def test_nazov_produktu_obsahuje_ediciu_aj_format():
+    """Kým sa variant bral ako celý názov, mala 30th Celebration v zozname dva
+    rôzne produkty menom „Greninja" — ex Box za 59,99 € a ex Tin za 57,19 €.
+    Z názvu sa nedalo zistiť, ktorý je ktorý."""
+    import scrape
+    ed = classify.edition_by_id("30th-celebration")
+    box = scrape.product_title(ed, classify.format_by_id("ex-box"), "greninja")
+    tin = scrape.product_title(ed, classify.format_by_id("ex-tin"), "greninja")
+    assert box != tin
+    assert box == "30th Celebration — ex Box (Greninja)"
+    assert tin == "30th Celebration — ex Tin (Greninja)"
+    # Bez variantu sa názov nemení.
+    assert scrape.product_title(ed, classify.format_by_id("etb"), "") \
+        == "30th Celebration — Elite Trainer Box"
+    # Zberná edícia nemá meno, ktoré by sa dalo predradiť — variant ostáva názvom.
+    assert scrape.product_title(classify.edition_by_id("standalone"),
+                                classify.format_by_id("ultra-premium"),
+                                "mega-charizard-x-ex") == "Mega Charizard X Ex"
+
+
+# ------------------------------------------------------- Riftbound (druhá hra)
+
+def _rb(n):
+    h = classify.classify(n)
+    if h is None:
+        return None
+    return f"{h.edition.id}|{h.format.id}" + (f"|{h.variant}" if h.variant else "")
+
+
+def test_riftbound_sa_rozpozna_ako_vlastna_hra():
+    h = classify.classify("Riftbound: League of Legends TCG - Unleashed - Booster Box")
+    assert h.game == "riftbound"
+    assert h.edition.id == "rb-unleashed" and h.format.id == "booster-box"
+    p = classify.classify("Pokémon TCG: Prismatic Evolutions Elite Trainer Box")
+    assert p.game == "pokemon"
+
+
+def test_riftbound_edicie_maju_predponu():
+    """Kľúč produktu je `edícia|formát`. Bez predpony `rb-` by sa riftboundová
+    edícia mohla raz zraziť s pokémoniou a prepísať jej históriu cien."""
+    assert all(e.id.startswith("rb-") for e in classify.editions("riftbound"))
+    poke = {e.id for e in classify.editions("pokemon")}
+    rift = {e.id for e in classify.editions("riftbound")}
+    assert not (poke & rift)
+
+
+def test_showdown_ma_jeden_kluc_bez_ohladu_na_poradie_mien():
+    """Eshopy píšu šampiónov pred aj za názov formátu a spájajú ich raz „vs",
+    raz „&". Je to jeden produkt — sedem zápisov, jeden kľúč."""
+    zapisy = [
+        "Riftbound League of Legends TCG: Vendetta Showdown Zed vs. Shen",
+        "Riftbound: League of Legends TCG - Vendetta - Showdown Zed vs Shen",
+        "Riftbound League of Legends TCG - Vendetta Showdown Decks - Zed vs Shen",
+        "Karetní hra Riftbound TCG - Vendetta - Zed vs. Shen Showdown Deck",
+        "Riftbound | League of Legends - Vendetta Showdown Zed vs Shen Deck",
+        "Riot Games Riftbound League of Legends TCG: Vendetta Showdown - Zed vs Shen",
+    ]
+    kluce = {_rb(n) for n in zapisy}
+    assert kluce == {"rb-vendetta|showdown-deck|zed-vs-shen"}, kluce
+    # „&" a „vs" je to isté spojenie.
+    assert _rb("Riftbound League of Legends TCG: Radiance Showdown Evelynn vs. Seraphine") \
+        == _rb("Karetní hra Riftbound TCG - Radiance - Evelynn & Seraphine Showdown Deck") \
+        == "rb-radiance|showdown-deck|evelynn-vs-seraphine"
+
+
+def test_nazov_setu_pred_formatom_nie_je_sampion():
+    """V „Unleashed Champion Deck - Vi" je pred formátom názov setu. Kým sa
+    meno hľadalo najprv pred formátom, stal sa variantom „unleashed" a všetky
+    palubky edície splynuli do jednej."""
+    assert _rb("Riftbound: League of Legends TCG - Unleashed - Champion Deck - Vi") \
+        == "rb-unleashed|champion-deck|vi"
+    assert _rb("Riftbound League of Legends TCG: Unleashed Champion Deck - Vex") \
+        == "rb-unleashed|champion-deck|vex"
+
+
+def test_champion_deck_bez_nazvu_setu_najde_edicu_podla_sampiona():
+    """Nekonečno predáva „Champion Deck - Lee Sin" bez názvu setu. Šampión set
+    jednoznačne určuje, tak sa doplní — inak by tá istá paluba bežala raz pod
+    Origins a raz pod zbernou edíciou a medián by rátal z polovice ponúk."""
+    assert _rb("Riftbound League of Legends TCG: Champion Deck - Lee Sin") \
+        == _rb("Riftbound: League of Legends TCG - Set One: Origins Champion Deck - Lee Sin") \
+        == "rb-origins|champion-deck|lee-sin"
+
+
+def test_deck_display_nie_je_jedna_paluba():
+    """Debna štyroch palúb stojí 1 899 Kč, jedna 599 Kč. V jednom koši by bol
+    medián mimo pre obe."""
+    display = _rb("Riftbound: League of Legends TCG - Unleashed Champion Deck Vi Display (4 decks) - EN (Riot Games)")
+    jedna = _rb("Riftbound: Unleashed Champion Deck - Vi")
+    assert display == "rb-unleashed|champion-deck-display|vi"
+    assert jedna == "rb-unleashed|champion-deck|vi"
+
+
+def test_sleeved_booster_nie_je_obal_na_karty():
+    """Globálny vzor na obaly sedel aj vnútri slova „Sleeved", takže appka
+    zahodila zapečatené balíčky v ozdobnom obale."""
+    assert _rb("Riftbound League of Legends TCG: Origins Sleeved Booster Pack") \
+        == "rb-origins|sleeved-booster"
+    assert classify.is_excluded("Riftbound League of Legends TCG: Vendetta Art Sleeves 1")
+    assert classify.is_excluded("Pokémon Card Sleeves Pikachu")
+
+
+def test_riftbound_prislusenstvo_je_von():
+    """Riftboundové eshopy predávajú viac príslušenstva než kariet."""
+    von = [
+        "Riftbound - Leblanc - Bound Edge 24\"x14\" - Playmat",
+        "Riftbound League of Legends TCG: Bulk Runes",
+        "Leona, Radiant Dawn - Riftbound Organized Play Promotional Cards (OPP)",
+        "Aspirant's Climb - Riftbound Promotional Cards (PR)",
+        "The Acrylic Box - Acrylic Case - Riftbound - Booster Box",
+        "Riftbound: League of Legends TCG - Origins - Slim Booster Pack (Chinese)",
+        "Riftbound: League of Legends TCG - Origins - Booster Box Case",
+        "Enframed 35 pt Card Holders (5 ks v balení)",
+    ]
+    for n in von:
+        assert classify.classify(n) is None, n
+
+
+def test_riftbound_hodnotenie_nepouziva_urovne():
+    """Pre Riftbound neexistuje investičný rozbor edícií, tak sa hodnotenie
+    počíta len z typu balenia a veku — nesmie predstierať úroveň A/B/C."""
+    import scrape
+    ed = classify.edition_by_id("rb-unleashed")
+    box = classify.format_by_id("booster-box", "riftbound")
+    booster = classify.format_by_id("booster", "riftbound")
+    vysoke, why = scrape.investment_rating(ed, box, True, 200, "riftbound")
+    nizke, _ = scrape.investment_rating(ed, booster, True, 200, "riftbound")
+    assert vysoke > nizke
+    assert not any("úroveň" in w for w in why), why
+    chyba = [f.id for f in classify.formats("riftbound")
+             if f.id not in scrape.INVESTMENT_FORMAT_RIFTBOUND]
+    assert not chyba, f"riftboundové formáty bez hodnotenia: {chyba}"
+
+
+def test_riftbound_kategorie_v_eshopoch_hovoria_o_riftbounde():
+    """Rovnaká poistka ako pri `pokemon_only`: kategória v zlom zozname by
+    natiahla do hry cudzie produkty."""
+    import yaml
+    from pathlib import Path
+    config = yaml.safe_load((Path(__file__).parent.parent / "config" / "shops.yaml")
+                            .read_text(encoding="utf-8"))
+    najdene = 0
+    for shop in config["shops"]:
+        for url in shop.get("riftbound_urls") or []:
+            najdene += 1
+            assert "riftbound" in url.lower() or "path=_143_184" in url, \
+                f"{shop['id']}: {url} nevyzerá ako riftboundová kategória"
+    assert najdene >= 8, "riftboundové kategórie sa stratili z konfigurácie"

@@ -31,6 +31,10 @@ shops:
       - https://www.cardstore.cz/pokemon-specialni-sety/
       - https://www.cardstore.cz/pokemon-tins-plechovky/
       - https://www.cardstore.cz/30-vyroci-pokemon-karet/
+    riftbound_urls:
+      - https://www.cardstore.cz/riftbound-booster-boxy/
+      - https://www.cardstore.cz/riftbound-boostery/
+      - https://www.cardstore.cz/riftbound-specialni-produkty/
 
   - id: fyft-cz
     name: Fyft.cz
@@ -58,6 +62,8 @@ shops:
       - https://www.nekonecno.sk/pokemon-chaos-rising/
       - https://www.nekonecno.sk/pokemon-pitch-black/
       - https://www.nekonecno.sk/pokemon-30th-celebration/
+    riftbound_urls:
+      - https://www.nekonecno.sk/riftbound-league-of-legends-tcg/
 
   - id: pokemon4u-cz
     name: Pokemon4U.cz
@@ -204,6 +210,8 @@ shops:
     base: https://www.cardyx.sk
     urls:
       - https://www.cardyx.sk/collections/all
+    riftbound_urls:
+      - https://www.cardyx.sk/collections/riftbound
 
   - id: alza-cz
     name: Alza.cz
@@ -274,6 +282,8 @@ shops:
       - https://www.cardempire.sk/tinky/
       - https://www.cardempire.sk/mini-tinky/
       - https://www.cardempire.sk/blistre/
+    riftbound_urls:
+      - https://www.cardempire.sk/riftbound--league-of-legends-tcg/
 
   - id: ccplanet-sk
     name: CC Planet
@@ -338,6 +348,8 @@ shops:
     urls:
       - https://geekhall.cz/kategorie/sberatelske-hry-2/pokemoni/
       - https://geekhall.cz/kategorie/sberatelske-hry-2/pokemoni/podle-setu/30th-celebration/
+    riftbound_urls:
+      - https://geekhall.cz/kategorie/sberatelske-hry-2/riftbound/
 
   - id: xzone-cz
     name: Xzone.cz
@@ -348,6 +360,8 @@ shops:
     pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.xzone.cz/sberatelske-hry-pokemon-tcg?c=725&s=60
+    riftbound_urls:
+      - https://www.xzone.cz/sberatelske-hry-riftbound-league-of-legends-tcg
 
   - id: xzone-sk
     name: Xzone.sk
@@ -358,6 +372,8 @@ shops:
     pokemon_only: true   # všetky kategórie nižšie sú pokémonie
     urls:
       - https://www.xzone.sk/sberatelske-hry-pokemon-tcg?c=725&s=60
+    riftbound_urls:
+      - https://www.xzone.sk/sberatelske-hry-riftbound-league-of-legends-tcg
 
   # --- pridané 29. 8. 2026, po overení firmy a recenzií -------------------
 
@@ -374,6 +390,8 @@ shops:
       - https://www.dazzle.sk/pokemon/pokemon-boxy/pokemon-elite-trainer-box
       - https://www.dazzle.sk/pokemon/pokemon-boxy/collection-boxy
       - https://www.dazzle.sk/pokemon/pokemon-boxy/pokemon-tin
+    riftbound_urls:
+      - https://www.dazzle.sk/index.php?route=product/category&path=_143_184
 
   - id: kuzelnehry-sk
     name: KúzelnéHry.sk

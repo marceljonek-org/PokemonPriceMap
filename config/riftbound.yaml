@@ -1,0 +1,191 @@
+# Riftbound: League of Legends TCG (Riot Games) — druhá sledovaná hra.
+#
+# Štruktúra je zámerne rovnaká ako v editions.yaml, aby classify.py nepotreboval
+# druhý kód. Čo je inak:
+#
+#   * `id` každej edície má predponu `rb-`. Kľúč produktu je `edícia|formát`,
+#     takže bez predpony by sa Riftbound edícia mohla raz zraziť s pokémoniou
+#     a prepísať jej históriu. Predpona to vylučuje raz a navždy.
+#   * Formáty sú vlastné — Champion Deck, Showdown, Vault a Proving Grounds
+#     v Pokémone neexistujú. Formát sa hľadá len v rámci rozpoznanej hry.
+#   * Úrovne A/B/C tu nie sú. Pre Riftbound neexistuje investičný rozbor ako
+#     `edicie-s-vysokym-investicnym-potencialom.md`, takže hodnotenie sa počíta
+#     len z typu balenia a veku edície (`INVESTMENT_FORMAT_RIFTBOUND`).
+#
+# Dátumy vydania: riftboundcardlist.com/guides/riftbound-sets-in-order
+# a riftcompare.com/guides/riftbound-sets-in-order. Radiance (23. 10. 2026)
+# potvrdzuje riftcompare; Gift of the Rift má zatiaľ len mesiac z predobjednávok
+# na nekonecno.sk, preto je dátum označený ako odhad.
+
+game:
+  id: riftbound
+  name: Riftbound
+  # Väčšina eshopov píše „Riftbound" do názvu. Kde nie, pomôže „League of
+  # Legends". Samotné „LoL" je príliš krátke a chytalo by náhodné slová.
+  brand_patterns:
+    - "riftbound"
+    - "league\\s+of\\s+legends"
+
+editions:
+  # POZOR NA PORADIE: rozhoduje prvá zhoda. „Origins: Proving Grounds" musí byť
+  # nad „Origins", inak by štartovacie balenie spadlo pod základný set.
+  - id: rb-proving-grounds
+    name: Proving Grounds
+    code: OGS
+    series: RB
+    released: 2025-10-31
+    note: Štartovacie balenie k základnému setu
+    patterns: ["proving\\s+grounds", "\\bogs\\b"]
+
+  - id: rb-origins
+    name: Origins
+    code: OGN
+    series: RB
+    released: 2025-10-31
+    note: Základný set, prvé anglické vydanie hry
+    patterns: ["\\borigins\\b", "set\\s+one", "\\bogn\\b"]
+
+  - id: rb-spiritforged
+    name: Spiritforged
+    code: SFD
+    series: RB
+    released: 2026-02-13
+    patterns: ["spirit\\s*forge[dt]", "\\bsfd\\b"]
+
+  - id: rb-unleashed
+    name: Unleashed
+    code: UNL
+    series: RB
+    released: 2026-05-08
+    patterns: ["unleashed", "\\bunl\\b"]
+
+  - id: rb-vendetta
+    name: Vendetta
+    code: VEN
+    series: RB
+    released: 2026-07-31
+    patterns: ["vendetta", "\\bven\\b"]
+
+  - id: rb-radiance
+    name: Radiance
+    code: RAD
+    series: RB
+    released: 2026-10-23
+    note: Vychádza 23. 10. 2026, v eshopoch zatiaľ len predobjednávky
+    patterns: ["radiance", "\\brad\\b"]
+
+  - id: rb-gift-of-the-rift
+    name: Gift of the Rift
+    code: GTR
+    series: RB
+    # Riot presný dátum nezverejnil; december 2026 je z predobjednávok
+    # na nekonecno.sk a xzone.cz. Prvý deň mesiaca je odhad, nie potvrdenie.
+    released: 2026-12-01
+    note: Sviatočný bundle, dátum je odhad z predobjednávok
+    patterns: ["gift\\s+of\\s+the\\s+rift"]
+
+  # Zberná edícia pre balenia bez kódu setu (Arcane Box Set, Worlds Bundle).
+  # Musí byť posledná a smie ju použiť len formát s `edition_optional`.
+  - id: rb-standalone
+    name: Riftbound
+    code: ""
+    series: RB
+    released: ""
+    note: Balenia, ktoré sa predávajú bez názvu setu
+    patterns: ["(?!)"]          # nikdy sa netrafí priamo, priraďuje ju kód
+
+formats:
+  # PORADIE JE DÔLEŽITÉ. Špecifickejší formát musí byť vyššie:
+  # „Champion Deck Vex Display (4 decks)" je debna štyroch palúb za 1 899 Kč,
+  # jedna paluba stojí 599 Kč — keby spadli do jedného koša, medián je mimo.
+  - id: champion-deck-display
+    name: Champion Deck Display
+    short: Deck Display
+    packs: 0
+    edition_optional: true
+    patterns: ["champion\\s+deck\\s+\\w+\\s+display", "champion\\s+deck\\s+display",
+               "display\\s*\\(\\s*4\\s+decks?\\s*\\)"]
+
+  - id: booster-box
+    name: Booster Box
+    short: Box
+    packs: 24
+    patterns: ["booster\\s+box", "booster\\s+display", "\\bdisplay\\s*\\(\\s*24"]
+
+  # „Sleeved Booster" je samostatný tovar (booster v ozdobnom obale), nie obal
+  # na karty. Musí byť nad `booster`, inak by splynul s obyčajným balíčkom.
+  - id: sleeved-booster
+    name: Sleeved Booster
+    short: Sleeved
+    packs: 1
+    patterns: ["sleeved\\s+booster"]
+
+  - id: proving-grounds-box
+    name: Proving Grounds
+    short: Proving Gr.
+    packs: 0
+    edition_optional: true
+    patterns: ["proving\\s+grounds"]
+
+  - id: showdown-deck
+    name: Showdown Deck
+    short: Showdown
+    packs: 0
+    patterns: ["showdown"]
+
+  # `edition_optional`: časť eshopov predáva palubu bez názvu setu („Champion
+  # Deck - Lee Sin"). Set sa potom doplní zo `champion_editions` podľa šampióna.
+  - id: champion-deck
+    name: Champion Deck
+    short: Champion
+    packs: 0
+    edition_optional: true
+    patterns: ["champion\\s+deck"]
+
+  - id: vault
+    name: Vault
+    short: Vault
+    packs: 0
+    patterns: ["\\bvault\\b"]
+
+  - id: pre-rift-kit
+    name: Pre-rift Kit
+    short: Pre-rift
+    packs: 0
+    patterns: ["pre[\\s-]*rift\\s+kit"]
+
+  - id: bundle
+    name: Bundle
+    short: Bundle
+    packs: 0
+    edition_optional: true
+    patterns: ["\\bbundle\\b", "arcane\\s+box\\s+set", "box\\s+set"]
+
+  # Najvšeobecnejší, preto celkom naspodku.
+  - id: booster
+    name: Booster
+    short: Booster
+    packs: 1
+    patterns: ["\\bbooster\\b", "\\bboostr?e\\b"]
+
+# Champion Decky sa v časti eshopov predávajú bez názvu setu („Champion Deck -
+# Lee Sin"). Šampión je ale na set naviazaný, tak sa edícia doplní podľa neho.
+# Bez toho by tá istá paluba bežala raz pod Origins a raz pod zbernou edíciou
+# a medián by sa počítal z polovice ponúk.
+champion_editions:
+  lee-sin: rb-origins
+  viktor: rb-origins
+  jinx: rb-origins
+  rumble: rb-spiritforged
+  fiora: rb-spiritforged
+  vi: rb-unleashed
+  vex: rb-unleashed
+
+# Vylúčenia navyše k tým v editions.yaml (tie platia pre obe hry).
+exclude_patterns:
+  # Runy sú žetóny do hry, nie zapečatené balenie kariet.
+  - "bulk\\s+runes"
+  # Jednotlivé promo karty. Cardyx ich má pätnásť za 9,99–154,99 € a všetky
+  # majú v názve šampióna, takže by sa tvárili ako rôzne varianty toho istého.
+  - "promotional\\s+cards|organized\\s+play\\s+promo"
+  - "card\\s+holders?"

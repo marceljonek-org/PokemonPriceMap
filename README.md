@@ -333,6 +333,9 @@ je v zozname dvakrát.
 | `Tin - Greninja ex, Sylveon ex` | jedna položka s oboma menami vytvorila tretí kľúč, ktorý nemal s čím porovnávať |
 | `Battle Deck` | formát neexistoval, takže palubky za 45 € appka ticho zahadzovala |
 | `30th Anniversary Celebrations` | to isté ako `30th Celebration`; bez oboch slov v regexe by mal ETB dva mediány |
+| akrylová vitrína „pre Prismatic SPC Box" | prázdna vitrína za 30 € sedela s edíciou aj formátom a stala sa najlacnejšou SPC ponukou skladom (ostatné 267–430 €) |
+| `ETB + akrylový obal` | produkt tam je, ale cena je za dve veci — medián išiel hore |
+| variant ako celý názov | 30th Celebration mala dva rôzne produkty menom „Greninja" (ex Box 59,99 € a ex Tin 57,19 €) |
 
 Keď má jedna edícia v tom istom formáte viac rôznych produktov, riešia to dva
 zoznamy v `config/editions.yaml`. Uplatnia sa **len pri rozpoznanej edícii** —
@@ -373,6 +376,38 @@ v ňom prebije predvolené hodnoty, a keby chýbal alebo mal chybu, stránka vyz
 ako predtým — nič sa nerozbije. Obsahuje pripravené bloky (teplejšia paleta,
 väčšie písmo, hranatejšie karty, iné písmo, šírka bočného panela, len ikony
 v paneli, návrat záložiek nad obsah), ktoré stačí odkomentovať.
+
+### Dve hry
+
+Appka sleduje Pokémon TCG aj **Riftbound: League of Legends TCG**. Úvodná
+obrazovka (`?hra=` v adrese chýba) ponúkne dve dlaždice; `?hra=pokemon`
+a `?hra=riftbound` sa dajú uložiť do záložiek a otvoriť priamo.
+
+Sken je jeden, spoločný. Eshop má v `config/shops.yaml` dva zoznamy kategórií —
+`urls` (pokémonie) a `riftbound_urls` — a sťahujú sa naraz. Hru určí názov
+produktu: keď spomína Riftbound alebo League of Legends, ide do riftboundovej
+vetvy, inak do pokémonej.
+
+| | Pokémon | Riftbound |
+|---|---|---|
+| konfigurácia | `config/editions.yaml` | `config/riftbound.yaml` |
+| id edícií | `prismatic-evolutions` | **`rb-`**`origins` |
+| hodnotenie | úroveň A/B/C × formát × vek | základ × formát × vek |
+| varianty | `variant_markers`, `pokemon_variants` | meno šampióna z názvu |
+
+Riftboundové edície majú povinnú predponu `rb-`, lebo kľúč produktu je
+`edícia|formát`. Bez nej by sa raz zrazili s pokémoniou edíciou a prepísali jej
+históriu cien. Formáty sa naopak hľadajú vždy len v rámci rozpoznanej hry, takže
+`booster-box` môže v každej hre znamenať iné balenie a iný počet balíčkov.
+
+Úrovne A/B/C sú len v Pokémone — vychádzajú z
+`edicie-s-vysokym-investicnym-potencialom.md`. Pre Riftbound taký rozbor nie je,
+tak sa hodnotenie počíta iba z typu balenia a veku edície. Radšej menej presné
+číslo než vymyslené.
+
+Čo treba urobiť pri pridaní tretej hry: nový `config/<hra>.yaml` s blokom
+`game.brand_patterns`, predpona id edícií, vetva v `detect_game()`, tabuľka
+hodnotenia v `scrape.py` a položka v `GAME_INFO` v `index.html`.
 
 ### Rozloženie
 

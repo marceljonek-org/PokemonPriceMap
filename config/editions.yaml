@@ -919,9 +919,19 @@ exclude_patterns:
   # formát ("... from ETB"), takže by sa zaradili ako ten formát a rozbili by
   # medián — obaly z Pitch Black ETB za 4,10 € oproti ETB za 82 €.
   - "\\bfrom\\s+etb\\b|\\bz\\s+etb\\b"
-  - "sleeves?|rukáv|obaly\\s+na\\s+karty"
+  # POZOR na hranicu slova: bez nej „sleeves?" sedelo aj vnútri „Sleeved
+  # Booster", čo je zapečatený balíček v ozdobnom obale, nie obal na karty.
+  - "\\bsleeves\\b|\\brukáv|obaly\\s+na\\s+karty"
   - "playmat|podlo[žz]k|hracia\\s+plocha"
   - "\\bdice\\b|\\bkocky\\b|damage\\s+counter|po[šs]kodenie"
   - "deck\\s+box|divider|predel|toploader|\\bbinder\\b(?!\\s+collection)"
   - "\\bcoin\\b|\\bminca\\b|\\bpin\\b(?!\\s+collection)"
   - "energy\\s+cards|z[áa]kladn[ée]\\s+energie"
+  # Akrylové vitríny. Sú dvojako nebezpečné: prázdna vitrína "pre Prismatic
+  # Evolutions SPC Box" za 30 € sedela s formátom aj edíciou, takže sa usadila
+  # medzi SPC za 267–430 € a stala sa "najlacnejšou ponukou skladom" — presne tá
+  # chyba, ktorá stojí peniaze. A "ETB + akrylový obal" zase medián nadvihne,
+  # lebo sa platí aj za vitrínu. Ani jedno nie je porovnateľná cena produktu.
+  - "akryl|akril|acrylic"
+  - "ochrann[ýyée]\\w*\\s+(box|pouzdro|puzdro|obal)\\s+(pre|na|pro|for)"
+  - "\\bprotector\\b|magnetic\\s+(holder|case)"
