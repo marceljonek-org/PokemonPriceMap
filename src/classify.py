@@ -52,6 +52,7 @@ class Format:
     packs: int | None       # None = počet balíčkov sa líši podľa setu
     edition_optional: bool  # smie existovať aj bez rozpoznanej edície
     no_variant: bool        # meno pokémona na obale sa pri tomto formáte ignoruje
+    subject_after: bool     # predmet smie stáť aj ZA názvom formátu
     patterns: tuple
 
 
@@ -83,6 +84,7 @@ def _config() -> dict:
             id=f["id"], name=f["name"], short=f["short"], packs=f.get("packs"),
             edition_optional=bool(f.get("edition_optional")),
             no_variant=bool(f.get("no_variant")),
+            subject_after=f.get("subject_after", True),
             patterns=tuple(re.compile(normalize(p), re.I) for p in f["patterns"]),
         )
         for f in raw["formats"]
@@ -96,6 +98,7 @@ def _config() -> dict:
         re.compile(normalize(p), re.I) for p in raw.get("pokemon_variants", [])
     )
     launch = {k: float(v) for k, v in (raw.get("launch_price_eur") or {}).items()}
+    aliases = dict(raw.get("variant_aliases") or {})
     return {
         "editions": editions,
         "formats": formats,
@@ -104,6 +107,7 @@ def _config() -> dict:
         "pokemons": pokemons,
         "excludes": excludes,
         "launch": launch,
+        "aliases": aliases,
     }
 
 
@@ -128,6 +132,7 @@ def _riftbound() -> dict:
             id=f["id"], name=f["name"], short=f["short"], packs=f.get("packs"),
             edition_optional=bool(f.get("edition_optional")),
             no_variant=bool(f.get("no_variant")),
+            subject_after=f.get("subject_after", True),
             patterns=tuple(re.compile(normalize(p), re.I) for p in f["patterns"]),
         )
         for f in raw["formats"]
@@ -382,7 +387,13 @@ def looks_like_new_edition(name: str) -> bool:
 # mutácií toho istého eshopu skončil pod dvoma kľúčmi.
 _BASE_NOISE = (r"pokemon|pok[eé]mon|\btcg\b|\bkarty\b|\bkartov[aá]\b|\bhra\b|"
                r"\bkaretn[ií]\b|\bhry\b|"
-               r"\bnov[ée]\b|\bnew\b|\bzberate[ľl]sk[áa]\b")
+               r"\bnov[ée]\b|\bnew\b|\bzberate[ľl]sk[áa]\b|"
+               # Jazyková mutácia v zátvorke. KúzelnéHry pripájajú „(SK)",
+               # inde býva „(EN)" — z toho istého produktu by boli dva.
+               r"\((?:sk|cz|en|de|fr|it|es|pl)\)|"
+               # Obal už pomenúva formát; v predmete je „box" len výplň
+               # („Premium Collection Box Charizard Ex" -> charizard-ex).
+               r"\bbox\b")
 _NOISE = re.compile(_BASE_NOISE + r"|\(\d{4}\)|\b\d{4}\b")
 
 # Množné čísla, ktoré eshopy striedajú pri tom istom produkte
@@ -433,24 +444,68 @@ def subject_of(normalized_name: str, fmt: Format) -> str:
         if found:
             tail = f"series-{found.group(1)}"
 
+    # Predmet zložený len zo stupňov karty sa ráta ako žiadny. „Pokémon TCG: Ex
+    # Premium Collection Box - Charizard" dával predmet „ex" a v tom koši potom
+    # ležal Charizard spolu s Mega Venusaurom.
+    _VYPLN = {"ex", "gx", "v", "vmax", "vstar", "the", "box", "collection"}
+
     subject = slug(prefix)
-    if not subject and len(matched) <= 4:
-        # Skratka môže stáť aj pred názvom ("SPC Charizard ex"). Vtedy je
-        # predmetom to, čo nasleduje za ňou — inak by sa všetky takto písané
-        # produkty zliali do jedného kľúča pomenovaného podľa skratky.
-        # Len pri skratke: pri promo baleniach ("Pokémon Day 2026 Collection")
-        # je identitou ročník a text za formátom je náhodný popis balenia.
+    if subject and all(w in _VYPLN for w in subject.split("-")):
+        subject = ""
+    if not subject and matched and (len(matched) <= 4 or fmt.subject_after):
+        # Predmet často stojí až ZA názvom formátu: „Premium Collection Box
+        # Charizard Ex", „Ultra Premium Collection Mega Charizard X",
+        # „Illustration Collection First Partner Series 3". Kým sa text za
+        # formátom bral len pri skratke (SPC, UPC), spadli všetky takéto názvy
+        # do koša pomenovaného podľa formátu — Charizard za 37,80 € ležal
+        # v jednom mediáne s Armarouge za 64,99 € a Ultra Premium Collection
+        # Mega Charizard X za 295 € nenašla svojich jedenásť súrodencov.
+        #
+        # Formát, ktorého identitou je ročník (promo balenia, adventné
+        # kalendáre), má `subject_after: false` — tam je text za názvom len
+        # náhodný popis obsahu a rozdelil by ten istý produkt podľa eshopu.
         after = normalized_name[normalized_name.find(matched) + len(matched):]
         subject = slug(after)
     if subject:
-        parts = subject.split("-")[:5]
-        if tail:
+        parts = subject.split("-")
+        # Vedúce „The" a názov série pred predmetom nie sú identita produktu:
+        # „The Sword & Shield Charizard UPC" je ten istý tovar ako „Sword &
+        # Shield Charizard UPC", a „Mega Evolution - Mega Greninja ex Premium
+        # Collection" to isté ako „Mega Greninja ex Premium Collection".
+        while len(parts) > 1 and parts[0] == "the":
+            parts = parts[1:]
+        for predpona in (["mega", "evolution"], ["scarlet", "violet"], ["sword", "shield"]):
+            if len(parts) > len(predpona) + 1 and parts[:len(predpona)] == predpona:
+                parts = parts[len(predpona):]
+                break
+        # Stupeň karty na konci eshopy píšu aj nepíšu („Mega Venusaur ex
+        # Premium Collection" vs „ex Premium Collection Mega Venusaur"). Je to
+        # ten istý tovar, tak koncovku zhodíme vždy — inak sú z neho dva kľúče.
+        while len(parts) > 1 and parts[-1] in {"ex", "gx", "v", "vmax", "vstar"}:
+            parts = parts[:-1]
+        parts = parts[:5]
+        # „Illustration Collection First Partner Series 3" má sériu aj
+        # v predmete aj v chvoste — bez tejto poistky vznikne
+        # „first-partner-series-3-series-3", čo je tretí kľúč navyše.
+        if tail and not "-".join(parts).endswith(tail):
             parts.append(tail)
-        return "-".join(parts)
+        return alias_of("-".join(parts), fmt.id)
 
     # Pri promo baleniach nezostane pred názvom formátu nič — identitou je samotný
     # formát a ročník ("pokemon day 2026"). Rok berieme z celého názvu, nech sa
     # ten istý produkt z rôznych eshopov zaradí pod jeden kľúč.
     year = re.search(r"\b(20\d{2})\b", normalized_name)
     parts = [slug(matched)] + ([year.group(1)] if year else [])
-    return "-".join(p for p in parts if p)
+    return alias_of("-".join(p for p in parts if p), fmt.id)
+
+
+def alias_of(variant: str, format_id: str = "") -> str:
+    """Ručná mapa pre názvy, ktoré sa z textu vytiahnuť nedajú — slovenský
+    preklad, chýbajúci apostrof. Pozri `variant_aliases` v editions.yaml.
+
+    Kľúč „formát/variant" platí len v danom formáte: „charizard" v Ultra
+    Premium Collection je Sword & Shield Charizard UPC, ale „charizard"
+    v Premium Collection je iný tovar.
+    """
+    mapa = _config()["aliases"]
+    return mapa.get(f"{format_id}/{variant}") or mapa.get(variant, variant)

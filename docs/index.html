@@ -341,7 +341,12 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
       <input id="q" type="search" placeholder="hľadať edíciu alebo produkt…" aria-label="Hľadať">
       <button class="f" id="open-filters" aria-expanded="false" aria-controls="filters"
               title="Séria, formát, cena, hodnotenie, eshop">⚙ Filtre<span class="badge hidden" id="filter-count"></span></button>
-      <button class="f" id="by-rating" aria-pressed="false" title="Zoradí podľa investičného hodnotenia">podľa hodnotenia</button>
+      <select class="f" id="sort-by" aria-label="Zoradenie">
+        <option value="">predvolené poradie</option>
+        <option value="rating">podľa hodnotenia</option>
+        <option value="price-asc">cena: od najlacnejšieho</option>
+        <option value="price-desc">cena: od najdrahšieho</option>
+      </select>
       <span class="spacer"></span>
       <span class="count" id="count"></span>
     </div>
@@ -426,7 +431,9 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
 
 <script>
 const state = {data:null, formats:new Set(), series:new Set(), q:"",
-               onlyStock:false, onlyTier:false, byRating:false, view:'today', histKey:null,
+               // Nedostupné sa štandardne skrývajú: v ostrom skene ich bolo
+               // 91 zo 406 a miešali sa medzi ponuky, ktoré sa dajú kúpiť.
+               onlyStock:true, onlyTier:false, sort:'', view:'today', histKey:null,
                shopId:null, game:null,
                minEur:null, maxEur:null, minRating:0, minDiscount:0, shopOnly:""};
 
@@ -441,6 +448,7 @@ function saveFilters(){
       onlyStock:state.onlyStock, onlyTier:state.onlyTier,
       minEur:state.minEur, maxEur:state.maxEur,
       minRating:state.minRating, minDiscount:state.minDiscount, shopOnly:state.shopOnly,
+      sort:state.sort,
     }));
   }catch{}
 }
@@ -452,13 +460,14 @@ function loadFilters(){
   if(!v || typeof v !== 'object') return;
   state.formats = new Set(Array.isArray(v.formats) ? v.formats : []);
   state.series  = new Set(Array.isArray(v.series)  ? v.series  : []);
-  state.onlyStock = !!v.onlyStock;
+  state.onlyStock = v.onlyStock !== false;   // predvolene skryté nedostupné
   state.onlyTier  = !!v.onlyTier;
   state.minEur = Number.isFinite(v.minEur) ? v.minEur : null;
   state.maxEur = Number.isFinite(v.maxEur) ? v.maxEur : null;
   state.minRating   = Number(v.minRating)   || 0;
   state.minDiscount = Number(v.minDiscount) || 0;
   state.shopOnly = typeof v.shopOnly === 'string' ? v.shopOnly : "";
+  state.sort = ['rating','price-asc','price-desc'].includes(v.sort) ? v.sort : '';
 }
 
 const eur = v => v==null ? '—'
@@ -544,7 +553,20 @@ function visibleProducts(){
    nehýbe podľa toho, kto má práve výpredaj. */
 function sortedProducts(){
   const items = visibleProducts();
-  return state.byRating ? items.slice().sort((a,b)=>(b.rating||0)-(a.rating||0)) : items;
+  if(!state.sort) return items;
+  const kopia = items.slice();
+  if(state.sort === 'rating')
+    return kopia.sort((a,b)=>(b.rating||0)-(a.rating||0));
+  // Produkt bez ceny (nikde ani ponuka) ide na koniec v oboch smeroch —
+  // hore by zavadzal a dole by vyzeral ako najdrahší.
+  const smer = state.sort === 'price-desc' ? -1 : 1;
+  return kopia.sort((a,b)=>{
+    const ca = cenaProduktu(a), cb = cenaProduktu(b);
+    if(ca == null && cb == null) return 0;
+    if(ca == null) return 1;
+    if(cb == null) return -1;
+    return (ca - cb) * smer;
+  });
 }
 
 /* Najnižšia cena skladom je zároveň historickým minimom? Tolerancia 1 %,
@@ -561,7 +583,13 @@ function renderCards(){
   box.innerHTML = '';
   const items = sortedProducts();
   document.getElementById('count').textContent =
-    `${items.length} z ${gameProducts().length} produktov · ${items.reduce((a,p)=>a+p.offer_count,0)} ponúk`;
+    (()=>{
+      const skryte = state.onlyStock
+        ? gameProducts().filter(p=>p.in_stock_count===0).length : 0;
+      return `${items.length} z ${gameProducts().length} produktov · `
+        + `${items.reduce((a,p)=>a+p.offer_count,0)} ponúk`
+        + (skryte ? ` · ${skryte} nedostupných skrytých` : '');
+    })();
   for(const p of items){
     const card = el('button','card');
     card.type = 'button';
@@ -1312,7 +1340,9 @@ function filterCount(){
   return (state.series.size ? 1 : 0) + (state.formats.size ? 1 : 0)
     + ((state.minEur != null || state.maxEur != null) ? 1 : 0)
     + (state.minRating > 0 ? 1 : 0) + (state.minDiscount > 0 ? 1 : 0)
-    + (state.shopOnly ? 1 : 0) + (state.onlyStock ? 1 : 0) + (state.onlyTier ? 1 : 0);
+    + (state.shopOnly ? 1 : 0) + (state.onlyTier ? 1 : 0)
+    // „len skladom" je predvolené, takže sa počíta až keď ho vypneš.
+    + (state.onlyStock ? 0 : 1);
 }
 
 function syncFilterUI(){
@@ -1335,6 +1365,7 @@ function syncFilterUI(){
   document.getElementById('f-disc-val').textContent =
     state.minDiscount > 0 ? `aspoň −${state.minDiscount} %` : 'bez limitu';
   document.getElementById('f-shop-pick').value = state.shopOnly;
+  document.getElementById('sort-by').value = state.sort;
 }
 
 function filtersChanged(){ syncFilterUI(); saveFilters(); renderCards(); }
@@ -1404,10 +1435,8 @@ for(const [id,key] of [['only-stock','onlyStock'],['only-tier','onlyTier']]){
     filtersChanged();
   });
 }
-document.getElementById('by-rating').addEventListener('click', e=>{
-  state.byRating = !state.byRating;
-  e.currentTarget.setAttribute('aria-pressed', String(state.byRating));
-  renderCards();
+document.getElementById('sort-by').addEventListener('change', e=>{
+  state.sort = e.target.value; saveFilters(); renderCards();
 });
 /* Prázdne pole znamená „bez hranice", nie nula. Záporné číslo nedáva zmysel. */
 const cislo = v => { const n = parseFloat(v); return Number.isFinite(n) && n >= 0 ? n : null; };
@@ -1436,7 +1465,7 @@ document.getElementById('f-shop-pick').addEventListener('change', e=>{
 });
 document.getElementById('reset-filters').addEventListener('click', ()=>{
   state.formats.clear(); state.series.clear();
-  state.onlyStock = false; state.onlyTier = false;
+  state.onlyStock = true; state.onlyTier = false;   // späť na predvolené
   state.minEur = null; state.maxEur = null;
   state.minRating = 0; state.minDiscount = 0; state.shopOnly = "";
   filtersChanged();

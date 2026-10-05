@@ -274,9 +274,9 @@ def test_classify_rejects(name):
 
 
 @pytest.mark.parametrize("name,variant", [
-    ("Pokémon TCG: Mega Charizard X ex Ultra Premium Collection (2025)", "mega-charizard-ex"),
-    ("Pokémon TCG Mega Charizard X ex - Ultra Premium Collection", "mega-charizard-ex"),
-    ("Pokémon TCG: Terapagos EX Ultra Premium Collection", "terapagos-ex"),
+    ("Pokémon TCG: Mega Charizard X ex Ultra Premium Collection (2025)", "mega-charizard"),
+    ("Pokémon TCG Mega Charizard X ex - Ultra Premium Collection", "mega-charizard"),
+    ("Pokémon TCG: Terapagos EX Ultra Premium Collection", "terapagos"),
 ])
 def test_standalone_premium_collections(name, variant):
     """Premiové kolekcie sa predávajú bez kódu setu. Nesmú vypadnúť — a zároveň
@@ -1007,9 +1007,14 @@ def test_plural_stemming_does_not_mangle_pokemon_names():
     """Plošné zhadzovanie koncového -s by z Terapagosa spravilo „Terapago"
     a z Moltresa „Moltre" — variant sa zobrazuje ako názov produktu."""
     assert classify.classify(
-        "Pokémon TCG: Terapagos EX Ultra Premium Collection").variant == "terapagos-ex"
+        "Pokémon TCG: Terapagos EX Ultra Premium Collection").variant == "terapagos"
     assert classify.classify(
-        "Pokémon TCG: Zapdos ex Premium Collection").variant == "zapdos-ex"
+        "Pokémon TCG: Zapdos ex Premium Collection").variant == "zapdos"
+    # Koncové „ex" sa zhadzuje zámerne (eshopy ho striedavo píšu a nepíšu),
+    # ale meno pokémona musí ostať celé.
+    assert classify.classify(
+        "Pokémon TCG: Moltres ex Team Rocket Ultra Premium Collection"
+    ).variant.startswith("moltres")
 
 
 def test_mini_tin_display_is_not_a_mini_tin():
@@ -1164,7 +1169,7 @@ def test_spc_is_recognised_the_same_way_as_upc():
     hits = [classify.classify(n) for n in varianty]
     assert all(h and h.format.id == "super-premium" for h in hits)
     assert len({h.variant for h in hits}) == 1, "ten istý produkt má mať jeden kľúč"
-    assert hits[0].variant == "charizard-ex"
+    assert hits[0].variant == "charizard"
 
 
 def test_abbreviation_before_the_name_does_not_become_the_key():
@@ -1173,7 +1178,7 @@ def test_abbreviation_before_the_name_does_not_become_the_key():
     a = classify.classify("Pokémon TCG: UPC Mega Charizard X ex")
     b = classify.classify("Pokémon TCG: UPC Terapagos ex")
     assert a.variant != b.variant
-    assert a.variant == "mega-charizard-ex"
+    assert a.variant == "mega-charizard"
 
 
 def test_pokemon_only_shops_have_only_pokemon_categories():
@@ -1663,3 +1668,134 @@ def test_riftbound_kategorie_v_eshopoch_hovoria_o_riftbounde():
             assert "riftbound" in url.lower() or "path=_143_184" in url, \
                 f"{shop['id']}: {url} nevyzerá ako riftboundová kategória"
     assert najdene >= 8, "riftboundové kategórie sa stratili z konfigurácie"
+
+
+# ------------------------ zberná edícia: predmet za názvom formátu (1.24)
+
+def _var(n):
+    h = classify.classify(n, require_brand=False)
+    return h.variant if h else None
+
+
+def test_predmet_smie_stat_za_nazvom_formatu():
+    """Kým sa text za názvom formátu bral len pri skratke (UPC, SPC), spadli
+    všetky takto písané názvy do koša pomenovaného podľa formátu. V ostrých
+    dátach v ňom ležal Charizard za 37,80 € spolu s Armarouge za 64,99 €
+    a medián 62,44 € neplatil ani pre jedného."""
+    assert _var("Pokémon TCG Premium Collection Box Charizard Ex") == "charizard"
+    assert _var("Pokémon TCG - Premium Collection - Armarouge ex (SK)") == "armarouge"
+    assert _var("Pokémon TCG Ultra Premium Collection Mega Charizard X") == "mega-charizard"
+    # Žiadny z nich sa už nesmie volať podľa formátu.
+    for n in ("Pokémon TCG Premium Collection Box Charizard Ex",
+              "Pokémon TCG Ultra Premium Collection Mega Charizard X",
+              "Pokémon: Illustration Collection First Partner Series 3"):
+        assert "collection" not in _var(n), n
+
+
+def test_mega_charizard_upc_je_jeden_produkt():
+    """Najdrahší sledovaný tovar. Pred opravou bežal ako tri kľúče: deväť
+    ponúk pod `mega-charizard-ex`, dve pod `mega-charizard` a jedna za 295 €
+    sama v koši pomenovanom podľa formátu."""
+    zapisy = [
+        "Mega Charizard X ex Ultra-Premium Collection",
+        "Pokémon TCG: Mega Charizard X ex Ultra Premium Collection (2025)",
+        "Pokémon TCG - Mega Charizard Ultra Premium Collection",
+        "Pokémon TCG Ultra Premium Collection Mega Charizard X",
+    ]
+    assert len({_var(n) for n in zapisy}) == 1, {n: _var(n) for n in zapisy}
+
+
+def test_sword_shield_charizard_upc_je_jeden_produkt():
+    """Tovar za 540–1 018 € bežal ako štyri produkty po jednej ponuke, takže
+    nemal medián a appka o jeho cenovom rozpätí nepovedala nič."""
+    zapisy = [
+        "Pokémon | Sword & Shield Charizard - Ultra Premium Collection",
+        "The Pokémon TCG - Sword & Shield Charizard - Ultra Premium Collection",
+        "Pokémon Meč a štít Ultra Premium Collection",
+        "Pokémon TCG 2022 Ultra Premium Collection Charizard",
+        "Pokémon TCG: Charizard – Ultra Premium Collection (EN)",
+    ]
+    assert {_var(n) for n in zapisy} == {"sword-shield-charizard"}, \
+        {n: _var(n) for n in zapisy}
+
+
+def test_alias_plati_len_vo_svojom_formate():
+    """`charizard` v Ultra Premium Collection je Sword & Shield Charizard UPC
+    za 540 €. `charizard` v Premium Collection je iný tovar za 38 € a alias ho
+    nesmie prepísať."""
+    upc = classify.classify("Pokémon TCG: Charizard – Ultra Premium Collection (EN)")
+    pc = classify.classify("Pokémon TCG Premium Collection Box Charizard Ex")
+    assert upc.variant == "sword-shield-charizard"
+    assert pc.variant == "charizard"
+
+
+def test_promo_balenia_sa_nerozdelia_podla_popisu():
+    """Promo balenia majú `subject_after: false`: ich identitou je formát
+    a ročník. Text za názvom formátu je v každom eshope iný popis obsahu —
+    keby sa bral, rozdelil by jeden produkt na toľko kusov, koľko je ponúk."""
+    zapisy = [
+        "Pokémon TCG: Pokémon Day 2026 Collection",
+        "Pokémon TCG: Pokémon Day 2026 Collection - Pikachu with Grey Felt Hat",
+        "Pokémon TCG Pokémon Day 2026 Collection box s promo kartou",
+    ]
+    assert {_var(n) for n in zapisy} == {"day-2026"}, {n: _var(n) for n in zapisy}
+    # Poké Ball Tin to isté: popis plechovky sa v eshopoch líši, ročník nie.
+    assert _var("Pokémon TCG: Poké Ball Tin 2025") \
+        == _var("Pokémon TCG: Poké Ball Tin 2025 - Great Ball") == "poke-ball-tin-2025"
+
+
+def test_rocniky_ostavaju_oddelene():
+    """Automatické zlučovanie podľa podobnosti by spojilo Poké Ball Tin 2020
+    s 2024 (94 % zhoda) a adventný kalendár 2024 s 2025. Sú to rôzne produkty."""
+    roky = {_var(f"Pokémon TCG: Poké Ball Tin {r}") for r in (2020, 2021, 2024, 2025)}
+    assert len(roky) == 4, roky
+
+
+def test_stupen_karty_na_konci_nerozdeluje():
+    """Eshopy koncové „ex" striedavo píšu a nepíšu. „ex Premium Collection
+    Mega Venusaur" a „Mega Venusaur ex Premium Collection" je ten istý tovar."""
+    assert _var("Pokémon TCG: ex Premium Collection Mega Venusaur") \
+        == _var("Pokémon TCG: Mega Venusaur ex Premium Collection") == "mega-venusaur"
+    # Samotné „ex" nesmie byť kľúčom — v tom koši ležal Charizard s Venusaurom.
+    assert _var("Pokémon TCG: Ex Premium Collection Box - Charizard") == "charizard"
+
+
+def test_znacka_funguje_na_obe_strany():
+    """Appka strážila len podozrivo nízku cenu, takže ponuka za 244 % trhu
+    (Destined Rivals ETB za 367 € pri mediáne 150 €) prešla bez slova."""
+    import scrape
+    assert "pod trhom" in scrape.flag_offer(75.0, 100.0)
+    assert scrape.flag_offer(65.0, 100.0).startswith("overiť")
+    assert "nad trhom" in scrape.flag_offer(150.0, 100.0)
+    assert scrape.flag_offer(367.0, 150.0).startswith("overiť")
+    # Bežný rozptyl trhu značku nedostane.
+    assert scrape.flag_offer(103.0, 100.0) == ""
+    assert scrape.flag_offer(120.0, 100.0) == ""
+
+
+def test_predrazena_ponuka_nedviha_median():
+    """Jeden predajca za dvojnásobok trhu posúval medián všetkým ostatným.
+    Orezáva sa, len kým zostanú aspoň tri ceny — inak by sa z malej ponuky
+    dal vyrobiť ľubovoľný medián."""
+    import statistics, scrape
+    ceny = [100.0, 102.0, 105.0, 108.0, 400.0]
+    median = statistics.median(ceny)
+    bez = [p for p in ceny if p <= median * (1 + scrape.OVER_MARKET_MAX)]
+    assert len(bez) >= scrape.MIN_FOR_MEDIAN
+    assert statistics.median(bez) < median
+    # Pri troch cenách sa neorezáva nič, zostali by dve.
+    male = [100.0, 102.0, 400.0]
+    m2 = statistics.median(male)
+    bez2 = [p for p in male if p <= m2 * (1 + scrape.OVER_MARKET_MAX)]
+    assert len(bez2) < scrape.MIN_FOR_MEDIAN, "pri troch cenách sa orezať nesmie"
+
+
+def test_promo_booster_nie_je_bezny_balicek():
+    """Cardstore predáva „Origins Nexus Night Promo Booster" za 32,66 €, kým
+    obyčajný Origins booster stojí 7–10 €. V jednom koši z toho bol nezmyselný
+    medián a jediná skladová ponuka vyzerala ako trhová cena."""
+    promo = classify.classify("Riftbounds: Origins Nexus Night Promo Booster")
+    bezny = classify.classify("Riftbound League of Legends TCG: Origins Booster Pack")
+    assert promo.format.id == "promo-booster"
+    assert bezny.format.id == "booster"
+    assert promo.edition.id == bezny.edition.id == "rb-origins"

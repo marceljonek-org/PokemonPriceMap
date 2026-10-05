@@ -102,6 +102,11 @@ OUTLIER_LOW = 0.3         # cena pod 30 % predchádzajúcej = podozrivá
 OUTLIER_HIGH = 3.0
 UNDER_MARKET_MIN = 0.05   # 5 % pod mediánom = zaujímavé
 UNDER_MARKET_MAX = 0.30   # nad 30 % = skôr chyba eshopu než príležitosť
+# Druhá strana tej istej mince. Doteraz appka strážila len podozrivo nízku cenu,
+# takže ponuka za 244 % trhu (Destined Rivals ETB za 367 € pri mediáne 150 €)
+# prešla bez slova — a navyše dvíhala medián všetkým ostatným.
+OVER_MARKET_MIN = 0.35    # 35 % nad mediánom = stojí za zmienku
+OVER_MARKET_MAX = 1.00    # dvojnásobok trhu = do mediánu nepatrí
 ABSURD_RATIO = 0.25       # pod štvrtinou mediánu = takmer isto nie ten produkt
 IN_PRINT_DAYS = 550       # ~18 mesiacov; potom sa set zvyčajne prestáva tlačiť
 
@@ -310,11 +315,35 @@ def to_eur(price: float, currency: str, fx: dict) -> float:
 # ------------------------------------------------------------------ história
 
 def read_history() -> list[dict]:
+    """Načíta históriu a prekľúčuje ju podľa dnešného pravidla zaraďovania.
+
+    Kľúč produktu obsahuje variant vytiahnutý z názvu. Keď sa vytiahnutie
+    zlepší — a zlepšuje sa, lebo eshopy píšu názvy stále inak — starým riadkom
+    ostane v súbore starý variant a produkt príde o celú históriu cien, hoci ju
+    má zapísanú. Preto sa variant počíta nanovo z uloženého názvu.
+
+    Počíta sa raz na každý rozdielny názov, nie na každý riadok: 58 tisíc
+    riadkov má len niekoľko stoviek rozdielnych názvov.
+    """
     path = DATA / "history.csv"
     if not path.exists():
         return []
     with open(path, encoding="utf-8", newline="") as fh:
-        return list(csv.DictReader(fh))
+        rows = list(csv.DictReader(fh))
+    prepis: dict[str, str | None] = {}
+    opravene = 0
+    for row in rows:
+        meno = row.get("name") or ""
+        if meno not in prepis:
+            hit = classify.classify(meno, require_brand=False)
+            prepis[meno] = hit.variant if hit else None
+        novy = prepis[meno]
+        if novy is not None and novy != row.get("variant", ""):
+            row["variant"] = novy
+            opravene += 1
+    if opravene:
+        print(f"História: {opravene} riadkov prekľúčovaných na dnešné varianty")
+    return rows
 
 
 HISTORY_FIELDS = [
@@ -468,6 +497,11 @@ def flag_offer(price_eur: float, median_eur: float | None) -> str:
         return f"overiť — {round(diff * 100)} % pod trhom"
     if diff >= UNDER_MARKET_MIN:
         return f"pod trhom {round(diff * 100)} %"
+    nad = (price_eur - median_eur) / median_eur
+    if nad >= OVER_MARKET_MAX:
+        return f"overiť — {round(nad * 100)} % nad trhom"
+    if nad >= OVER_MARKET_MIN:
+        return f"nad trhom {round(nad * 100)} %"
     return ""
 
 
@@ -538,6 +572,16 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
                    if median_eur is None or p >= median_eur * (1 - UNDER_MARKET_MAX)]
         if trusted and len(trusted) < len(prices_in_stock):
             median_eur = statistics.median(trusted)
+        # Tretí prechod, horná strana: ponuka za dvojnásobok trhu nie je trhová
+        # cena, ale dvíha medián všetkým. Orezáva sa len dovtedy, kým po nej
+        # zostanú aspoň tri ceny — inak by sa z malej ponuky dal vyrobiť
+        # ľubovoľný medián.
+        if median_eur:
+            bez_predrazenych = [p for p in trusted
+                                if p <= median_eur * (1 + OVER_MARKET_MAX)]
+            if MIN_FOR_MEDIAN <= len(bez_predrazenych) < len(trusted):
+                trusted = bez_predrazenych
+                median_eur = statistics.median(trusted)
         min_eur = trusted[0] if trusted else None
         # Medián z jednej či dvoch ponúk nie je trhová cena — je to cena toho
         # predajcu. Príznak nesie ďalej frontend aj rebríček, aby sa z toho
@@ -773,7 +817,7 @@ INVESTMENT_FORMAT_RIFTBOUND = {
     "booster-box": 1.00, "champion-deck-display": 0.80, "bundle": 0.75,
     "vault": 0.62, "showdown-deck": 0.50, "proving-grounds-box": 0.48,
     "champion-deck": 0.42, "pre-rift-kit": 0.35,
-    "sleeved-booster": 0.26, "booster": 0.24,
+    "sleeved-booster": 0.26, "promo-booster": 0.26, "booster": 0.24,
 }
 
 

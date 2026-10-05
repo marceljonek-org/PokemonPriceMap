@@ -720,11 +720,15 @@ formats:
     patterns: ["knock[\\s-]*out[\\s-]*collection"]
 
 
+  # `subject_after: false`: identitou promo balenia je formát a ročník
+  # („Pokémon Day 2026"), nie text za názvom formátu — ten je v každom eshope
+  # iný popis obsahu a rozdelil by jeden produkt na toľko kusov, koľko je ponúk.
   - id: event-collection
     name: Promo balenie
     short: Promo
     packs: null
     edition_optional: true   # Pokémon Day a spol. nemajú kód setu
+    subject_after: false
     patterns: ["pokemon\\s+day", "pok[eé]\\s*ball\\s+tin", "trainer'?s\\s+toolkit",
                "advent|adventn|kalend[áa]r"]
 
@@ -902,6 +906,23 @@ pokemon_variants:
   # ex Box aj ex Tin vychádzajú v dvoch prevedeniach
   - "\\bsylveon\\b"
   - "\\bgreninja\\b"
+
+# Ten istý produkt pod menom, ktoré sa z názvu vytiahnuť nedá. Mapa je zámerne
+# krátka a ručná — automatické zlučovanie podľa podobnosti by spojilo
+# Poké Ball Tin 2020 s 2024 (94 % zhoda) a Adventný kalendár 2024 s 2025, čo sú
+# rôzne produkty. Sem patrí len to, čo som naozaj overil v ponukách eshopov.
+# Kľúč smie byť „formát/variant" — vtedy platí len v tom formáte. Holý variant
+# platí všade. „charizard" v Ultra Premium Collection je Sword & Shield
+# Charizard UPC, ale „charizard" v Premium Collection je úplne iný tovar.
+variant_aliases:
+  # KúzelnéHry predávajú Sword & Shield Charizard UPC pod slovenským názvom
+  # „Pokémon Meč a štít Ultra Premium Collection".
+  ultra-premium/mec-stit: sword-shield-charizard
+  # Cardstore a Pokélio ho uvádzajú len ako „Charizard" s ročníkom 2022 —
+  # je to tá istá vec, Sword & Shield Charizard UPC z roku 2022.
+  ultra-premium/charizard: sword-shield-charizard
+  # Card Empire píše Cynthiu bez apostrofu, takže „s" ostane prilepené.
+  cynthias-garchomp: cynthia-garchomp
 
 exclude_patterns:
   - "japon|japan|jap\\.|\\bjp\\b|\\(jap"

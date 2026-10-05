@@ -29,6 +29,14 @@ class Offer:
     sku: str = ""
     extra: dict = field(default_factory=dict)
 
+    def __post_init__(self):
+        # Časť eshopov posiela názvy s HTML entitami — KúzelnéHry majú
+        # „Scarlet &amp; Violet 10". Niektoré parsery ich rozkódujú, iné nie,
+        # podľa toho, či čítajú text uzla alebo atribút. Robí sa to tu, nech to
+        # platí pre všetky adaptéry naraz.
+        if self.name:
+            self.name = html_lib.unescape(self.name).replace(NBSP, " ").strip()
+
 
 # ---------------------------------------------------------------- helpers
 

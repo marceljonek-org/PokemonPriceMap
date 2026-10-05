@@ -161,6 +161,15 @@ formats:
     edition_optional: true
     patterns: ["\\bbundle\\b", "arcane\\s+box\\s+set", "box\\s+set"]
 
+  # Promo booster je iný tovar než bežný balíček: Cardstore predáva „Origins
+  # Nexus Night Promo Booster" za 32,66 €, kým obyčajný Origins booster stojí
+  # 7–10 €. V jednom koši z toho bol nezmyselný medián.
+  - id: promo-booster
+    name: Promo Booster
+    short: Promo
+    packs: 1
+    patterns: ["nexus\\s+night", "promo\\s+booster"]
+
   # Najvšeobecnejší, preto celkom naspodku.
   - id: booster
     name: Booster

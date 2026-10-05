@@ -336,6 +336,10 @@ je v zozname dvakrát.
 | akrylová vitrína „pre Prismatic SPC Box" | prázdna vitrína za 30 € sedela s edíciou aj formátom a stala sa najlacnejšou SPC ponukou skladom (ostatné 267–430 €) |
 | `ETB + akrylový obal` | produkt tam je, ale cena je za dve veci — medián išiel hore |
 | variant ako celý názov | 30th Celebration mala dva rôzne produkty menom „Greninja" (ex Box 59,99 € a ex Tin 57,19 €) |
+| predmet ZA názvom formátu | „Premium Collection Box Charizard Ex" spadol do koša menom `premium-collection`, kde ležal Charizard za 37,80 € s Armarouge za 64,99 € |
+| `Sword & Shield Charizard UPC` | štyri zápisy (aj slovenské „Meč a štít"), štyri produkty po jednej ponuke, tovar za 540–1 018 € bez mediánu |
+| koncové `ex` | eshopy ho striedavo píšu a nepíšu — „Mega Venusaur" a „Mega Venusaur ex" boli dva kľúče |
+| `&amp;` v názve | KúzelnéHry posielajú HTML entity; v appke bolo vidieť „Scarlet &amp;amp; Violet" |
 
 Keď má jedna edícia v tom istom formáte viac rôznych produktov, riešia to dva
 zoznamy v `config/editions.yaml`. Uplatnia sa **len pri rozpoznanej edícii** —
@@ -428,6 +432,26 @@ filter aktívny, zásuvka sa otvorí sama.
 | Minimálne hodnotenie | `rating` zo skenu |
 | Pod mediánom | `(min_eur − median_eur) / median_eur`, **len keď `median_trusted`** |
 | Eshop | produkt má od daného eshopu ponuku skladom a neoznačenú ako výkyv |
+
+### Ako sa pozná ten istý produkt v zbernej edícii
+
+Produkt bez kódu setu (UPC, SPC, Premium Collection) sa rozlišuje predmetom
+vytiahnutým z názvu. Pravidlá, ktoré z toho vznikli na reálnych názvoch:
+
+* Predmet smie stáť **pred aj za** názvom formátu. Výnimku má formát
+  s `subject_after: false` (promo balenia, adventné kalendáre) — tam je
+  identitou formát a ročník a text za formátom je len popis obsahu.
+* Predmet zložený len zo stupňa karty (`ex`, `gx`, `v`) sa ráta ako žiadny.
+* Vedúce „The" a názov série pred predmetom sa zhadzujú; koncový stupeň karty
+  tiež, lebo ho eshopy píšu striedavo.
+* `variant_aliases` je **ručná** mapa na zvyšok (slovenský preklad, chýbajúci
+  apostrof). Kľúč `formát/variant` platí len v tom formáte. Automatické
+  zlučovanie podľa podobnosti sa použiť nedá: spojilo by Poké Ball Tin 2020
+  s 2024 (94 % zhoda) a adventný kalendár 2024 s 2025.
+
+História sa pri zmene pravidiel **neztráca**. `read_history()` prepočíta variant
+z uloženého názvu, takže staré riadky sa prekľúčujú samy — pri poslednej zmene
+to bolo 4 092 zo 58 168 riadkov za 0,3 s.
 
 Dve veci, na ktoré si dať pozor pri pridávaní ďalšieho filtra: zapíš ho do
 `filterCount()`, inak odznak klame, a do `saveFilters()`/`loadFilters()`, inak
