@@ -1534,10 +1534,16 @@ def test_nazov_produktu_obsahuje_ediciu_aj_format():
     # Bez variantu sa názov nemení.
     assert scrape.product_title(ed, classify.format_by_id("etb"), "") \
         == "30th Celebration — Elite Trainer Box"
-    # Zberná edícia nemá meno, ktoré by sa dalo predradiť — variant ostáva názvom.
+    # Zberná edícia nemá meno, ktoré by sa dalo predradiť, tak názov nesie
+    # predmet a formát. Samotný predmet je málo: po zhodení koncového „ex"
+    # ostala karte z Charizard ex Super-Premium Collection hlavička
+    # „Charizard" a nedala sa odlíšiť od ostatných Charizardov.
     assert scrape.product_title(classify.edition_by_id("standalone"),
                                 classify.format_by_id("ultra-premium"),
-                                "mega-charizard-x-ex") == "Mega Charizard X Ex"
+                                "mega-charizard") == "Mega Charizard — Ultra Premium Collection"
+    assert scrape.product_title(classify.edition_by_id("standalone"),
+                                classify.format_by_id("super-premium"),
+                                "charizard") == "Charizard — Super Premium Collection"
 
 
 # ------------------------------------------------------- Riftbound (druhá hra)
@@ -1799,3 +1805,62 @@ def test_promo_booster_nie_je_bezny_balicek():
     assert promo.format.id == "promo-booster"
     assert bezny.format.id == "booster"
     assert promo.edition.id == bezny.edition.id == "rb-origins"
+
+
+# ------------------------------- UPC a SPC: úplnosť a dostupnosť (1.25)
+
+UPC_SPC = [
+    ("Pokémon TCG: Shining Legends Ultra-Premium Collection", "ultra-premium"),
+    ("Pokémon TCG: Hidden Fates Ultra-Premium Collection", "ultra-premium"),
+    ("Pokémon TCG: Sword & Shield Zacian & Zamazenta Ultra-Premium Collection", "ultra-premium"),
+    ("Pokémon TCG: Celebrations Ultra-Premium Collection", "ultra-premium"),
+    ("Pokémon TCG: Sword & Shield Charizard Ultra-Premium Collection", "ultra-premium"),
+    ("Pokémon TCG: Arceus VSTAR Ultra-Premium Collection", "ultra-premium"),
+    ("Pokémon TCG: Pokémon 151 Ultra-Premium Collection Mew", "ultra-premium"),
+    ("Pokémon TCG: Greninja ex Ultra-Premium Collection", "ultra-premium"),
+    ("Pokémon TCG: Terapagos ex Ultra-Premium Collection", "ultra-premium"),
+    ("Pokémon TCG: Mega Charizard X ex Ultra-Premium Collection", "ultra-premium"),
+    ("Pokémon TCG: Team Rocket's Moltres ex Ultra-Premium Collection", "ultra-premium"),
+    ("Pokémon TCG: 30th Celebration Ultra-Premium Collection (Espeon)", "ultra-premium"),
+    ("Pokémon TCG: 30th Celebration Ultra-Premium Collection (Umbreon)", "ultra-premium"),
+    ("Pokémon TCG: Charizard ex Super-Premium Collection", "super-premium"),
+    ("Pokémon TCG: Prismatic Evolutions Super-Premium Collection", "super-premium"),
+]
+
+
+@pytest.mark.parametrize("meno,format_id", UPC_SPC)
+def test_vsetky_upc_a_spc_sa_zaradia(meno, format_id):
+    """Zoznam všetkých vydaných Ultra- a Super-Premium Collection. Je to
+    najdrahší sledovaný tovar (122–1 000 €), takže tichá diera v zaraďovaní
+    tu stojí najviac."""
+    hit = classify.classify(meno)
+    assert hit is not None, meno
+    assert hit.format.id == format_id, (meno, hit.format.id)
+
+
+def test_upc_a_spc_maju_rozdielne_kluce():
+    """Pätnásť balení, pätnásť kľúčov. Keby dve splynuli, medián by rátal ceny
+    dvoch rôznych vecí — a pri tomto tovare je rozdiel aj 800 €."""
+    kluce = set()
+    for meno, _ in UPC_SPC:
+        h = classify.classify(meno)
+        kluce.add(f"{h.edition.id}|{h.format.id}" + (f"|{h.variant}" if h.variant else ""))
+    assert len(kluce) == len(UPC_SPC), sorted(kluce)
+
+
+def test_team_rocket_moltres_zvlada_oba_slovosledy():
+    """Oficiálne „Team Rocket's Moltres ex", Cardyx to píše opačne."""
+    a = classify.classify("Pokémon TCG: Team Rocket's Moltres ex Ultra-Premium Collection")
+    b = classify.classify("Pokémon TCG: Moltres ex Team Rocket's Ultra-Premium Collection")
+    assert a.variant == b.variant == "moltres-ex-team-rocket"
+
+
+def test_zastupna_cena_nie_je_najlacnejsia_ponuka():
+    """Cardstore drží obe 30th Celebration UPC za 1 Kč, kým im nenastaví cenu.
+    Keby sa taká položka naskladnila, stala by sa „najlacnejšou ponukou
+    skladom" pre tovar za 266 €."""
+    import scrape
+    assert scrape.PLACEHOLDER_MAX_EUR == 1.00
+    assert 0.04 < scrape.PLACEHOLDER_MAX_EUR
+    # Najlacnejší skutočne sledovaný tovar je booster okolo 3 €.
+    assert scrape.PLACEHOLDER_MAX_EUR < 3.0

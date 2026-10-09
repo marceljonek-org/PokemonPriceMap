@@ -923,6 +923,10 @@ variant_aliases:
   ultra-premium/charizard: sword-shield-charizard
   # Card Empire píše Cynthiu bez apostrofu, takže „s" ostane prilepené.
   cynthias-garchomp: cynthia-garchomp
+  # Oficiálne „Team Rocket's Moltres ex UPC", ale Cardyx to píše opačne
+  # („Moltres ex Team Rocket's Ultra-Premium Collection"). Zatiaľ ho predáva
+  # jediný eshop, takže sa to ešte neprejavilo — prejaví sa pri druhom.
+  ultra-premium/team-rocket-moltres: moltres-ex-team-rocket
 
 exclude_patterns:
   - "japon|japan|jap\\.|\\bjp\\b|\\(jap"

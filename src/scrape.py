@@ -107,6 +107,12 @@ UNDER_MARKET_MAX = 0.30   # nad 30 % = skôr chyba eshopu než príležitosť
 # prešla bez slova — a navyše dvíhala medián všetkým ostatným.
 OVER_MARKET_MIN = 0.35    # 35 % nad mediánom = stojí za zmienku
 OVER_MARKET_MAX = 1.00    # dvojnásobok trhu = do mediánu nepatrí
+# Eshop, ktorý má produkt založený, ale cenu ešte nenastavenú, posiela 1 Kč.
+# Cardstore takto drží obe 30th Celebration Ultra-Premium Collection. Najlacnejší
+# sledovaný tovar je booster okolo 3 €, takže čokoľvek pod eurom je zástupná
+# hodnota, nie cena — a keby sa taká položka naskladnila, stala by sa
+# „najlacnejšou ponukou skladom" pre tovar za 266 €.
+PLACEHOLDER_MAX_EUR = 1.00
 ABSURD_RATIO = 0.25       # pod štvrtinou mediánu = takmer isto nie ten produkt
 IN_PRINT_DAYS = 550       # ~18 mesiacov; potom sa set zvyčajne prestáva tlačiť
 
@@ -523,7 +529,11 @@ def product_title(edition, fmt, variant: str) -> str:
     if not variant:
         return zaklad
     if edition.id in ("standalone", "rb-standalone"):
-        return pekne
+        # Zberná edícia nemá meno, ktoré by sa dalo predradiť, ale samotný
+        # predmet je málo: po zhodení koncového „ex" ostala karte z Charizard ex
+        # Super-Premium Collection za 184 € hlavička „Charizard". Formát za
+        # pomlčkou je to jediné, čo ju odlíši od ostatných Charizardov.
+        return f"{pekne} — {fmt.name}"
     return f"{zaklad} ({pekne})"
 
 
@@ -559,6 +569,8 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
         for offer in in_stock:
             seller = SELLER_OF.get(offer["shop_id"], offer["shop_id"])
             price = float(offer["price_eur"])
+            if price < PLACEHOLDER_MAX_EUR:
+                continue        # 1 Kč namiesto ceny nie je najlacnejšia ponuka
             if seller not in per_seller or price < per_seller[seller]:
                 per_seller[seller] = price
         prices_in_stock = sorted(per_seller.values())
@@ -599,6 +611,8 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
         offer_list = []
         for offer in sorted(offers, key=lambda o: float(o["price_eur"])):
             price_eur = float(offer["price_eur"])
+            if price_eur < PLACEHOLDER_MAX_EUR:
+                offer["outlier"] = True
             prev = previous.get((offer["shop_id"], edition_id, format_id, variant))
             delta = None
             if prev:
@@ -636,7 +650,8 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
                 "url": offer["url"],
                 "name": offer["name"],
                 "delta_pct": delta,
-                "flag": (flag_offer(price_eur, median_eur)
+                "flag": ("zástupná cena" if price_eur < PLACEHOLDER_MAX_EUR else
+                         flag_offer(price_eur, median_eur)
                          if offer["in_stock"] == "1" and median_trusted else ""),
                 "stock_text": offer.get("stock_text", ""),
                 "outlier": bool(offer.get("outlier")),

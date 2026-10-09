@@ -340,6 +340,10 @@ je v zozname dvakrát.
 | `Sword & Shield Charizard UPC` | štyri zápisy (aj slovenské „Meč a štít"), štyri produkty po jednej ponuke, tovar za 540–1 018 € bez mediánu |
 | koncové `ex` | eshopy ho striedavo píšu a nepíšu — „Mega Venusaur" a „Mega Venusaur ex" boli dva kľúče |
 | `&amp;` v názve | KúzelnéHry posielajú HTML entity; v appke bolo vidieť „Scarlet &amp;amp; Violet" |
+| `Team Rocket's Moltres ex` | Cardyx píše slovosled opačne; pri druhom eshope by z toho boli dva produkty |
+| 1 Kč namiesto ceny | Cardstore drží obe 30th UPC so zástupnou cenou (0,04 €); po naskladnení by bola „najlacnejšia ponuka" pre tovar za 266 € |
+| filter orezaný na 12 formátov | pätnásť formátov nemalo vlastné tlačidlo — medzi nimi SPC, ex Box aj Binder |
+| hľadanie bez skratiek | „SPC" nenašlo nič, lebo v názve je rozpísané „Super Premium Collection" |
 
 Keď má jedna edícia v tom istom formáte viac rôznych produktov, riešia to dva
 zoznamy v `config/editions.yaml`. Uplatnia sa **len pri rozpoznanej edícii** —

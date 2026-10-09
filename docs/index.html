@@ -541,7 +541,11 @@ function visibleProducts(){
     }
     if(state.shopOnly && !maSkladomEshop(p, state.shopOnly)) return false;
     if(q){
-      const hay = `${p.title} ${p.edition.name} ${p.edition.code} ${p.format.name}`.toLowerCase();
+      // Skratku formátu treba mať v hľadanom texte: „SPC" je v názve produktu
+      // rozpísané ako „Super Premium Collection", takže hľadanie skratky
+      // nenašlo nič. To isté platí pre UPC, ETB aj kód edície.
+      const hay = (`${p.title} ${p.edition.name} ${p.edition.code} `
+        + `${p.format.name} ${p.format.short} ${p.format.id} ${p.variant || ''}`).toLowerCase();
       if(!hay.includes(q)) return false;
     }
     return true;
@@ -1403,7 +1407,10 @@ function fillFormatChips(){
     zaznam.n++; pocty.set(f.id, zaznam);
   }
   const zoznam = [...pocty.values()].sort((a,b)=>b.n-a.n || a.short.localeCompare(b.short,'sk'));
-  for(const f of zoznam.slice(0, 12)){
+  // Všetky formáty, nie len najpočetnejšie. Kým ich bolo orezaných na dvanásť,
+  // nemalo pätnásť formátov vlastné tlačidlo — medzi nimi SPC, ex Box, Binder
+  // aj Battle Deck. Zásuvku si človek otvára sám, takže zoznam smie byť dlhý.
+  for(const f of zoznam){
     const b = el('button','f', f.short);
     b.dataset.fmt = f.id;
     b.title = `${f.name} — ${f.n} produktov`;
