@@ -292,6 +292,14 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
   .packtbl{font-size:12.5px}
   .packtbl td{padding:6px 7px}
 }
+.cmp{font-family:var(--font-mono);font-size:11.5px;margin-top:-2px;letter-spacing:-.01em}
+.cmp.ok{color:var(--ok)}
+.cmp.up{color:var(--crit)}
+.cmp.same,.cmp.none{color:var(--muted)}
+tr.mine td{background:var(--accent-soft)}
+.pill.oos{background:var(--surface-2);color:var(--muted)}
+tr.mine td:first-child{font-weight:600;border-radius:7px 0 0 7px}
+tr.mine td:last-child{border-radius:0 7px 7px 0}
 .hidden{display:none!important}
 @media (max-width:600px){h1{font-size:22px}.wrap{padding:0 14px 60px}.shell{padding-bottom:96px}}
 </style>
@@ -387,7 +395,7 @@ footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
         <input class="num-in" id="f-min-eur" type="number" min="0" step="1" placeholder="od" aria-label="Cena od (€)">
         <span class="hint">–</span>
         <input class="num-in" id="f-max-eur" type="number" min="0" step="1" placeholder="do" aria-label="Cena do (€)">
-        <span class="hint">€ &nbsp;·&nbsp; z najlacnejšej ponuky skladom</span>
+        <span class="hint" id="cena-hint">€ &nbsp;·&nbsp; z najlacnejšej ponuky skladom</span>
       </div>
       <div class="row">
         <span class="lbl">Hodnotenie</span>
@@ -513,7 +521,40 @@ function matchesSeries(series){
 /* Cena, podľa ktorej sa filtruje: najlacnejšia ponuka SKLADOM. Keď produkt
    skladom nikde nie je, berie sa najlacnejšia vôbec — inak by cenový filter
    ticho zhltol všetko vypredané a nedalo by sa sledovať, kam sa cena posunula. */
-const cenaProduktu = p => p.min_eur != null ? p.min_eur : p.min_any_eur;
+const cenaProduktu = p => {
+  // Keď je vo filtri vybraný eshop, všetko sa točí okolo JEHO ceny — aj
+  // zoradenie a cenový filter. Inak by si si vybral Cardyx a zoznam by ťa
+  // zoradil podľa cien niekoho iného.
+  if(state.shopOnly){
+    const moja = ponukaEshopu(p);
+    if(moja) return moja.price_eur;
+  }
+  return p.min_eur != null ? p.min_eur : p.min_any_eur;
+};
+
+/* Najlepšia ponuka vybraného eshopu pri tomto produkte. Skladom má prednosť
+   pred vypredanou, aby sa cena za vypredaný kus netvárila ako kúpiteľná. */
+function ponukaEshopu(p, shopId){
+  const hladany = shopId || state.shopOnly;
+  if(!hladany) return null;
+  const moje = p.offers.filter(o => o.shop_id === hladany && !o.outlier);
+  if(!moje.length) return null;
+  const skladom = moje.filter(o => o.in_stock);
+  return (skladom.length ? skladom : moje).sort((a,b)=>a.price_eur-b.price_eur)[0];
+}
+
+/* Najlacnejšia ponuka skladom od INÉHO predajcu — dvojičky tej istej firmy
+   (Pompo.cz/Pompo.sk) sa počítajú ako jeden, inak by eshop súperil sám so
+   sebou. Vracia null, keď konkurencia skladom nie je, lebo vtedy sa niet
+   s čím porovnávať a číslo by klamalo. */
+function najlepsiaInde(p, shopId){
+  const mojPredajca = sellerOf(shopId || state.shopOnly);
+  const ine = p.offers.filter(o => o.in_stock && !o.outlier
+    && !String(o.flag || '').startsWith('overiť')
+    && sellerOf(o.shop_id) !== mojPredajca);
+  if(!ine.length) return null;
+  return ine.sort((a,b)=>a.price_eur-b.price_eur)[0];
+}
 
 /* O koľko percent je najlacnejšia ponuka pod mediánom. Záporné číslo = lacnejšie.
    Počíta sa len z mediánu, ktorému sken verí (dosť ponúk od dosť predajcov),
@@ -599,6 +640,30 @@ function atHistoricLow(p){
          p.history.length >= MIN_HISTORY_DAYS && p.min_eur <= p.low_eur * 1.01;
 }
 
+/* Cenový blok karty, keď je vo filtri vybraný eshop: hore jeho cena, pod ňou
+   jedna veta o tom, ako na tom je oproti ostatným. Bez toho by si videl zoznam
+   produktov, ktoré ten eshop má, ale nie to, či sa uňho oplatí kúpiť. */
+function cenaVybranehoEshopu(p){
+  const moja = ponukaEshopu(p);
+  if(!moja) return '<div class="prow"><span class="pp">tento eshop produkt nemá</span></div>';
+  const ina = najlepsiaInde(p);
+  let riadok;
+  if(!ina){
+    riadok = '<div class="cmp none">jediný predajca skladom</div>';
+  }else{
+    const o = (moja.price_eur - ina.price_eur) / ina.price_eur * 100;
+    riadok = Math.abs(o) < 0.5
+      ? `<div class="cmp same">rovnako ako ${shopName(ina.shop_id)}</div>`
+      : (o < 0
+         ? `<div class="cmp ok">o ${Math.abs(o).toFixed(0)} % lacnejšie · inde skladom od ${eur(ina.price_eur)}</div>`
+         : `<div class="cmp up">o ${o.toFixed(0)} % drahšie · ${shopName(ina.shop_id)} má skladom za ${eur(ina.price_eur)}</div>`);
+  }
+  return `<div class="prow">
+      <span class="price"${moja.in_stock?'':' style="color:var(--muted)"'}>${eur(moja.price_eur)}</span>
+      <span class="pp">${shopName(moja.shop_id)}${moja.in_stock?'':' — nie je skladom'}</span>
+    </div>${riadok}`;
+}
+
 function renderCards(){
   const box = document.getElementById('cards');
   box.innerHTML = '';
@@ -638,18 +703,49 @@ function renderCards(){
         ${p.vs_launch_pct!=null && p.vs_launch_pct<=-3
           ? `<span class="pill ok">${Math.abs(p.vs_launch_pct).toFixed(0)} % pod uvádzacou</span>` : ''}
         ${p.in_print===false ? '<span class="pill eol">po ukončení tlače</span>' : ''}
+        ${state.shopOnly ? cenaVybranehoEshopu(p) : `
         <div class="prow">
           <span class="price"${p.min_eur==null?' style="color:var(--muted)"':''}>${eur(p.min_eur!=null?p.min_eur:p.min_any_eur)}</span>
           ${p.min_per_pack_eur!=null
             ? `<span class="pp">${eur(p.min_per_pack_eur)} / balíček</span>`
             : (p.min_eur==null ? '<span class="pp">najlacnejšia ponuka, nie je skladom</span>' : '')}
           ${delta!=null&&delta!==0?`<span class="delta ${delta<0?'dn':'up'}">${delta>0?'+':''}${delta} %</span>`:''}
-        </div>
+        </div>`}
       </div>`;
     card.addEventListener('click', ()=>openDetail(p));
     box.appendChild(card);
   }
   if(!items.length) box.innerHTML = '<p class="count">Nič nezodpovedá filtru.</p>';
+}
+
+/* Najlacnejšia VYPREDANÁ ponuka pod cenou vybraného eshopu.
+   Na kartu to nepatrí — lacný tovar sa vypredá ako prvý, takže takú ponuku má
+   skoro každý produkt a na karte by to bola tapeta, nie upozornenie (na
+   Cardyxe 87 % kariet, na GeekHalle 92 %). V detaile, kam si človek ide
+   pozrieť celý trh, to ale zmysel dáva. */
+function lacnejsiaVypredana(p){
+  const moja = ponukaEshopu(p);
+  if(!moja) return null;
+  const mimo = p.offers.filter(o => !o.in_stock && !o.outlier
+    && o.price_eur < moja.price_eur);
+  if(!mimo.length) return null;
+  return mimo.sort((a,b)=>a.price_eur-b.price_eur)[0];
+}
+
+/* Jedna veta do hlavičky detailu: koľko pýta vybraný eshop a ako je na tom
+   oproti ostatným. Keď vo filtri eshop vybraný nie je, nevracia nič. */
+function vetaOEshope(p){
+  if(!state.shopOnly) return '';
+  const moja = ponukaEshopu(p);
+  if(!moja) return `${shopName(state.shopOnly)} tento produkt nemá`;
+  const kde = `${shopName(moja.shop_id)} ${eur(moja.price_eur)}${moja.in_stock?'':' (nie je skladom)'}`;
+  const ina = najlepsiaInde(p);
+  if(!ina) return `${kde} — jediný predajca skladom`;
+  const o = (moja.price_eur - ina.price_eur) / ina.price_eur * 100;
+  if(Math.abs(o) < 0.5) return `${kde} — rovnako ako ${shopName(ina.shop_id)}`;
+  return o < 0
+    ? `${kde} — najlacnejší SKLADOM, druhý ${shopName(ina.shop_id)} za ${eur(ina.price_eur)}`
+    : `${kde} — o ${o.toFixed(0)} % drahšie než ${shopName(ina.shop_id)} skladom (${eur(ina.price_eur)})`;
 }
 
 function openDetail(p){
@@ -670,9 +766,23 @@ function openDetail(p){
     const when = d==null ? '' : (d < 0 ? `, vyjde o ${-d} dní` : `, pred ${d} dňami`);
     sub.push(`${d!=null && d<0 ? 'vydanie' : 'vydané'} ${p.released}${when}${p.in_print===false?' — po ukončení tlače':''}`);
   }
-  document.getElementById('d-sub').textContent = sub.join(' · ');
-  const rows = p.offers.map(o=>`
-    <tr>
+  const veta = vetaOEshope(p);
+  const mimo = state.shopOnly ? lacnejsiaVypredana(p) : null;
+  const vypredane = mimo
+    ? `najlacnejšie vôbec ${eur(mimo.price_eur)} u ${shopName(mimo.shop_id)} — vypredané`
+    : '';
+  document.getElementById('d-sub').textContent =
+    [veta, vypredane, ...sub].filter(Boolean).join(' · ');
+  // Vybraný eshop ide navrch, nech sa nehľadá v tabuľke očami. Zvyšok ostáva
+  // zoradený podľa ceny, ako ho poslal sken.
+  const mojPredajca = state.shopOnly ? sellerOf(state.shopOnly) : null;
+  const mojaCena = state.shopOnly ? (ponukaEshopu(p)||{}).price_eur ?? null : null;
+  const zoznam = mojPredajca
+    ? p.offers.slice().sort((a,b)=>
+        (sellerOf(b.shop_id)===mojPredajca) - (sellerOf(a.shop_id)===mojPredajca))
+    : p.offers;
+  const rows = zoznam.map(o=>`
+    <tr${mojPredajca && sellerOf(o.shop_id)===mojPredajca ? ' class="mine"' : ''}>
       <td>${shopName(o.shop_id)}</td>
       <td class="n">${o.price.toLocaleString('sk-SK')} ${o.currency}</td>
       <td class="n">${eur(o.price_eur)}</td>
@@ -680,7 +790,9 @@ function openDetail(p){
       <td>${o.in_stock?'<span class="pill ok">skladom</span>':'<span class="pill no">nie je</span>'}
         ${o.stock_text?`<div class="csub" style="margin-top:3px">${o.stock_text}</div>`:''}</td>
       <td class="n">${o.delta_pct!=null&&o.delta_pct!==0?`<span class="delta ${o.delta_pct<0?'dn':'up'}">${o.delta_pct>0?'+':''}${o.delta_pct} %</span>`:'—'}</td>
-      <td>${o.flag?`<span class="pill flag">${o.flag}</span>`:''}${o.outlier?' <span class="pill no">skok ceny</span>':''}</td>
+      <td>${o.flag?`<span class="pill flag">${o.flag}</span>`:''}${o.outlier?' <span class="pill no">skok ceny</span>':''}${
+        mojPredajca && !o.in_stock && !o.outlier && mojaCena!=null && o.price_eur < mojaCena
+          ? ' <span class="pill oos">lacnejšie, keď bude</span>' : ''}</td>
       <td><a href="${o.url}" target="_blank" rel="noopener">otvoriť</a></td>
     </tr>`).join('');
   document.getElementById('d-table').innerHTML =
@@ -1457,6 +1569,10 @@ function syncFilterUI(){
     state.minDiscount > 0 ? `aspoň −${state.minDiscount} %` : 'bez limitu';
   document.getElementById('f-shop-pick').value = state.shopOnly;
   document.getElementById('sort-by').value = state.sort;
+  // Keď je vybraný eshop, cena aj zoradenie idú podľa neho — nech to tam stojí.
+  document.getElementById('cena-hint').innerHTML = state.shopOnly
+    ? `€ &nbsp;·&nbsp; z ceny eshopu ${shopName(state.shopOnly)}`
+    : '€ &nbsp;·&nbsp; z najlacnejšej ponuky skladom';
 }
 
 function filtersChanged(){ syncFilterUI(); saveFilters(); renderCards(); }

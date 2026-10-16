@@ -467,6 +467,29 @@ Na čo si dať pozor:
 * **`placeholder_price`** pre eshop, ktorý namiesto ceny vypredaného tovaru
   posiela zástupné číslo.
 
+### Pohľad očami jedného eshopu
+
+Keď je v zásuvke vybraný eshop, appka sa prepne z „čo je najlacnejšie" na
+„ako je na tom tento eshop":
+
+* na karte je hore **jeho** cena a pod ňou jedna veta — o koľko percent je
+  lacnejší či drahší a kto má najlepšiu cenu skladom inde;
+* **cenový filter aj zoradenie** idú podľa jeho ceny (inak by si si vybral
+  Cardyx a zoznam by sa zoradil podľa cien niekoho iného) a text pri poli to
+  hovorí;
+* v detaile je jeho riadok **navrchu a zvýraznený**, v hlavičke tá istá veta
+  a pod ňou celá tabuľka, aby bolo vidieť aj zvyšok trhu.
+
+Porovnáva sa **len so skladovými** ponukami iných predajcov — vypredaná cena
+nie je cena, za ktorú sa dá kúpiť. Dvojičky tej istej firmy (Pompo.cz/Pompo.sk)
+sa počítajú ako jeden predajca, inak by eshop súperil sám so sebou.
+
+Lacnejšia vypredaná ponuka sa ukazuje **len v detaile**, nie na karte. Dôvod je
+meraný, nie estetický: lacný tovar sa vypredá ako prvý, takže takú ponuku má
+skoro každý produkt — na Cardyxe 87 % kariet, na GeekHalle 92 %. Ani hranica
+„len keď je rozdiel nad 30 %" to nezrazí pod polovicu. Na karte by to bola
+tapeta, v detaile je to informácia.
+
 ### Rozloženie
 
 Záložky sú v **bočnom paneli vľavo** (`.rail`), šírku určuje premenná
