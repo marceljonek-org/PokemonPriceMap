@@ -92,6 +92,8 @@ SELLER_OF = {
     # PGS je len ich druhá značka, sklad aj cenotvorba sú spoločné.
     "smarty-cz": "smarty", "smarty-sk": "smarty", "pgs-sk": "smarty",
     "vesely-drak-cz": "vesely-drak", "vesely-drak-sk": "vesely-drak",
+    # Fyft.sk je slovenská mutácia českého Fyftu, ten istý sklad aj ceny.
+    "fyft-cz": "fyft", "fyft-sk": "fyft",
 }
 MIN_FOR_MEDIAN = 3        # menej ponúk = to nie je trhová cena, len cena predajcu
 MIN_HISTORY_DAYS = 14     # kým nie je história dlhšia, "najnižšie doteraz" nič nehovorí
@@ -256,11 +258,17 @@ async def fetch_all(shops: list[dict], defaults: dict,
     sem = asyncio.Semaphore(defaults.get("concurrency", 3))
 
     async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True,
-                                 limits=limits, timeout=timeout, http2=True) as client:
+                                 limits=limits, timeout=timeout, http2=True) as client, \
+               httpx.AsyncClient(headers=HEADERS, follow_redirects=True,
+                                 limits=limits, timeout=timeout, http2=False) as client1:
+        # Druhý klient bez HTTP/2. Mobilonline.sk rozbíja HTTP/2 spojenie
+        # (`StreamReset`), takže eshopy s `http1: true` idú cez HTTP/1.1.
+        # httpx verziu protokolu per požiadavku nastaviť nevie, preto dvaja.
         async def run(shop):
             async with sem:
                 worker = fetch_shopify if shop["adapter"] == "shopify" else fetch_shop
-                result = await worker(client, shop, defaults, snapshots)
+                pouzi = client1 if shop.get("http1") else client
+                result = await worker(pouzi, shop, defaults, snapshots)
                 await asyncio.sleep(0.8)          # nezaťažovať eshop
                 return result
 
@@ -387,7 +395,13 @@ def build_rows(results: list[dict], fx: dict, today: str) -> tuple[list[dict], l
     for result in results:
         shop = result["shop"]
         require_brand = not shop.get("pokemon_only")
+        # Niektoré eshopy nepíšu cenu nedostupného tovaru, ale zástupné číslo:
+        # Cardanvil dáva všetkému vypredanému 10 001 €. Bez tohto by sa taká
+        # hodnota dostala do histórie aj do rozpätia „od–do".
+        zastupna = shop.get("placeholder_price")
         for offer in result["offers"]:
+            if zastupna is not None and offer.price == zastupna:
+                continue
             hit = classify.classify(offer.name, require_brand=require_brand)
             if hit is None:
                 # Zaujíma nás len to, čo vyzerá ako sledovaný formát v neznámej
@@ -537,6 +551,48 @@ def product_title(edition, fmt, variant: str) -> str:
     return f"{zaklad} ({pekne})"
 
 
+def zmena_za(points: list[tuple[str, float]], dni: int) -> float | None:
+    """O koľko percent sa cena pohla za posledných `dni` dní.
+
+    Vracia None, keď história nesiaha dosť ďaleko — radšej nič než číslo
+    spočítané z troch bodov. Porovnáva sa najstarší bod v okne s posledným,
+    nie deň presne pred `dni` dňami: eshopy nemajú ponuku každý deň.
+    """
+    if len(points) < 2:
+        return None
+    posledny_den = datetime.strptime(points[-1][0], "%Y-%m-%d").date()
+    okno = [(d, v) for d, v in points
+            if (posledny_den - datetime.strptime(d, "%Y-%m-%d").date()).days <= dni]
+    # Aspoň päť dní s ponukou. Z dvoch bodov vznikne „trend", ktorý v skutočnosti
+    # len hovorí, že raz mal lacný eshop sklad a potom nemal.
+    if len(okno) < 5:
+        return None
+    # Okno musí naozaj siahať dozadu — pri troch dňoch histórie by „mesačný
+    # trend" meral tri dni a tváril sa ako mesiac.
+    rozsah = (posledny_den - datetime.strptime(okno[0][0], "%Y-%m-%d").date()).days
+    if rozsah < dni * 0.6:
+        return None
+    zaklad = okno[0][1]
+    if zaklad <= 0:
+        return None
+    return round((okno[-1][1] - zaklad) / zaklad * 100, 1)
+
+
+def denna_cena(ceny: list[float]) -> float:
+    """Cena dňa pre graf: najnižšia, ktorá nie je výkyv.
+
+    Rovnaké pravidlo ako pri „najlacnejšie skladom" na karte — ponuka hlboko
+    pod mediánom dňa býva súčiastka z balenia, ponuka na hranie v predajni
+    alebo chybný odčet, nie trhová cena. Pri jednej či dvoch cenách sa
+    nefiltruje nič, lebo medián z nich nie je o čom.
+    """
+    if len(ceny) < 3:
+        return ceny[0]
+    median = statistics.median(ceny)
+    dobre = [c for c in ceny if c >= median * (1 - UNDER_MARKET_MAX)]
+    return dobre[0] if dobre else ceny[0]
+
+
 def build_products(rows: list[dict], history: list[dict], images: dict,
                    today: str) -> tuple[list[dict], dict]:
     last_date, previous = previous_snapshot(history)
@@ -544,16 +600,26 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
     for row in rows:
         grouped[(row["edition_id"], row["format_id"], row.get("variant", ""))].append(row)
 
-    # denné minimum skladom na produkt, pre sparkliny
-    series = defaultdict(dict)
+    # Denná cena pre graf. Počíta sa ROVNAKO ako „najlacnejšie skladom" na
+    # karte: jedna firma má jeden hlas a ponuka hlboko pod mediánom dňa sa
+    # zahodí. Kým sa brala holá najnižšia cena, kreslil graf prepady, ktoré sa
+    # nestali — ponuka „ETB — Príď si k nám zahrať" za 60 € stiahla krivku
+    # 30th Celebration zo 190 na 60, hoci karta vedľa ukazovala 164 €.
+    po_dnoch: dict = defaultdict(lambda: defaultdict(dict))
     for row in history + rows:
         if row.get("in_stock") not in ("1", 1, True):
             continue
         key = (row["edition_id"], row["format_id"], row.get("variant", ""))
-        day = row["date"]
-        value = float(row["price_eur"])
-        current = series[key].get(day)
-        series[key][day] = value if current is None else min(current, value)
+        predajca = SELLER_OF.get(row["shop_id"], row["shop_id"])
+        cena = float(row["price_eur"])
+        doteraz = po_dnoch[key][row["date"]].get(predajca)
+        if doteraz is None or cena < doteraz:
+            po_dnoch[key][row["date"]][predajca] = cena
+
+    series = defaultdict(dict)
+    for key, dni in po_dnoch.items():
+        for day, podla_predajcu in dni.items():
+            series[key][day] = denna_cena(sorted(podla_predajcu.values()))
 
     products, movements = [], {"restocked": [], "sold_out": [], "price_drop": [], "new": []}
 
@@ -662,6 +728,8 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
         raw_points = sorted(series[(edition_id, format_id, variant)].items())
         floor = median_eur * ABSURD_RATIO if median_eur else 0
         points = [(d, v) for d, v in raw_points if v >= floor][-60:]
+        trend_7d = zmena_za(points, 7)
+        trend_30d = zmena_za(points, 30)
         min_any = min(float(o["price_eur"]) for o in offers)
         min_delta = None
         if min_eur is not None and len(points) >= 2 and points[-1][0] == today:
@@ -705,6 +773,8 @@ def build_products(rows: list[dict], history: list[dict], images: dict,
             "min_eur": min_eur,
             "min_any_eur": round(min_any, 2),
             "min_delta_pct": min_delta,
+            "trend_7d": trend_7d,
+            "trend_30d": trend_30d,
             "median_eur": round(median_eur, 2) if median_eur else None,
             "median_trusted": median_trusted,
             "sellers_in_stock": sellers_in_stock,

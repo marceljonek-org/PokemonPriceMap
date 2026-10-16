@@ -334,7 +334,11 @@ def parse_woocommerce(tree: HTMLParser, shop: dict) -> list[Offer]:
     Stránky postavené v Oxygen Builderi (GeekHall) generujú vlastný
     `article.product_card` a stav píšu textom — preto dve vetvy.
     """
-    items = tree.css("li.product")
+    # WooCommerce dáva produktovej karte dvojicu tried `product type-product`.
+    # Element ale nie je vždy `li`: témy na mieru (poketrov.sk, dragon-world.store)
+    # stavajú mriežku z `div`-ov a pri `li.product` vracal parser nulu, hoci
+    # produkty na stránke boli. Hľadáme preto podľa tried, nie podľa značky.
+    items = tree.css(".product.type-product") or tree.css("li.product")
     if not items:
         items = tree.css(".product_card")
         if items:

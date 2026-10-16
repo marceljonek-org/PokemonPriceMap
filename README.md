@@ -217,6 +217,25 @@ Keď sa v ponuke objaví formát v neznámej edícii (napr. „ME07 … Booster 
 zapíše sa do `data/unknown.csv`. To je signál, že vyšiel nový set — pozri sa tam
 raz za čas.
 
+### Graf a trend
+
+Denná cena v grafe sa počíta **rovnakým pravidlom ako „najlacnejšie skladom"
+na karte**: jedna firma má jeden hlas a ponuka hlboko pod mediánom dňa sa
+zahodí (`denna_cena()`). Kým sa brala holá najnižšia cena, ukazoval graf pri
+12 zo 404 produktov až dvaapolkrát nižšiu cenu než karta vedľa — stačila jedna
+ponuka, ktorú appka sama označila „overiť — 64 % pod trhom".
+
+Pravidlo sa uplatní aj **spätne na celú históriu**, takže krivka sa opraví aj
+do minulosti: pri poslednom prepočte to bolo 263 denných bodov, medzi nimi
+Prismatic SPC za 29,99 € namiesto 330 € (akrylová vitrína, vylúčená až v 1.22)
+a Pitch Black ETB za 4,10 € namiesto 74,90 € (obaly vybrané z balenia).
+
+`trend_7d` a `trend_30d` sú zmena tej istej ceny. Je to **zmena najlacnejšej
+ponuky skladom, nie hodnoty produktu** — keď lacný eshop vypredá, číslo
+„stúpne", hoci sa nič nestalo. Preto sa počíta len z okna s aspoň piatimi dňami
+s ponukou a len keď okno naozaj siaha dozadu (aspoň 60 % požadovaného rozsahu);
+inak je `null`. V appke je to tak aj popísané.
+
 ### Pridanie eshopu — `config/shops.yaml`
 
 Ak eshop beží na už podporovanej platforme (zoznam nižšie), stačí pridať záznam
@@ -344,6 +363,12 @@ je v zozname dvakrát.
 | 1 Kč namiesto ceny | Cardstore drží obe 30th UPC so zástupnou cenou (0,04 €); po naskladnení by bola „najlacnejšia ponuka" pre tovar za 266 € |
 | filter orezaný na 12 formátov | pätnásť formátov nemalo vlastné tlačidlo — medzi nimi SPC, ex Box aj Binder |
 | hľadanie bez skratiek | „SPC" nenašlo nič, lebo v názve je rozpísané „Super Premium Collection" |
+| `li.product` vo WooCommerce | témy na mieru stavajú mriežku z `div`-ov; parser vracal nulu, hoci produkty tam boli |
+| `vada obalu` | ETB s poškodenou krabicou za zlomok ceny vyzeralo v mediáne ako príležitosť |
+| `KOMBI … & …` | dve rôzne balenia pod jednou cenou, nedá sa porovnať ani s jedným |
+| 10 001 € na vypredanom tovare | zástupná hodnota CardAnvilu; rieši `placeholder_price` v shops.yaml |
+| `Booster Bundle Box` | Cardyx tak volá obyčajný bundle za 49,99 €; sedel medzi displayami za 614–2 610 € |
+| `ETB — Príď si k nám zahrať` | ponuka na hranie v predajni za 60 € pri trhu 179 €, nie maloobchodná cena |
 
 Keď má jedna edícia v tom istom formáte viac rôznych produktov, riešia to dva
 zoznamy v `config/editions.yaml`. Uplatnia sa **len pri rozpoznanej edícii** —
@@ -416,6 +441,31 @@ tak sa hodnotenie počíta iba z typu balenia a veku edície. Radšej menej pres
 Čo treba urobiť pri pridaní tretej hry: nový `config/<hra>.yaml` s blokom
 `game.brand_patterns`, predpona id edícií, vetva v `detect_game()`, tabuľka
 hodnotenia v `scrape.py` a položka v `GAME_INFO` v `index.html`.
+
+### Pridanie eshopu
+
+Pred zápisom do `config/shops.yaml` sa každý kandidát **preskúša naším
+parserom** na reálne stiahnutej kategórii: stiahne sa HTML, prehodí cez
+`adapters.parse()` a `classify.classify()` a spočíta sa, koľko položiek by
+appka naozaj zaradila. Eshop, z ktorého nič nevypadne, sa nepridáva. Pri
+poslednom kole to vyradilo tri z dvadsiatichštyroch kandidátov — jeden predáva
+takmer výhradne kusové karty, jeden zobrazuje ponuku až JavaScriptom a jeden
+beží na platforme, pre ktorú parser nemáme.
+
+Na čo si dať pozor:
+
+* **`optional: true`** na každom novom eshope, kým sa neukáže ako spoľahlivý —
+  inak jeho výpadok zhodí celý sken.
+* **`pokemon_only`** vypína kontrolu značky. Zapína sa len tam, kde sú všetky
+  nastavené kategórie naozaj čisto pokémonie — overené položku po položke, nie
+  podľa názvu kategórie. Bulbazard ho nemá práve preto, že popri Pokémone
+  predáva aj Avatar TCG.
+* **Dvojičky.** Eshop tej istej firmy patrí do `SELLER_OF`, inak hlasuje
+  v mediáne dvakrát (Pompo.cz/sk, Xzone, Alza, Veselý drak, PGS+Smarty,
+  Fyft.cz/sk).
+* **`http1: true`** pre server, ktorý rozbíja HTTP/2 spojenie (`StreamReset`).
+* **`placeholder_price`** pre eshop, ktorý namiesto ceny vypredaného tovaru
+  posiela zástupné číslo.
 
 ### Rozloženie
 

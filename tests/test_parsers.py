@@ -364,9 +364,12 @@ def test_shops_config_is_sane():
         assert shop["adapter"] in known, f"{shop['id']}: neznámy adaptér {shop['adapter']}"
         assert shop["currency"] in ("CZK", "EUR"), shop["id"]
         assert shop["country"] in ("CZ", "SK"), shop["id"]
-        assert shop["urls"], f"{shop['id']}: žiadne vstupné URL"
+        # Eshop smie mať aj len riftboundové kategórie — Black Lotus predáva
+        # z nášho záberu výhradne Riftbound.
+        vsetky = list(shop["urls"]) + list(shop.get("riftbound_urls") or [])
+        assert vsetky, f"{shop['id']}: žiadne vstupné URL"
         base_host = urlparse(shop["base"]).netloc.replace("www.", "")
-        for url in shop["urls"]:
+        for url in vsetky:
             host = urlparse(url).netloc.replace("www.", "")
             assert host == base_host, f"{shop['id']}: {url} nesedí s base {shop['base']}"
 
@@ -1198,6 +1201,10 @@ def test_pokemon_only_shops_have_only_pokemon_categories():
     # ktorú som naozaj otvoril a obsah overil.
     EDITION_CATEGORIES = (
         "https://www.konzoliste.cz/30th-celebration/",
+        # Prešiel som 9. 10. 2026 všetkých 91 položiek tejto kolekcie —
+        # je čisto pokémonia, hoci to z adresy nevidno.
+        "https://cardanvil.sk/collections/sealed-produkty",
+        "https://cardanvil.sk/collections/pok-mon-elite-trainer-boxes",
     )
     for shop in config["shops"]:
         if not shop.get("pokemon_only"):
@@ -1864,3 +1871,130 @@ def test_zastupna_cena_nie_je_najlacnejsia_ponuka():
     assert 0.04 < scrape.PLACEHOLDER_MAX_EUR
     # Najlacnejší skutočne sledovaný tovar je booster okolo 3 €.
     assert scrape.PLACEHOLDER_MAX_EUR < 3.0
+
+
+# ------------------------------------------- 21 nových eshopov (1.26)
+
+def test_woocommerce_najde_produkty_aj_mimo_li():
+    """WooCommerce dáva karte dvojicu tried `product type-product`, ale element
+    nie je vždy `li`. Témy na mieru (poketrov.sk, dragon-world.store) stavajú
+    mriežku z `div`-ov a parser pri `li.product` vracal nulu, hoci produkty na
+    stránke boli."""
+    html = """<div class="products">
+      <div class="product type-product instock">
+        <a class="woocommerce-LoopProduct-link" href="/p/1"></a>
+        <h2 class="woocommerce-loop-product__title">Pokémon TCG: Pitch Black Elite Trainer Box</h2>
+        <span class="woocommerce-Price-amount">49,90&nbsp;€</span>
+      </div>
+      <li class="product type-product outofstock">
+        <a class="woocommerce-LoopProduct-link" href="/p/2"></a>
+        <h2 class="woocommerce-loop-product__title">Pokémon TCG: Chaos Rising Booster Box</h2>
+        <span class="woocommerce-Price-amount">159,00&nbsp;€</span>
+      </li></div>"""
+    shop = {"id": "t", "base": "https://t.sk", "currency": "EUR", "adapter": "woocommerce"}
+    offers = adapters.parse("woocommerce", html, shop)
+    assert len(offers) == 2, [o.name for o in offers]
+    assert {o.in_stock for o in offers} == {True, False}
+
+
+def test_zastupna_cena_eshopu_sa_zahodi():
+    """CardAnvil dáva všetkému vypredanému 10 001 €. Bez tohto by sa taká
+    hodnota dostala do histórie aj do rozpätia „od–do"."""
+    import yaml
+    from pathlib import Path
+    config = yaml.safe_load((Path(__file__).parent.parent / "config" / "shops.yaml")
+                            .read_text(encoding="utf-8"))
+    cardanvil = next(s for s in config["shops"] if s["id"] == "cardanvil-sk")
+    assert cardanvil.get("placeholder_price") == 10001.0
+
+
+def test_fyft_sk_je_dvojicka_fyft_cz():
+    """Tá istá firma nesmie v mediáne hlasovať dvakrát — rovnako ako
+    Pompo.cz/Pompo.sk alebo Veselý drak CZ/SK."""
+    import scrape
+    assert scrape.SELLER_OF.get("fyft-sk") == scrape.SELLER_OF.get("fyft-cz") == "fyft"
+
+
+def test_mobilonline_ide_cez_http1():
+    """Ich server rozbíja HTTP/2 spojenie (`StreamReset`), čím sken padal."""
+    import yaml
+    from pathlib import Path
+    config = yaml.safe_load((Path(__file__).parent.parent / "config" / "shops.yaml")
+                            .read_text(encoding="utf-8"))
+    shop = next(s for s in config["shops"] if s["id"] == "mobilonline-sk")
+    assert shop.get("http1") is True
+
+
+def test_poskodeny_obal_a_kombo_su_von():
+    """Bulbazard predáva „Darkness Ablaze Elite Trainer Box - vada obalu" za
+    zlomok ceny a kombá dvoch balení pod jednou cenou. Ani jedno sa nedá
+    porovnať s bežným kusom."""
+    assert classify.is_excluded("Darkness Ablaze Elite Trainer Box - vada obalu")
+    assert classify.is_excluded(
+        "KOMBI 30th Celebration Elite Trainer Box & Gem Pack Vol. 4 Booster Box")
+    assert not classify.is_excluded("Pokémon TCG: Darkness Ablaze Elite Trainer Box")
+
+
+def test_vsetky_nove_eshopy_su_volitelne():
+    """Nový eshop nesmie zhodiť celý sken, kým sa neukáže ako spoľahlivý."""
+    import yaml
+    from pathlib import Path
+    config = yaml.safe_load((Path(__file__).parent.parent / "config" / "shops.yaml")
+                            .read_text(encoding="utf-8"))
+    NOVE = {"cardanvil-sk", "pokemall-cz", "pokeshop-cz", "pokedrop-cz", "bulbazard-cz",
+            "poringcards-eu", "wombatgames-cz", "pandastic-cz", "hrananetu-cz",
+            "pokecenter-sk", "shadowball-cz", "pulllab-cz", "pokeone-cz", "tcgshop-cz",
+            "cardmania-sk", "jokycardland-cz", "poketrov-sk", "dragon-world-cz",
+            "fyft-sk", "kantokarty-sk", "blacklotus-cz"}
+    podla_id = {s["id"]: s for s in config["shops"]}
+    chyba = NOVE - set(podla_id)
+    assert not chyba, f"nové eshopy zmizli z konfigurácie: {sorted(chyba)}"
+    nie_volitelne = [i for i in NOVE if not podla_id[i].get("optional")]
+    assert not nie_volitelne, nie_volitelne
+
+
+# ------------------------------- história a trend (1.27)
+
+def test_denna_cena_zahodi_vykyv_ako_karta():
+    """Graf bral holú najnižšiu cenu, karta najnižšiu po odfiltrovaní výkyvov.
+    Pri 12 produktoch zo 404 preto graf ukazoval až dvaapolkrát nižšiu cenu —
+    ponuka „ETB — Príď si k nám zahrať" za 60 € stiahla krivku 30th Celebration
+    zo 190 na 60, hoci karta vedľa ukazovala 164 €."""
+    import scrape
+    assert scrape.denna_cena([60.0, 150.0, 170.0, 180.0, 200.0]) == 150.0
+    # Bežný rozptyl sa nezahadzuje.
+    assert scrape.denna_cena([150.0, 170.0, 180.0]) == 150.0
+    # Pri jednej či dvoch cenách sa nefiltruje — medián z nich nie je o čom.
+    assert scrape.denna_cena([60.0, 200.0]) == 60.0
+    assert scrape.denna_cena([42.0]) == 42.0
+
+
+def test_trend_potrebuje_dost_dni():
+    """Z dvoch bodov vznikne „trend", ktorý len hovorí, že raz mal lacný eshop
+    sklad a potom nemal."""
+    import scrape
+    maly = [("2026-10-01", 100.0), ("2026-10-13", 200.0)]
+    assert scrape.zmena_za(maly, 30) is None
+    plny = [(f"2026-09-{d:02d}", 100.0) for d in range(14, 30)] + [("2026-10-13", 120.0)]
+    assert scrape.zmena_za(plny, 30) == 20.0
+    # Okno musí siahať dozadu: tri dni histórie nie sú mesačný trend.
+    kratke = [(f"2026-10-{d:02d}", 100.0 + d) for d in range(10, 16)]
+    assert scrape.zmena_za(kratke, 30) is None
+
+
+def test_booster_bundle_box_nie_je_display():
+    """Cardyx tak volá obyčajný bundle za 49,99 € a sedel vo formáte, kde
+    ostatné položky stoja 614–2 610 €. Všetky skutočné displaye majú v názve
+    slovo „display" — overené na osemnástich ponukách zo siedmich eshopov."""
+    box = classify.classify("Pokémon TCG: Mega Evolution Chaos Rising Booster Bundle Box")
+    display = classify.classify("Pokémon TCG: Prismatic Evolutions - Booster Bundle Display")
+    assert box.format.id == "bundle"
+    assert display.format.id == "bundle-display"
+
+
+def test_ponuka_na_hranie_v_predajni_je_von():
+    """Card Empire ponúka 30th Celebration ETB za 60 € pri trhu 179 € — nie je
+    to maloobchodná cena, ale hranie v predajni."""
+    assert classify.is_excluded(
+        "Pokémon TCG - 30th Anniversary Celebrations - ETB - Príď si k nám zahrať")
+    assert not classify.is_excluded("Pokémon TCG: 30th Celebration Elite Trainer Box")

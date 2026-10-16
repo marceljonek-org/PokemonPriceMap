@@ -647,7 +647,11 @@ formats:
     # Časť eshopov vsunie medzi "bundle" a "display" ďalšie slovo
     # ("Booster Bundle - Sealed Display"); bez toho by sa celý display
     # za 2 610 € zaradil medzi jednotlivé bundle po 45 €.
-    patterns: ["bundle\\b[\\s\\-–]*(sealed\\s+)?display", "booster\\s+bundle\\s+box"]
+    # „Booster Bundle Box" sa vyhodilo: Cardyx tak volá OBYČAJNÝ bundle za
+    # 49,99 € a sedel vo formáte, kde ostatné položky stoja 614–2 610 €.
+    # Všetky skutočné displaye majú v názve slovo „display", overené na
+    # osemnástich ponukách zo siedmich eshopov.
+    patterns: ["bundle\\b[\\s\\-–]*(sealed\\s+)?display"]
 
   - id: half-box
     name: Half Booster Box
@@ -936,6 +940,17 @@ exclude_patterns:
   - "\\bcase\\b|\\bcarton\\b"
   - "\\d+\\s*[x×]\\s*(booster\\s+box|bundle)"
   - "po[sš]koden|damaged"
+  # České a slovenské obdoby. Bulbazard predáva „Darkness Ablaze Elite Trainer
+  # Box - vada obalu" za zlomok ceny; v mediáne by to vyzeralo ako príležitosť.
+  - "vada\\s+obalu|vadn[ýy]\\s+obal|po\\u0161kozen"
+  # Ponuka na hranie v predajni, nie maloobchodná cena. Card Empire takto
+  # ponúka 30th Celebration ETB za 60 € pri trhu 179 € — a kým sa to rátalo,
+  # stiahlo to krivku celého produktu.
+  - "pr[ií][dďt]\\s+si\\s+k\\s+n[áa]m|k\\s+n[áa]m\\s+zahra[ťt]"
+  # Kombo dvoch rôznych balení predávané ako jedna položka („KOMBI 30th
+  # Celebration Elite Trainer Box & Gem Pack Vol. 4 Booster Box"). Cena je za
+  # oboje, takže sa nedá porovnať ani s jedným.
+  - "^kombi\\b|\\bkombi\\s+(pok|30th|set)"
   # Balenie s poškodenou krabicou nie je ten istý tovar — pri zapečatených
   # produktoch je stav krabice polovica hodnoty. Miešalo by to medián.
   - "imperfect|imperfection"

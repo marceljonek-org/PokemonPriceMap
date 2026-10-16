@@ -459,6 +459,9 @@ shops:
     base: https://www.mobilonline.sk
     optional: true      # nový eshop; po prvom úspešnom behu riadok zmaž
     pokemon_only: true   # všetky kategórie nižšie sú pokémonie
+    # Ich server rozbíja HTTP/2 spojenie (`StreamReset`), čím sken padal.
+    # Cez HTTP/1.1 odpovedá normálne.
+    http1: true
     urls:
       # 88 položiek na 4 stranách; väčšina sú JP/KR/CN importy, tie klasifikácia
       # zahodí sama. Katalóg je v schema.org ItemList, takže dáta sú strojové.
@@ -519,3 +522,268 @@ shops:
     optional: true         # nový eshop; po prvom úspešnom behu riadok zmaž
     urls:
       - https://www.vortexstore.eu/collections/all
+
+  # ------------------------------------------------------------------------
+  # Pribudli v 1.26. Každý bol pred pridaním preskúšaný naším vlastným
+  # parserom na reálne stiahnutej kategórii — do konfigurácie išiel len ten,
+  # z ktorého appka naozaj niečo zaradila. Všetky sú `optional`, aby spadnutý
+  # nováčik nezhodil celý sken.
+  # ------------------------------------------------------------------------
+  # `pokemon_only` je tu zapnuté vedome: CardAnvil do názvov značku nepíše
+  # („Vivid Voltage Sleeved Booster"), takže bez neho by appka z 91 položiek
+  # zaradila štyri. Celú kolekciu `sealed-produkty` som 9. 10. 2026 prešiel
+  # položku po položke — je čisto pokémonia. Keby do nej začali miešať iné
+  # hry, tento príznak treba vypnúť.
+  - id: cardanvil-sk
+    name: CardAnvil.sk
+    base: https://cardanvil.sk
+    country: SK
+    currency: EUR
+    adapter: shopify
+    optional: true
+    pokemon_only: true
+    placeholder_price: 10001.0
+    urls:
+      - https://cardanvil.sk/collections/sealed-produkty
+      - https://cardanvil.sk/collections/pok-mon-elite-trainer-boxes
+
+  - id: pokemall-cz
+    name: PokeMall.cz
+    base: https://www.pokemall.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.pokemall.cz/kategorie/elite-trainer-box/
+      - https://www.pokemall.cz/kategorie/booster-box/
+      - https://www.pokemall.cz/kategorie/booster-bundle/
+
+  - id: pokeshop-cz
+    name: PokeShop.cz
+    base: https://www.pokeshop.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.pokeshop.cz/pokemon-tcg/
+      - https://www.pokeshop.cz/chaosrising/
+      - https://www.pokeshop.cz/pitchblack/
+
+  - id: pokedrop-cz
+    name: PokeDrop.cz
+    base: https://www.pokedrop.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.pokedrop.cz/boostery/
+      - https://www.pokedrop.cz/boxy--etb--ostatni/
+
+  # BEZ `pokemon_only`: Bulbazard predáva aj iné hry (videl som u nich
+  # „Avatar: The Last Airbender – Collector Booster Box"), takže kontrola
+  # značky musí zostať zapnutá. Stojí to sedem položiek, ktoré značku
+  # v názve nemajú — lacnejšie než pustiť si do mediánu cudziu hru.
+  - id: bulbazard-cz
+    name: Bulbazard.cz
+    base: https://www.bulbazard.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.bulbazard.cz/elite-trainer-boxy/
+      - https://www.bulbazard.cz/booster-boxy/
+      - https://www.bulbazard.cz/pokemon-sealed-produkty/
+
+  - id: poringcards-eu
+    name: PoringCards.eu
+    base: https://www.poringcards.eu
+    country: SK
+    currency: EUR
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.poringcards.eu/pokemon/
+    riftbound_urls:
+      - https://www.poringcards.eu/riftbound/
+
+  - id: wombatgames-cz
+    name: Wombat Games
+    base: https://www.wombatgames-shop.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.wombatgames-shop.cz/kategorie/pokemon/
+      - https://www.wombatgames-shop.cz/kategorie/pokemon-boostery/
+    riftbound_urls:
+      - https://www.wombatgames-shop.cz/kategorie/riftbound/
+
+  - id: pandastic-cz
+    name: Pandastic.cz
+    base: https://www.pandastic.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.pandastic.cz/etbs/
+      - https://www.pandastic.cz/booster-bundles/
+    riftbound_urls:
+      - https://www.pandastic.cz/riftbound/
+
+  - id: hrananetu-cz
+    name: HraNaNetu.cz
+    base: https://www.hrananetu.cz
+    country: CZ
+    currency: CZK
+    adapter: upgates
+    optional: true
+    urls:
+      - https://www.hrananetu.cz/pokemon
+    riftbound_urls:
+      - https://www.hrananetu.cz/riftbound
+
+  - id: pokecenter-sk
+    name: PokeCenter.sk
+    base: https://www.pokecenter.sk
+    country: SK
+    currency: EUR
+    adapter: woocommerce
+    optional: true
+    pokemon_only: true
+    urls:
+      - https://www.pokecenter.sk/pokemon-karty/pokemon-balicky-anglicke/pokemon-elite-trainer-box/
+      - https://www.pokecenter.sk/pokemon-karty/pokemon-balicky-anglicke/
+
+  - id: shadowball-cz
+    name: ShadowBall.cz
+    base: https://www.shadowball.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.shadowball.cz/etb/
+      - https://www.shadowball.cz/produkty/
+      - https://www.shadowball.cz/booster-boxy/
+
+  - id: pulllab-cz
+    name: PullLab.cz
+    base: https://www.pulllab.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.pulllab.cz/elite-trainer-boxy/
+      - https://www.pulllab.cz/booster-bundly/
+      - https://www.pulllab.cz/booster-boxy/
+
+  - id: pokeone-cz
+    name: PokeOne.cz
+    base: https://www.pokeone.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.pokeone.cz/booster-boxy-pokemon/
+      - https://www.pokeone.cz/pokemon/
+    riftbound_urls:
+      - https://www.pokeone.cz/riftbound/
+
+  - id: tcgshop-cz
+    name: TCGShop.cz
+    base: https://www.tcgshop.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.tcgshop.cz/booster-boxy-a-bundly/
+      - https://www.tcgshop.cz/elite-trainer-boxy/
+
+  - id: cardmania-sk
+    name: CardMania.sk
+    base: https://www.cardmania.sk
+    country: SK
+    currency: EUR
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.cardmania.sk/etb/
+      - https://www.cardmania.sk/ostatne-sealed-boxy/
+      - https://www.cardmania.sk/booster-box/
+
+  - id: jokycardland-cz
+    name: Joky Cardland
+    base: https://www.jokycardland.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.jokycardland.cz/specialniedicepokemon/
+      - https://www.jokycardland.cz/elitetrainerboxy/
+    riftbound_urls:
+      - https://www.jokycardland.cz/riftbound-tcg/
+
+  - id: poketrov-sk
+    name: PokeTrov.sk
+    base: https://poketrov.sk
+    country: SK
+    currency: EUR
+    adapter: woocommerce
+    optional: true
+    urls:
+      - https://poketrov.sk/kategoria-produktu/sealed-produkty/
+
+  - id: dragon-world-cz
+    name: Dragon World
+    base: https://dragon-world.store
+    country: CZ
+    currency: CZK
+    adapter: woocommerce
+    optional: true
+    pokemon_only: true
+    urls:
+      - https://dragon-world.store/kategorie-produktu/pokemon/
+    riftbound_urls:
+      - https://dragon-world.store/kategorie-produktu/ostatni-tcg/riftbound-league-of-legends-tcg/
+
+  - id: fyft-sk
+    name: Fyft.sk
+    base: https://www.fyft.sk
+    country: SK
+    currency: EUR
+    adapter: shoptet
+    optional: true
+    urls:
+      - https://www.fyft.sk/pokemon-boostery-packy-boxy/
+      - https://www.fyft.sk/pokemon-elite-trainer-box/
+
+  - id: kantokarty-sk
+    name: KantoKarty.sk
+    base: https://kantokarty.sk
+    country: SK
+    currency: EUR
+    adapter: woocommerce
+    optional: true
+    urls:
+      - https://kantokarty.sk/kategoria/pokemon-tcg/
+
+  - id: blacklotus-cz
+    name: Black Lotus
+    base: https://www.blacklotus.cz
+    country: CZ
+    currency: CZK
+    adapter: shoptet
+    optional: true
+    urls: []
+    riftbound_urls:
+      - https://www.blacklotus.cz/riftbound--league-of-legends/
