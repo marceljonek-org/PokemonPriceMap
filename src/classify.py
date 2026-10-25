@@ -289,8 +289,13 @@ def _classify_in(game: str, n: str) -> Classification | None:
 # Skúša sa najprv meno ZA formátom: v „Unleashed Champion Deck - Vi" je pred
 # formátom názov setu, nie šampión, a ten by sa inak stal variantom.
 _MENO = r"[a-z'’]+(?:\s*(?:vs\.?|&)\s*[a-z'’]+|\s+[a-z'’]+)?"
-_CHAMPION_ZA = re.compile(r"(?:champion\s+deck|showdown)s?\s*(?:deck)?s?\s*[-:–]?\s*(" + _MENO + r")")
-_CHAMPION_PRED = re.compile(r"\b(" + _MENO + r")\s+(?:champion\s+deck|showdown)")
+# `\b` za „decks" je dôležité: bez neho regex rozsekne „Showdown Decks" na
+# „deck" + „s" a z toho „s" spraví meno šampióna (vznikol tak kľúč
+# `rb-vendetta|showdown-deck|s` z dvoch ponúk). Zátvorka v oddeľovačoch
+# pokrýva „Showdown Decks (Zed vs Shen)" od Wombat Games.
+_CHAMPION_ZA = re.compile(r"(?:champion\s+decks?|showdown)(?:\s+decks?\b)?"
+                          r"\s*[-:–(]?\s*(" + _MENO + r")")
+_CHAMPION_PRED = re.compile(r"\b(" + _MENO + r")\s+(?:champion\s+decks?|showdown)")
 # Slová, ktoré nie sú meno šampióna: názvy formátov, značka a mená edícií.
 _NIE_MENO = {"deck", "decks", "display", "sealed", "edition", "en", "tcg",
              "riot", "games", "box", "pack", "bundle", "vault", "booster",
@@ -313,6 +318,10 @@ def champion_of(n: str) -> str:
 
     Spojky sa zjednocujú na „vs", lebo Xzone píše „Evelynn & Seraphine"
     a Nekonečno „Evelynn vs. Seraphine" — je to ten istý produkt.
+
+    Dvojica šampiónov sa zoraďuje podľa abecedy. Black Lotus predáva „Shen vs
+    Zed", zvyšných šesť eshopov „Zed vs Shen" — to isté balenie. Bez zoradenia
+    beží raz pod dvoma kľúčmi a medián sa počíta z polovice ponúk.
     """
     for vzor in (_CHAMPION_ZA, _CHAMPION_PRED):
         m = vzor.search(n)
@@ -321,8 +330,16 @@ def champion_of(n: str) -> str:
         surove = re.sub(r"\s*(?:vs\.?|&)\s*", " vs ", m.group(1))
         slova = [w for w in re.split(r"[^a-z’']+", surove)
                  if w and w not in _nie_meno()]
-        if slova and slova != ["vs"]:
-            return "-".join(slova)
+        if not slova or slova == ["vs"]:
+            continue
+        if "vs" in slova:
+            i = slova.index("vs")
+            lavy, pravy = slova[:i], slova[i + 1:]
+            if lavy and pravy:
+                prvy, druhy = sorted(("-".join(lavy), "-".join(pravy)))
+                return f"{prvy}-vs-{druhy}"
+            slova = lavy or pravy
+        return "-".join(slova)
     return ""
 
 

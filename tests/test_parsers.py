@@ -1580,8 +1580,12 @@ def test_riftbound_edicie_maju_predponu():
 
 
 def test_showdown_ma_jeden_kluc_bez_ohladu_na_poradie_mien():
-    """Eshopy píšu šampiónov pred aj za názov formátu a spájajú ich raz „vs",
-    raz „&". Je to jeden produkt — sedem zápisov, jeden kľúč."""
+    """Eshopy píšu šampiónov pred aj za názov formátu, spájajú ich raz „vs",
+    raz „&", dávajú ich do zátvorky a Black Lotus ich píše v opačnom poradí.
+    Je to jeden produkt — deväť zápisov, jeden kľúč.
+
+    Dvojica sa zoraďuje podľa abecedy, preto `shen-vs-zed`, nie `zed-vs-shen`.
+    """
     zapisy = [
         "Riftbound League of Legends TCG: Vendetta Showdown Zed vs. Shen",
         "Riftbound: League of Legends TCG - Vendetta - Showdown Zed vs Shen",
@@ -1589,13 +1593,29 @@ def test_showdown_ma_jeden_kluc_bez_ohladu_na_poradie_mien():
         "Karetní hra Riftbound TCG - Vendetta - Zed vs. Shen Showdown Deck",
         "Riftbound | League of Legends - Vendetta Showdown Zed vs Shen Deck",
         "Riot Games Riftbound League of Legends TCG: Vendetta Showdown - Zed vs Shen",
+        # Black Lotus má mená v opačnom poradí — to isté balenie.
+        "Riftbound: League of Legends TCG - Vendetta Showdown Decks - Shen vs Zed",
+        # Wombat Games dáva dvojicu do zátvorky.
+        "Riftbound: League of Legends Vendetta – Showdown Decks (Zed vs Shen)",
+        "Riftbound: Vendetta – Showdown Deck Zed vs Shen",
     ]
     kluce = {_rb(n) for n in zapisy}
-    assert kluce == {"rb-vendetta|showdown-deck|zed-vs-shen"}, kluce
+    assert kluce == {"rb-vendetta|showdown-deck|shen-vs-zed"}, kluce
     # „&" a „vs" je to isté spojenie.
     assert _rb("Riftbound League of Legends TCG: Radiance Showdown Evelynn vs. Seraphine") \
         == _rb("Karetní hra Riftbound TCG - Radiance - Evelynn & Seraphine Showdown Deck") \
         == "rb-radiance|showdown-deck|evelynn-vs-seraphine"
+
+
+def test_showdown_bez_mien_nerobi_variant_zo_slova_decks():
+    """„Showdown Decks" bez mena šampióna nesmie dať variant.
+
+    Regex si zo slova „Decks" bral „deck" + „s" a to „s" robil menom
+    šampióna — vznikol kľúč `rb-vendetta|showdown-deck|s` z dvoch ponúk,
+    ktoré patria ku generickému kľúču.
+    """
+    assert _rb("Riftbound: Vendetta Showdown Decks") == "rb-vendetta|showdown-deck"
+    assert _rb("Riftbound: Radiance Showdown Deck") == "rb-radiance|showdown-deck"
 
 
 def test_nazov_setu_pred_formatom_nie_je_sampion():
