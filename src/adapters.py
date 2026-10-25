@@ -571,8 +571,48 @@ def jsonld_next_page(tree: HTMLParser, body: str, current_url: str) -> str | Non
     return f"{base}?page={current + 1}"
 
 
+def parse_tolarie(tree: HTMLParser, shop: dict) -> list[Offer]:
+    """Tolarie.cz: vlastná platforma, karta produktu je `article.slcard`.
+
+    Dve veci, ktoré robia tento eshop príjemným a treba ich využiť:
+
+    * Dostupnosť je v triede, nie len v texte — `slcard__stock--out` znamená
+      vypredané. Spoliehať sa tu na text („Není skladem") by bolo krehkejšie,
+      tak sa trieda berie ako hlavný zdroj a text len ako záloha.
+    * Počet kusov je priamo v texte („Skladem 1 ks", „Skladem 4+ ks"), takže
+      sa uloží do `stock_text` a je vidieť, či je zásoba hlboká alebo posledná.
+    """
+    offers = []
+    for item in tree.css("article.slcard"):
+        link = item.css_first("a.slcard__name")
+        name = _text(link)
+        url = urljoin(shop["base"], _attr(link, "href"))
+        price = parse_price(_text(item.css_first(".slcard__price strong")))
+        stock_node = item.css_first(".slcard__stock")
+        stock_text = _text(stock_node)
+        trieda = _attr(stock_node, "class")
+        if "slcard__stock--out" in trieda:
+            in_stock = False
+        elif "slcard__stock--ok" in trieda:
+            in_stock = True
+        else:
+            in_stock = stock_from_text(stock_text)
+        if not name or price is None:
+            continue
+        offers.append(Offer(
+            shop_id=shop["id"], name=name, url=url, price=price,
+            currency=shop["currency"], in_stock=in_stock,
+            stock_text=stock_text,
+            # Obrázky sú relatívne („/media/cache/…"), inde v appke ich
+            # sťahujeme podľa absolútnej adresy.
+            image=urljoin(shop["base"], _attr(item.css_first(".slcard__art img"), "src")),
+        ))
+    return offers
+
+
 PARSERS = {
     "shoptet": parse_shoptet,
+    "tolarie": parse_tolarie,
     "upgates": parse_upgates,
     "pompo": parse_pompo,
     "digihry": parse_digihry,
@@ -609,6 +649,19 @@ def next_page(adapter: str, body: str, current_url: str) -> str | None:
             tree, current_url, ".pagination-wrap a, .pagination a")
     if adapter == "jsonld":
         return jsonld_next_page(tree, body, current_url)
+    if adapter == "tolarie":
+        # Stránkuje cez `?p=2`, nie `?page=2`, tak `max_page_links` nepomôže.
+        # Odkazy sú relatívne („./?o=&od=&p=2"), preto urljoin.
+        current = 1
+        match = re.search(r"[?&]p=(\d+)", current_url)
+        if match:
+            current = int(match.group(1))
+        for a in tree.css("nav.slpager__pages a"):
+            href = _attr(a, "href")
+            cislo = re.search(r"[?&]p=(\d+)", href)
+            if cislo and int(cislo.group(1)) == current + 1:
+                return urljoin(current_url, href)
+        return None
     if adapter == "xzone":
         # Xzone nemá odkaz na ďalšiu stranu v HTML; ideme naslepo a scrape.py
         # zastaví, keď stránka nevráti ani jednu položku.

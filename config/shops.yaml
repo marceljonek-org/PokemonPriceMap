@@ -158,6 +158,8 @@ shops:
       - https://www.pgs.sk/tin-4c14605
       - https://www.pgs.sk/special-collection-4c14604
       - https://www.pgs.sk/exkluzivne-sety-4c14608
+    riftbound_urls:
+      - https://www.pgs.sk/league-of-legends-4c14735/league-of-legends-tcg
 
   #   - id: smarty-cz
   #     name: Smarty.cz
@@ -755,6 +757,10 @@ shops:
     optional: true
     urls:
       - https://poketrov.sk/kategoria-produktu/sealed-produkty/
+    riftbound_urls:
+    # Riftbound u nich nesedi v kategorii Sealed produkty, ale v Ostatne TCG
+    # spolu s Lorcanou a Altered - tie classify() zahodi, nevadia.
+      - https://poketrov.sk/kategoria-produktu/ostatne-tcg/
 
   - id: dragon-world-cz
     name: Dragon World
@@ -793,6 +799,23 @@ shops:
     optional: true
     urls:
       - https://kantokarty.sk/kategoria/pokemon-tcg/
+
+  # Tolarie.cz: kamenny obchod a herna v Pardubiciach, vlastna platforma
+  # (ziadny Shoptet ani WooCommerce), preto ma vlastny adapter `tolarie`.
+  # Riftbound vedie v 44 polozkach a ako jediny z preverenych mal Origins
+  # Booster Box lacnejsie nez nas vtedajsi najlacnejsi skladovy kus.
+  # Pokemon tu tiez predavaju (katalog 48-pokemon) - zatial netahame,
+  # je to samostatne rozhodnutie, lebo by to hybalo pokemoniimi medianmi.
+  - id: tolarie-cz
+    name: Tolarie.cz
+    base: https://www.tolarie.cz
+    country: CZ
+    currency: CZK
+    adapter: tolarie
+    optional: true
+    urls: []
+    riftbound_urls:
+      - https://www.tolarie.cz/koupit_produkty/katalog/100-riftbound/
 
   - id: blacklotus-cz
     name: Black Lotus

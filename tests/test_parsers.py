@@ -35,6 +35,7 @@ SHOPS = {
     "mobilonline": {"id": "mobilonline-sk", "base": "https://www.mobilonline.sk",
                     "currency": "EUR"},
     "pokeworld": {"id": "pokeworld-eu", "base": "https://poke-world.eu", "currency": "EUR"},
+    "tolarie": {"id": "tolarie-cz", "base": "https://www.tolarie.cz", "currency": "CZK"},
     "vortex": {"id": "vortexstore-eu", "base": "https://www.vortexstore.eu",
                "currency": "CZK"},
 }
@@ -45,7 +46,7 @@ ADAPTER_OF = {
     "pokectcg": "woocommerce", "xzone": "xzone", "geekhall": "woocommerce",
     "dazzle": "opencart", "kartovo": "shoptet", "konzoliste": "shoptet",
     "sparkys": "sparkys", "mobilonline": "jsonld", "pokeworld": "shoptet",
-    "vortex": "shopify",
+    "vortex": "shopify", "tolarie": "tolarie",
 }
 
 MIN_OFFERS = {
@@ -53,7 +54,7 @@ MIN_OFFERS = {
     "pgs": 20, "veselydrak": 18, "alza": 20, "cardyx": 25,
     "pokectcg": 40, "xzone": 20, "geekhall": 10, "dazzle": 18,
     "kartovo": 8, "konzoliste": 10, "sparkys": 15, "mobilonline": 20,
-    "pokeworld": 25, "vortex": 200,
+    "pokeworld": 25, "vortex": 200, "tolarie": 6,
 }
 
 
@@ -135,6 +136,52 @@ def test_pgs_known_offer():
     assert booster.in_stock is True
 
 
+def test_tolarie_cita_cenu_dostupnost_aj_hlbku_zasoby():
+    """Tolarie.cz: vlastná platforma, karta je `article.slcard`.
+
+    Fixture je zostrihnutý snapshot ozajstnej stránky — šesť skutočných kariet
+    z kategórie Riftbound aj s pôvodným stránkovaním; vyhodené sú len popisy,
+    SVG a tlačidlá do košíka, na ktorých parseru nezáleží.
+
+    Dve veci, ktoré tu vedia potichu zlyhať:
+      * cena má ako oddeľovač tisícov nedeliteľnú medzeru (3&nbsp;499 Kč),
+      * dostupnosť je v triede (`--ok` / `--out`), nie len v texte.
+    """
+    offers = {o.name: o for o in offers_for("tolarie")}
+    # V HTML má názov dve medzery za pomlčkou, `_text()` ich zlieva na jednu.
+    box = offers["Riftbound - Origins Booster Box"]
+    assert box.price == pytest.approx(5299.0), "nedeliteľná medzera rozbila cenu"
+    assert box.in_stock is True
+    assert box.stock_text == "Skladem 4+ ks"
+    assert box.url == "https://www.tolarie.cz/koupit_produkty/katalog/riftbound-tcg-origins-booster-box"
+
+    booster = offers["Riftbound - Radiance Booster"]
+    assert booster.price == pytest.approx(149.0)
+    assert booster.in_stock is True
+
+    vypredane = offers["Riftbound - Origins Art Sleeves: Jinx"]
+    assert vypredane.in_stock is False, "trieda --out sa musí prejaviť"
+
+
+def test_tolarie_zaradi_svoje_produkty_spravne():
+    """Názvy z Tolarie musia sadnúť na tie isté kľúče ako z iných eshopov,
+    inak by nám ten istý box bežal pod vlastným kľúčom a medián by sa
+    počítal z polovice ponúk. Obaly musia vypadnúť."""
+    import classify
+    zaradene = {}
+    for o in offers_for("tolarie"):
+        hit = classify.classify(o.name, require_brand=False)
+        if hit:
+            zaradene[f"{hit.edition.id}|{hit.format.id}"] = o.price
+    assert "rb-origins|booster-box" in zaradene
+    assert "rb-origins|booster" in zaradene
+    assert "rb-radiance|booster-box" in zaradene
+    assert "rb-spiritforged|booster-box" in zaradene
+    # Art Sleeves sú doplnok, nie zapečatený produkt.
+    assert not any(classify.classify(o.name, require_brand=False)
+                   for o in offers_for("tolarie") if "Art Sleeves" in o.name)
+
+
 def test_shopify_availability_flag_wins():
     """Cardyx má v šablóne fixný text — stav sa musí čítať z 'available'."""
     offers = {o.name: o for o in offers_for("cardyx")}
@@ -150,10 +197,20 @@ def test_shopify_availability_flag_wins():
     ("digihry", "/18"),
     ("veselydrak", "page=2"),
     ("alza", "p2.htm"),
+    # Tolarie stránkuje cez `?p=`, nie `?page=`, a odkazy sú relatívne („./?…").
+    ("tolarie", "p=2"),
 ])
 def test_pagination_detected(name, expected):
     url = adapters.next_page(ADAPTER_OF[name], load(name), SHOPS[name]["base"] + "/")
     assert url and expected in url, f"{name}: next_page = {url!r}"
+
+
+def test_tolarie_nezacykli_sa_na_poslednej_strane():
+    """Na poslednej strane už odkaz na `p=3` nie je — next_page musí vrátiť
+    None, inak by sa sken točil dokola."""
+    assert adapters.next_page(
+        "tolarie", load("tolarie"),
+        "https://www.tolarie.cz/koupit_produkty/katalog/100-riftbound/?p=2") is None
 
 
 def test_xzone_pagination_is_blind():
@@ -1699,7 +1756,12 @@ def test_riftbound_kategorie_v_eshopoch_hovoria_o_riftbounde():
     #   path=_143_184 — Xzone čísluje kategórie, názov v URL nie je
     #   /uvs-games/   — FYFT nemá Riftbound kategóriu, vedie ho pod značkou
     #                   vydavateľa (UVS Games) a inú hru tej značky nepredáva
-    VYNIMKY = ("path=_143_184", "/uvs-games/")
+    #   league-of-legends-4c14735 — PGS.sk pomenoval kategóriu podľa hry
+    #                   („League of Legends TCG"), čo je celý názov Riftboundu
+    #   /ostatne-tcg/ — Poketrov Riftbound do Pokémon kategórií nedal; sú tam
+    #                   aj Lorcana a Altered, ktoré classify() zahodí
+    VYNIMKY = ("path=_143_184", "/uvs-games/",
+               "league-of-legends-4c14735", "/ostatne-tcg/")
     najdene = 0
     for shop in config["shops"]:
         for url in shop.get("riftbound_urls") or []:
