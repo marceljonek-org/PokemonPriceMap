@@ -46,6 +46,10 @@ shops:
     urls:
       - https://www.fyft.cz/pokemon-boostery-packy-boxy/
       - https://www.fyft.cz/pokemon-elite-trainer-box/
+    riftbound_urls:
+    # FYFT nemá vlastnú Riftbound kategóriu, všetko visí pod značkou
+    # UVS Games (vydavateľ hry). Inú hru tej značky tam nevedú, je to čisté.
+      - https://www.fyft.cz/uvs-games/
 
   - id: nekonecno-sk
     name: Nekonecno.sk
@@ -185,6 +189,9 @@ shops:
       - https://www.vesely-drak.cz/produkty/pokemon-elite-trainer-box/
       - https://www.vesely-drak.cz/produkty/pokemon-plechovky/
       - https://www.vesely-drak.cz/produkty/pokemon-premium-kolekce/
+    riftbound_urls:
+    # Jedna kategória na celý Riftbound, tri strany produktov.
+      - https://www.vesely-drak.cz/produkty/riftbound-lol/
 
   - id: vesely-drak-sk
     name: Veselý drak SK
@@ -201,6 +208,8 @@ shops:
       - https://www.vesely-drak.sk/produkty/pokemon-elite-trainer-box/
       - https://www.vesely-drak.sk/produkty/pokemon-plechovky/
       - https://www.vesely-drak.sk/produkty/pokemon-premium-kolekce/
+    riftbound_urls:
+      - https://www.vesely-drak.sk/produkty/riftbound-lol/
 
   - id: cardyx-sk
     name: Cardyx.sk
@@ -267,6 +276,10 @@ shops:
       - https://www.tcg4you.cz/booster-bundly/
       - https://www.tcg4you.cz/elite-trainer-boxy/
       - https://www.tcg4you.cz/ostatni/
+    riftbound_urls:
+      - https://www.tcg4you.cz/riftbound-bb/
+      - https://www.tcg4you.cz/riftbound-boostery/
+      - https://www.tcg4you.cz/riftbound-ostatni/
 
   - id: cardempire-sk
     name: Card Empire SK
@@ -766,6 +779,10 @@ shops:
     urls:
       - https://www.fyft.sk/pokemon-boostery-packy-boxy/
       - https://www.fyft.sk/pokemon-elite-trainer-box/
+    riftbound_urls:
+    # Tá istá značková stránka na slovenskej mutácii. Jediná z piatich URL,
+    # ktorú sa mi nepodarilo overiť — ak vráti nulu, pokojne ju zahodíme.
+      - https://www.fyft.sk/uvs-games/
 
   - id: kantokarty-sk
     name: KantoKarty.sk

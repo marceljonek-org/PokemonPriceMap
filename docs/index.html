@@ -256,6 +256,10 @@ footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);font-si
 footer .shops{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 footer .s{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:3px 8px;border-radius:6px;background:var(--surface-2)}
 footer .s.bad{background:var(--crit-soft);color:var(--crit);cursor:help}
+/* Úplne dole: ktorá verzia appky je naozaj nasadená. Keď sa stránka tvári
+   inak než čakáš, toto je prvé, čo treba porovnať s číslom balíka. */
+footer .verzia{margin-top:14px;padding-top:10px;border-top:1px solid var(--line);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;opacity:.75}
 /* Úvodná obrazovka. Dve veľké dlaždice, nič iné — na telefóne pod sebou,
    na monitore vedľa seba. */
 .welcome{max-width:960px;margin:0 auto;padding:8vh 20px 60px}
@@ -455,6 +459,11 @@ tr.mine td:last-child{border-radius:0 7px 7px 0}
 </dialog>
 
 <script>
+/* Verzia nasadenej appky. Vypisuje sa úplne dole v pätičke. Pri každom novom
+   balíku sa mení spolu s názvom zipu — keď sa tie dve čísla rozídu, na
+   Cloudflare beží niečo iné, než si rozbalil. */
+const VERZIA = '1.31';
+
 const state = {data:null, formats:new Set(), series:new Set(), q:"",
                // Nedostupné sa štandardne skrývajú: v ostrom skene ich bolo
                // 91 zo 406 a miešali sa medzi ponuky, ktoré sa dajú kúpiť.
@@ -1447,7 +1456,8 @@ function renderFooter(){
     <div style="margin-top:6px">Značka <b>pod trhom</b> = 5–30 % pod mediánom ponúk skladom; počíta sa až od
       ${d.counts.min_sellers_for_median || 3} rôznych predajcov, pri menšom počte je to cena predajcu, nie trhu.
       <b>overiť</b> = viac než 30 % pod mediánom, skoro vždy chyba eshopu.
-      Ceny zberateľských kariet sú špekulatívne — toto nie je investičné poradenstvo.</div>`;
+      Ceny zberateľských kariet sú špekulatívne — toto nie je investičné poradenstvo.</div>
+    <div class="verzia">verzia <b>${VERZIA}</b> · dáta zo skenu ${d.date}</div>`;
 }
 
 function setView(name){

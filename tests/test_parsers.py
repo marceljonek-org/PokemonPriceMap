@@ -1694,11 +1694,17 @@ def test_riftbound_kategorie_v_eshopoch_hovoria_o_riftbounde():
     from pathlib import Path
     config = yaml.safe_load((Path(__file__).parent.parent / "config" / "shops.yaml")
                             .read_text(encoding="utf-8"))
+    # URL, ktoré slovo „riftbound" neobsahujú, a predsa sú správne. Každá tu
+    # musí byť overená ručne, inak poistka stráca zmysel:
+    #   path=_143_184 — Xzone čísluje kategórie, názov v URL nie je
+    #   /uvs-games/   — FYFT nemá Riftbound kategóriu, vedie ho pod značkou
+    #                   vydavateľa (UVS Games) a inú hru tej značky nepredáva
+    VYNIMKY = ("path=_143_184", "/uvs-games/")
     najdene = 0
     for shop in config["shops"]:
         for url in shop.get("riftbound_urls") or []:
             najdene += 1
-            assert "riftbound" in url.lower() or "path=_143_184" in url, \
+            assert "riftbound" in url.lower() or any(v in url for v in VYNIMKY), \
                 f"{shop['id']}: {url} nevyzerá ako riftboundová kategória"
     assert najdene >= 8, "riftboundové kategórie sa stratili z konfigurácie"
 
