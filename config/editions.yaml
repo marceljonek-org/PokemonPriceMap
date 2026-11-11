@@ -78,7 +78,11 @@ editions:
     tier: B
     note: Hoennskí starteri, stabilný rast zapečatených boxov
     released: 2026-11-06
-    patterns: ["delta\\s+reign", "mega\\s+reign", "\\bme\\s*0?6\\b"]
+    # `delta rain` je preklep, nie iný set — takto to píše
+    # hokejovekarticky.cz. Dnes im to prejde len vďaka kódu ME06
+    # v názve; bez tohto vzoru by iný eshop s rovnakým preklepom
+    # prepadol. Správne je Delta Reign.
+    patterns: ["delta\\s+reign", "delta\\s+rain", "mega\\s+reign", "\\bme\\s*0?6\\b"]
 
   # ---------------- Výročný set ----------------
   - id: 30th-celebration

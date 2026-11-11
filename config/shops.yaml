@@ -806,6 +806,29 @@ shops:
   # Booster Box lacnejsie nez nas vtedajsi najlacnejsi skladovy kus.
   # Pokemon tu tiez predavaju (katalog 48-pokemon) - zatial netahame,
   # je to samostatne rozhodnutie, lebo by to hybalo pokemoniimi medianmi.
+  # Hokejové kartičky (KOPP & CO, Hradec Králové) — napriek názvu vedú aj
+  # Pokémon a Riftbound. Bežia na Upgates, takže ich berie náš existujúci
+  # adaptér bez jediného riadku kódu navyše (overené na ich markupe:
+  # article.card-item, h4 a, .price-main, .availability, link[rel=next]).
+  #
+  # Zámerne české URL, nie anglická /en/ mutácia: tá má ceny v EUR
+  # z prepočtu, kým my chceme pôvodné CZK ako u ostatných CZ eshopov.
+  # Kategóriu /pokemon-jednotlive-karty neťaháme, sú to kusové karty.
+  - id: hokejovekarticky-cz
+    name: Hokejové kartičky
+    base: https://www.hokejovekarticky.cz
+    country: CZ
+    currency: CZK
+    adapter: upgates
+    optional: true
+    urls:
+      - https://www.hokejovekarticky.cz/pokemon-balicky
+      - https://www.hokejovekarticky.cz/pokemon-plechovky
+      - https://www.hokejovekarticky.cz/pokemon-blistery
+      - https://www.hokejovekarticky.cz/pokemon-elite-trainer-boxy
+    riftbound_urls:
+      - https://www.hokejovekarticky.cz/riftbound-league-of-legends
+
   - id: tolarie-cz
     name: Tolarie.cz
     base: https://www.tolarie.cz

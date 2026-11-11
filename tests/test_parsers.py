@@ -1664,6 +1664,52 @@ def test_showdown_ma_jeden_kluc_bez_ohladu_na_poradie_mien():
         == "rb-radiance|showdown-deck|evelynn-vs-seraphine"
 
 
+def test_riftbound_cesky_balicek_je_booster():
+    """Hokejové kartičky píšu „Radiance balíček" bez slova booster. Bez
+    českého vzoru položka prepadne a o ponuku prídeme."""
+    assert _rb("Riftbound: League of Legends TCG - Radiance balíček") \
+        == "rb-radiance|booster"
+    assert _rb("Riftbound: League of Legends TCG - Origins balicek") \
+        == "rb-origins|booster"
+    # Špecifickejšie formáty sa musia trafiť skôr než generický booster.
+    assert _rb("Riftbound: League of Legends TCG - Radiance booster box") \
+        == "rb-radiance|booster-box"
+    assert _rb("Riftbound: League of Legends TCG - Radiance vault box") \
+        == "rb-radiance|vault"
+
+
+def test_riftbound_preklep_spiritforced():
+    """Eshop má v dvoch názvoch „Spiritforced" namiesto Spiritforged.
+    Oba zápisy musia skončiť na tom istom kľúči."""
+    assert _rb("Riftbound: League of Legends TCG - Spiritforced balíček") \
+        == _rb("Riftbound: League of Legends TCG - Spiritforged Booster") \
+        == "rb-spiritforged|booster"
+    assert _rb("Riftbound: League of Legends TCG - Spiritforced booster box") \
+        == "rb-spiritforged|booster-box"
+
+
+def test_delta_reign_preklep_delta_rain():
+    """Set ME06 sa volá Delta Reign; hokejovekarticky.cz píše „Delta Rain".
+    Im to dnes prejde len vďaka kódu ME06 v názve — iný eshop s tým istým
+    preklepom by prepadol, preto je preklep vo vzore."""
+    def _k(n):
+        h = classify.classify(n)
+        return f"{h.edition.id}|{h.format.id}" if h else None
+    assert _k("Pokémon Delta Rain Booster Box") == "delta-reign|booster-box"
+    assert _k("Pokémon Delta Rain Elite Trainer Box") == "delta-reign|etb"
+    assert _k("Pokémon TCG: Mega Evolution—Delta Reign Booster Bundle") \
+        == "delta-reign|bundle"
+
+
+def test_riftbound_evelyn_je_evelynn():
+    """Jeden eshop píše „Evelyn", ostatní „Evelynn" — ten istý showdown deck.
+    Bez zjednotenia mena vznikne druhý kľúč a medián sa počíta z polovice."""
+    assert _rb("Riftbound: League of Legends TCG - Radiance Evelyn vs Seraphine showdown deck") \
+        == _rb("Riftbound League of Legends TCG: Radiance Showdown Evelynn vs. Seraphine") \
+        == _rb("Karetní hra Riftbound TCG - Radiance - Evelynn & Seraphine Showdown Deck") \
+        == "rb-radiance|showdown-deck|evelynn-vs-seraphine"
+
+
 def test_showdown_bez_mien_nerobi_variant_zo_slova_decks():
     """„Showdown Decks" bez mena šampióna nesmie dať variant.
 

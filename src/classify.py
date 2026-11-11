@@ -147,6 +147,7 @@ def _riftbound() -> dict:
         "excludes": tuple(re.compile(normalize(p), re.I)
                           for p in raw.get("exclude_patterns", [])),
         "champion_editions": dict(raw.get("champion_editions") or {}),
+        "champion_aliases": dict(raw.get("champion_aliases") or {}),
     }
 
 
@@ -322,13 +323,18 @@ def champion_of(n: str) -> str:
     Dvojica šampiónov sa zoraďuje podľa abecedy. Black Lotus predáva „Shen vs
     Zed", zvyšných šesť eshopov „Zed vs Shen" — to isté balenie. Bez zoradenia
     beží raz pod dvoma kľúčmi a medián sa počíta z polovice ponúk.
+
+    Preklepy v menách sa prekladajú podľa `champion_aliases` v riftbound.yaml:
+    hokejovekarticky.cz píše „Evelyn", ostatní „Evelynn". Preklad ide po
+    slovách, aby fungoval aj v dvojici („Evelyn vs Seraphine").
     """
+    aliasy = _riftbound()["champion_aliases"]
     for vzor in (_CHAMPION_ZA, _CHAMPION_PRED):
         m = vzor.search(n)
         if not m:
             continue
         surove = re.sub(r"\s*(?:vs\.?|&)\s*", " vs ", m.group(1))
-        slova = [w for w in re.split(r"[^a-z’']+", surove)
+        slova = [aliasy.get(w, w) for w in re.split(r"[^a-z’']+", surove)
                  if w and w not in _nie_meno()]
         if not slova or slova == ["vs"]:
             continue

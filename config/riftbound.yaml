@@ -50,7 +50,10 @@ editions:
     code: SFD
     series: RB
     released: 2026-02-13
-    patterns: ["spirit\\s*forge[dt]", "\\bsfd\\b"]
+    # `spiritforced` nie je preklep u nás — takto to má napísané
+    # hokejovekarticky.cz pri dvoch položkách. Vzor to pokrýva, nech
+    # nám ich set neprepadne; správne je Spiritforged.
+    patterns: ["spirit\\s*forge[dt]", "spirit\\s*forced", "\\bsfd\\b"]
 
   - id: rb-unleashed
     name: Unleashed
@@ -175,7 +178,11 @@ formats:
     name: Booster
     short: Booster
     packs: 1
-    patterns: ["\\bbooster\\b", "\\bboostr?e\\b"]
+    # `balíček` je české slovo pre booster — hokejovekarticky.cz píše
+    # „Radiance balíček" bez slova booster a bez tohto vzoru položka prepadne.
+    # Je úmyselne až tu, v najvšeobecnejšom formáte: špecifickejšie formáty
+    # (booster box, vault, showdown) sa trafia skôr.
+    patterns: ["\\bbooster\\b", "\\bboostr?e\\b", "bal[íi][čc]ek"]
 
 # Champion Decky sa v časti eshopov predávajú bez názvu setu („Champion Deck -
 # Lee Sin"). Šampión je ale na set naviazaný, tak sa edícia doplní podľa neho.
@@ -189,6 +196,12 @@ champion_editions:
   fiora: rb-spiritforged
   vi: rb-unleashed
   vex: rb-unleashed
+
+# Preklepy a skrátené podoby mien šampiónov. Eshopy ich píšu rôzne a meno
+# je súčasťou kľúča, takže „Evelyn vs Seraphine" by bežalo pod iným kľúčom
+# než „Evelynn vs. Seraphine" a medián by sa počítal z polovice ponúk.
+champion_aliases:
+  evelyn: evelynn
 
 # Vylúčenia navyše k tým v editions.yaml (tie platia pre obe hry).
 exclude_patterns:
